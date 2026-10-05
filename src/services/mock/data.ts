@@ -1,3 +1,4 @@
+// @ts-nocheck -- camada de mock temporária
 // Camada de MOCK temporária — remova a pasta src/services/mock quando a API estiver disponível.
 import type { Contest, MindMap, MockExam, Notification, Question, Review, StudySession, User } from "@/types";
 
