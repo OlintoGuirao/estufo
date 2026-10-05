@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Camada de MOCK temporária. Simula a API REST em memória (persistida no navegador).
 import { ApiError } from "../api";
 import { db, today } from "./data";
@@ -39,13 +40,12 @@ export async function mockRequest(method: string, fullPath: string, body: any, t
   const [path, query = ""] = fullPath.split("?");
   const q = Object.fromEntries(new URLSearchParams(query));
   const seg = path.split("/").filter(Boolean);
-  const r = `${method} /${seg.map((s, i) => (i > 0 && /^[a-z]*\d|^[a-z0-9]{8}$|^ss|^n\d|^l\d/.test(s) && !["answers", "favorite", "review"].includes(s) ? ":id" : s)).join("/")}`;
-  const res = route(method, seg, q, body, token, r);
+  const res = route(method, seg, q, body, token);
   persist();
   return res;
 }
 
-function route(method: string, seg: string[], q: Record<string, string>, body: any, token: string | null, _r: string): unknown {
+function route(method: string, seg: string[], q: Record<string, string>, body: any, token: string | null): unknown {
   const [a, b, c, d] = seg;
   // AUTH
   if (a === "auth") {

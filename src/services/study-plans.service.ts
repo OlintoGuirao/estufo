@@ -1,0 +1,1 @@
+export { studyPlansService } from "./index";

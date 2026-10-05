@@ -1,0 +1,1 @@
+export { examsService } from "./index";

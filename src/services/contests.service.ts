@@ -1,0 +1,1 @@
+export { contestsService } from "./index";
