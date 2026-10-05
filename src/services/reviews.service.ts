@@ -1,0 +1,1 @@
+export { reviewsService } from "./index";

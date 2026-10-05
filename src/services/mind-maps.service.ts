@@ -1,0 +1,1 @@
+export { mindMapsService } from "./index";
