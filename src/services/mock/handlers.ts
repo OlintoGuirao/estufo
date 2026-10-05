@@ -1,3 +1,4 @@
+// @ts-nocheck -- camada de mock temporária
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Camada de MOCK temporária. Simula a API REST em memória (persistida no navegador).
 import { ApiError } from "../api";

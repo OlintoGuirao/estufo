@@ -2,9 +2,9 @@ import { mockRequest } from "./mock/handlers";
 
 const TOKEN_KEY = "aprovamind.token";
 
-export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "");
+export const API_URL = (import.meta.env['VITE_API_URL'] as string | undefined)?.replace(/\/$/, "");
 /** Usa mock quando VITE_API_URL não está definida ou VITE_USE_MOCK=true. */
-export const USE_MOCK = !API_URL || import.meta.env.VITE_USE_MOCK === "true";
+export const USE_MOCK = !API_URL || import.meta.env['VITE_USE_MOCK'] === "true";
 
 export class ApiError extends Error {
   constructor(
@@ -42,7 +42,7 @@ export async function request<T>(method: Method, path: string, body?: unknown): 
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body !== undefined ? JSON.stringify(body) : null,
     });
   } catch {
     throw new ApiError("Não foi possível conectar ao servidor. Verifique sua conexão.", 0);
