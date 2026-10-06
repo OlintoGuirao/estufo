@@ -10,14 +10,22 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AreaRouteImport } from './routes/_area'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
+import { Route as AreaPainelRouteImport } from './routes/_area.painel'
+import { Route as AreaPlanoRouteImport } from './routes/_area.plano'
+import { Route as AreaQuestoesRouteImport } from './routes/_area.questoes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AreaRoute = AreaRouteImport.update({
+  id: '/_area',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CadastroRoute = CadastroRouteImport.update({
@@ -40,6 +48,21 @@ const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
   path: '/recuperar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AreaPainelRoute = AreaPainelRouteImport.update({
+  id: '/painel',
+  path: '/painel',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaPlanoRoute = AreaPlanoRouteImport.update({
+  id: '/plano',
+  path: '/plano',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaQuestoesRoute = AreaQuestoesRouteImport.update({
+  id: '/questoes',
+  path: '/questoes',
+  getParentRoute: () => AreaRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +70,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/painel': typeof AreaPainelRoute
+  '/plano': typeof AreaPlanoRoute
+  '/questoes': typeof AreaQuestoesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,31 +80,59 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/painel': typeof AreaPainelRoute
+  '/plano': typeof AreaPlanoRoute
+  '/questoes': typeof AreaQuestoesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_area': typeof AreaRouteWithChildren
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/_area/painel': typeof AreaPainelRoute
+  '/_area/plano': typeof AreaPlanoRoute
+  '/_area/questoes': typeof AreaQuestoesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/cadastro' | '/login' | '/onboarding' | '/recuperar-senha'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/cadastro' | '/login' | '/onboarding' | '/recuperar-senha'
-  id:
-    | '__root__'
+  fullPaths:
     | '/'
     | '/cadastro'
     | '/login'
     | '/onboarding'
     | '/recuperar-senha'
+    | '/painel'
+    | '/plano'
+    | '/questoes'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/cadastro'
+    | '/login'
+    | '/onboarding'
+    | '/recuperar-senha'
+    | '/painel'
+    | '/plano'
+    | '/questoes'
+  id:
+    | '__root__'
+    | '/'
+    | '/_area'
+    | '/cadastro'
+    | '/login'
+    | '/onboarding'
+    | '/recuperar-senha'
+    | '/_area/painel'
+    | '/_area/plano'
+    | '/_area/questoes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AreaRoute: typeof AreaRouteWithChildren
   CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
@@ -92,6 +146,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_area': {
+      id: '/_area'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AreaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cadastro': {
@@ -122,11 +183,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecuperarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_area/painel': {
+      id: '/_area/painel'
+      path: '/painel'
+      fullPath: '/painel'
+      preLoaderRoute: typeof AreaPainelRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/plano': {
+      id: '/_area/plano'
+      path: '/plano'
+      fullPath: '/plano'
+      preLoaderRoute: typeof AreaPlanoRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/questoes': {
+      id: '/_area/questoes'
+      path: '/questoes'
+      fullPath: '/questoes'
+      preLoaderRoute: typeof AreaQuestoesRouteImport
+      parentRoute: typeof AreaRoute
+    }
   }
 }
 
+interface AreaRouteChildren {
+  AreaPainelRoute: typeof AreaPainelRoute
+  AreaPlanoRoute: typeof AreaPlanoRoute
+  AreaQuestoesRoute: typeof AreaQuestoesRoute
+}
+
+const AreaRouteChildren: AreaRouteChildren = {
+  AreaPainelRoute: AreaPainelRoute,
+  AreaPlanoRoute: AreaPlanoRoute,
+  AreaQuestoesRoute: AreaQuestoesRoute,
+}
+
+const AreaRouteWithChildren = AreaRoute._addFileChildren(AreaRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AreaRoute: AreaRouteWithChildren,
   CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
