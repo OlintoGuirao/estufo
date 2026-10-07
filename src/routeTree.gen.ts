@@ -15,9 +15,18 @@ import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
+import { Route as AreaConcursosRouteImport } from './routes/_area.concursos'
+import { Route as AreaConfiguracoesRouteImport } from './routes/_area.configuracoes'
+import { Route as AreaDesempenhoRouteImport } from './routes/_area.desempenho'
 import { Route as AreaPainelRouteImport } from './routes/_area.painel'
 import { Route as AreaPlanoRouteImport } from './routes/_area.plano'
 import { Route as AreaQuestoesRouteImport } from './routes/_area.questoes'
+import { Route as AreaRevisoesRouteImport } from './routes/_area.revisoes'
+import { Route as AreaMapasIndexRouteImport } from './routes/_area.mapas.index'
+import { Route as AreaMapasIdRouteImport } from './routes/_area.mapas.$id'
+import { Route as AreaSimuladosIndexRouteImport } from './routes/_area.simulados.index'
+import { Route as AreaSimuladosIdIndexRouteImport } from './routes/_area.simulados.$id.index'
+import { Route as AreaSimuladosIdResultadoRouteImport } from './routes/_area.simulados.$id.resultado'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -48,6 +57,21 @@ const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
   path: '/recuperar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AreaConcursosRoute = AreaConcursosRouteImport.update({
+  id: '/concursos',
+  path: '/concursos',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaConfiguracoesRoute = AreaConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaDesempenhoRoute = AreaDesempenhoRouteImport.update({
+  id: '/desempenho',
+  path: '/desempenho',
+  getParentRoute: () => AreaRoute,
+} as any)
 const AreaPainelRoute = AreaPainelRouteImport.update({
   id: '/painel',
   path: '/painel',
@@ -63,6 +87,37 @@ const AreaQuestoesRoute = AreaQuestoesRouteImport.update({
   path: '/questoes',
   getParentRoute: () => AreaRoute,
 } as any)
+const AreaRevisoesRoute = AreaRevisoesRouteImport.update({
+  id: '/revisoes',
+  path: '/revisoes',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaMapasIndexRoute = AreaMapasIndexRouteImport.update({
+  id: '/mapas/',
+  path: '/mapas/',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaMapasIdRoute = AreaMapasIdRouteImport.update({
+  id: '/mapas/$id',
+  path: '/mapas/$id',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaSimuladosIndexRoute = AreaSimuladosIndexRouteImport.update({
+  id: '/simulados/',
+  path: '/simulados/',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaSimuladosIdIndexRoute = AreaSimuladosIdIndexRouteImport.update({
+  id: '/simulados/$id/',
+  path: '/simulados/$id/',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaSimuladosIdResultadoRoute =
+  AreaSimuladosIdResultadoRouteImport.update({
+    id: '/simulados/$id/resultado',
+    path: '/simulados/$id/resultado',
+    getParentRoute: () => AreaRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -70,9 +125,18 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/concursos': typeof AreaConcursosRoute
+  '/configuracoes': typeof AreaConfiguracoesRoute
+  '/desempenho': typeof AreaDesempenhoRoute
   '/painel': typeof AreaPainelRoute
   '/plano': typeof AreaPlanoRoute
   '/questoes': typeof AreaQuestoesRoute
+  '/revisoes': typeof AreaRevisoesRoute
+  '/mapas/$id': typeof AreaMapasIdRoute
+  '/mapas/': typeof AreaMapasIndexRoute
+  '/simulados/': typeof AreaSimuladosIndexRoute
+  '/simulados/$id/resultado': typeof AreaSimuladosIdResultadoRoute
+  '/simulados/$id/': typeof AreaSimuladosIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -80,9 +144,18 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/concursos': typeof AreaConcursosRoute
+  '/configuracoes': typeof AreaConfiguracoesRoute
+  '/desempenho': typeof AreaDesempenhoRoute
   '/painel': typeof AreaPainelRoute
   '/plano': typeof AreaPlanoRoute
   '/questoes': typeof AreaQuestoesRoute
+  '/revisoes': typeof AreaRevisoesRoute
+  '/mapas/$id': typeof AreaMapasIdRoute
+  '/mapas': typeof AreaMapasIndexRoute
+  '/simulados': typeof AreaSimuladosIndexRoute
+  '/simulados/$id/resultado': typeof AreaSimuladosIdResultadoRoute
+  '/simulados/$id': typeof AreaSimuladosIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -92,9 +165,18 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/_area/concursos': typeof AreaConcursosRoute
+  '/_area/configuracoes': typeof AreaConfiguracoesRoute
+  '/_area/desempenho': typeof AreaDesempenhoRoute
   '/_area/painel': typeof AreaPainelRoute
   '/_area/plano': typeof AreaPlanoRoute
   '/_area/questoes': typeof AreaQuestoesRoute
+  '/_area/revisoes': typeof AreaRevisoesRoute
+  '/_area/mapas/$id': typeof AreaMapasIdRoute
+  '/_area/mapas/': typeof AreaMapasIndexRoute
+  '/_area/simulados/': typeof AreaSimuladosIndexRoute
+  '/_area/simulados/$id/resultado': typeof AreaSimuladosIdResultadoRoute
+  '/_area/simulados/$id/': typeof AreaSimuladosIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -104,9 +186,18 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/recuperar-senha'
+    | '/concursos'
+    | '/configuracoes'
+    | '/desempenho'
     | '/painel'
     | '/plano'
     | '/questoes'
+    | '/revisoes'
+    | '/mapas/$id'
+    | '/mapas/'
+    | '/simulados/'
+    | '/simulados/$id/resultado'
+    | '/simulados/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -114,9 +205,18 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/recuperar-senha'
+    | '/concursos'
+    | '/configuracoes'
+    | '/desempenho'
     | '/painel'
     | '/plano'
     | '/questoes'
+    | '/revisoes'
+    | '/mapas/$id'
+    | '/mapas'
+    | '/simulados'
+    | '/simulados/$id/resultado'
+    | '/simulados/$id'
   id:
     | '__root__'
     | '/'
@@ -125,9 +225,18 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/recuperar-senha'
+    | '/_area/concursos'
+    | '/_area/configuracoes'
+    | '/_area/desempenho'
     | '/_area/painel'
     | '/_area/plano'
     | '/_area/questoes'
+    | '/_area/revisoes'
+    | '/_area/mapas/$id'
+    | '/_area/mapas/'
+    | '/_area/simulados/'
+    | '/_area/simulados/$id/resultado'
+    | '/_area/simulados/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -183,6 +292,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecuperarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_area/concursos': {
+      id: '/_area/concursos'
+      path: '/concursos'
+      fullPath: '/concursos'
+      preLoaderRoute: typeof AreaConcursosRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/configuracoes': {
+      id: '/_area/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof AreaConfiguracoesRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/desempenho': {
+      id: '/_area/desempenho'
+      path: '/desempenho'
+      fullPath: '/desempenho'
+      preLoaderRoute: typeof AreaDesempenhoRouteImport
+      parentRoute: typeof AreaRoute
+    }
     '/_area/painel': {
       id: '/_area/painel'
       path: '/painel'
@@ -204,19 +334,79 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AreaQuestoesRouteImport
       parentRoute: typeof AreaRoute
     }
+    '/_area/revisoes': {
+      id: '/_area/revisoes'
+      path: '/revisoes'
+      fullPath: '/revisoes'
+      preLoaderRoute: typeof AreaRevisoesRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/mapas/': {
+      id: '/_area/mapas/'
+      path: '/mapas'
+      fullPath: '/mapas/'
+      preLoaderRoute: typeof AreaMapasIndexRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/mapas/$id': {
+      id: '/_area/mapas/$id'
+      path: '/mapas/$id'
+      fullPath: '/mapas/$id'
+      preLoaderRoute: typeof AreaMapasIdRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/simulados/': {
+      id: '/_area/simulados/'
+      path: '/simulados'
+      fullPath: '/simulados/'
+      preLoaderRoute: typeof AreaSimuladosIndexRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/simulados/$id/': {
+      id: '/_area/simulados/$id/'
+      path: '/simulados/$id'
+      fullPath: '/simulados/$id/'
+      preLoaderRoute: typeof AreaSimuladosIdIndexRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/simulados/$id/resultado': {
+      id: '/_area/simulados/$id/resultado'
+      path: '/simulados/$id/resultado'
+      fullPath: '/simulados/$id/resultado'
+      preLoaderRoute: typeof AreaSimuladosIdResultadoRouteImport
+      parentRoute: typeof AreaRoute
+    }
   }
 }
 
 interface AreaRouteChildren {
+  AreaConcursosRoute: typeof AreaConcursosRoute
+  AreaConfiguracoesRoute: typeof AreaConfiguracoesRoute
+  AreaDesempenhoRoute: typeof AreaDesempenhoRoute
   AreaPainelRoute: typeof AreaPainelRoute
   AreaPlanoRoute: typeof AreaPlanoRoute
   AreaQuestoesRoute: typeof AreaQuestoesRoute
+  AreaRevisoesRoute: typeof AreaRevisoesRoute
+  AreaMapasIdRoute: typeof AreaMapasIdRoute
+  AreaMapasIndexRoute: typeof AreaMapasIndexRoute
+  AreaSimuladosIndexRoute: typeof AreaSimuladosIndexRoute
+  AreaSimuladosIdResultadoRoute: typeof AreaSimuladosIdResultadoRoute
+  AreaSimuladosIdIndexRoute: typeof AreaSimuladosIdIndexRoute
 }
 
 const AreaRouteChildren: AreaRouteChildren = {
+  AreaConcursosRoute: AreaConcursosRoute,
+  AreaConfiguracoesRoute: AreaConfiguracoesRoute,
+  AreaDesempenhoRoute: AreaDesempenhoRoute,
   AreaPainelRoute: AreaPainelRoute,
   AreaPlanoRoute: AreaPlanoRoute,
   AreaQuestoesRoute: AreaQuestoesRoute,
+  AreaRevisoesRoute: AreaRevisoesRoute,
+  AreaMapasIdRoute: AreaMapasIdRoute,
+  AreaMapasIndexRoute: AreaMapasIndexRoute,
+  AreaSimuladosIndexRoute: AreaSimuladosIndexRoute,
+  AreaSimuladosIdResultadoRoute: AreaSimuladosIdResultadoRoute,
+  AreaSimuladosIdIndexRoute: AreaSimuladosIdIndexRoute,
 }
 
 const AreaRouteWithChildren = AreaRoute._addFileChildren(AreaRouteChildren)
