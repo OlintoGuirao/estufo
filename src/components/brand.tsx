@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { BrainCircuit } from "lucide-react";
 
-export function Logo({ to = "/" }: { to?: "/" | "/painel" }) {
+export function Logo({ to = "/", className = "" }: { to?: "/" | "/painel"; className?: string }) {
   return (
-    <Link to={to} className="flex items-center gap-2 font-display text-lg font-semibold">
+    <Link to={to} className={`flex items-center gap-2 font-display text-lg font-semibold ${className}`}>
       <span className="rounded-lg bg-primary p-1.5 text-primary-foreground">
         <BrainCircuit className="h-5 w-5" aria-hidden />
       </span>
