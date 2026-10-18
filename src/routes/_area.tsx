@@ -68,12 +68,12 @@ function AppShell() {
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="hidden w-64 shrink-0 flex-col border-r bg-sidebar p-4 lg:flex">
-        <div className="mb-6 px-2"><Logo to="/painel" /></div>
+        <div className="mb-6 px-2"><Logo to="/painel" className="text-sidebar-foreground" /></div>
         <NavList />
       </aside>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-64 bg-sidebar p-4">
-          <SheetTitle className="mb-6 px-2"><Logo to="/painel" /></SheetTitle>
+          <SheetTitle className="mb-6 px-2"><Logo to="/painel" className="text-sidebar-foreground" /></SheetTitle>
           <NavList onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>

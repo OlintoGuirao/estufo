@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Mastery } from "@/types";
 
-export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
+export function PageHeader({ title, description, actions }: { title: string; description?: string | undefined; actions?: ReactNode }) {
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
@@ -33,7 +33,7 @@ export function Panel({ title, action, children, className }: { title?: string; 
   );
 }
 
-export function StatCard({ label, value, hint, icon: Icon, tone = "primary" }: { label: string; value: ReactNode; hint?: string; icon: LucideIcon; tone?: "primary" | "highlight" }) {
+export function StatCard({ label, value, hint, icon: Icon, tone = "primary" }: { label: string; value: ReactNode; hint?: string | undefined; icon: LucideIcon; tone?: "primary" | "highlight" }) {
   return (
     <div className="rounded-xl border bg-card p-5 shadow-card">
       <div className="flex items-start justify-between">
@@ -48,7 +48,7 @@ export function StatCard({ label, value, hint, icon: Icon, tone = "primary" }: {
   );
 }
 
-export function EmptyState({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+export function EmptyState({ title, description, action }: { title: string; description?: string | undefined; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-card px-6 py-12 text-center">
       <Inbox className="h-8 w-8 text-muted-foreground" aria-hidden />

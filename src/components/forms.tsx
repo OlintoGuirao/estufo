@@ -16,7 +16,7 @@ export function NativeSelect({ className, children, ...p }: SelectHTMLAttributes
   );
 }
 
-export function Field({ label, htmlFor, error, children }: { label: string; htmlFor: string; error?: string; children: ReactNode }) {
+export function Field({ label, htmlFor, error, children }: { label: string; htmlFor: string; error?: string | undefined; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
       <Label htmlFor={htmlFor}>{label}</Label>

@@ -31,7 +31,7 @@ const schema = z
 function Register() {
   const { register } = useAuthActions();
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Partial<Record<"name" | "email" | "password" | "confirm", string>>>({});
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

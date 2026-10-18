@@ -8,7 +8,7 @@ import { Field, errMsg } from "@/components/forms";
 import { useAuthActions } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (s: Record<string, unknown>) => ({ expirado: s.expirado ? String(s.expirado) : undefined }),
+  validateSearch: (s: Record<string, unknown>): { expirado?: string | undefined } => ({ expirado: s["expirado"] ? String(s["expirado"]) : undefined }),
   head: () => ({
     meta: [
       { title: "Entrar — AprovaMind" },
@@ -26,7 +26,7 @@ function Login() {
   const { expirado } = Route.useSearch();
   const { login } = useAuthActions();
   const [form, setForm] = useState({ email: "", password: "" });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Partial<Record<"email" | "password", string>>>({});
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const r = schema.safeParse(form);
