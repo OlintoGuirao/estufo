@@ -83,61 +83,116 @@ function loadGabaritoFallback(year) {
   }
 }
 
-function detectSubject(line, current) {
+/** Junta hifenização de quebra de linha do PDF: "reno-\nmado" / "reno- mado". */
+function fixPdfText(s) {
+  return String(s ?? "")
+    .replace(/(\p{L})-\r?\n(\p{L})/gu, "$1$2")
+    .replace(/(\p{L})-\s+(\p{L})/gu, "$1$2")
+    .replace(/\r?\n+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Só aceita linha que É o cabeçalho da matéria (não "…da matemática dei-").
+ * Ex.: "LÍNgUA PORTUgUESA" no PDF.
+ */
+function matchSubjectHeader(line) {
   const t = line.replace(/\s+/g, " ").trim();
-  if (t.length < 5 || t.length > 80) return current;
-  // Cabeçalhos de matéria costumam ser curtos e em caixa alta.
+  if (t.length < 8 || t.length > 70) return null;
+  if (/\(A\)|\(B\)|\d+\.|Leia o texto|quest/i.test(t)) return null;
+  // Quase só o nome da matéria (poucas palavras).
+  if (t.split(/\s+/).length > 6) return null;
+  const compact = t
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toUpperCase()
+    .replace(/[^A-Z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   for (const [re, name] of SUBJECT_HINTS) {
-    if (re.test(t) && !/\(A\)|\(B\)|quest/i.test(t)) return name;
+    // Âncora no começo/fim da linha para não pegar palavra no meio do texto.
+    const anchored = new RegExp(`^\\s*${re.source}\\s*$`, re.flags.includes("i") ? "i" : "i");
+    if (anchored.test(t) || anchored.test(compact)) return name;
   }
-  return current;
+  return null;
+}
+
+/** Varre o caderno e marca posição de cada matéria. */
+function buildSubjectRanges(plain) {
+  const ranges = [];
+  const lines = plain.split(/\n/);
+  let offset = 0;
+  for (const line of lines) {
+    const name = matchSubjectHeader(line);
+    if (name) ranges.push({ index: offset, name });
+    offset += line.length + 1;
+  }
+  return ranges;
+}
+
+function subjectAt(ranges, index) {
+  let cur = "Geral";
+  for (const r of ranges) {
+    if (r.index <= index) cur = r.name;
+    else break;
+  }
+  return cur;
+}
+
+/**
+ * "Leia o texto para responder às questões de 01 a 05." + texto até a 1ª questão do bloco.
+ */
+function extractStimuli(plain, questionStarts) {
+  const re =
+    /Leia o texto para responder [^\n]*?(?:quest[oõ]es?\s+)?(?:de\s+)?(?:n[uú]meros?\s+)?(\d{1,3})\s*a\s*(\d{1,3})/gi;
+  /** @type {Map<number, string>} */
+  const byQ = new Map();
+  let m;
+  while ((m = re.exec(plain))) {
+    const from = Number(m[1]);
+    const to = Number(m[2]);
+    if (!from || !to || to < from) continue;
+    const afterHeader = m.index + m[0].length;
+    // Texto de apoio: até o início da primeira questão do intervalo.
+    const firstQ = questionStarts.find((s) => s.number === from);
+    const end = firstQ ? firstQ.index : afterHeader + 2500;
+    let text = plain.slice(afterHeader, Math.max(afterHeader, end)).trim();
+    // Corta lixo de rodapé/cabeçalho no meio.
+    text = text
+      .replace(/^\s*[\dA-Za-z./\-]+\s*/u, "")
+      .replace(/confidential[^\n]*/gi, "")
+      .trim();
+    text = fixPdfText(text);
+    if (text.length < 40) continue;
+    const block = `Texto de apoio (questões ${String(from).padStart(2, "0")} a ${String(to).padStart(2, "0")}):\n\n${text}`;
+    for (let n = from; n <= to; n++) byQ.set(n, block);
+  }
+  return byQ;
 }
 
 function splitStatementAndAlts(body) {
   const altRe = /(?:^|\n)\s*\(([A-Ea-e])\)\s*/g;
   const matches = [...body.matchAll(altRe)];
-  if (matches.length < 2) {
-    // fallback: A) / A.
-    const altRe2 = /(?:^|\n)\s*([A-Ea-e])\s*[\)\.\-\–\:]\s+/g;
-    const m2 = [...body.matchAll(altRe2)];
-    if (m2.length < 2) return { statement: body.trim(), alternatives: [] };
-    const statement = body.slice(0, m2[0].index).trim();
-    const alternatives = [];
-    for (let i = 0; i < m2.length; i++) {
-      const key = m2[i][1].toUpperCase();
-      if (!"ABCDE".includes(key) || alternatives.some((a) => a.key === key)) continue;
-      const start = m2[i].index + m2[i][0].length;
-      const end = i + 1 < m2.length ? m2[i + 1].index : body.length;
-      alternatives.push({
-        key,
-        text: body
-          .slice(start, end)
-          .replace(/\s+/g, " ")
-          .trim(),
-      });
-    }
-    return { statement: statement.replace(/\s+/g, " ").trim(), alternatives };
-  }
-  const statement = body.slice(0, matches[0].index).replace(/\s+/g, " ").trim();
+  const use = matches.length >= 2 ? matches : [...body.matchAll(/(?:^|\n)\s*([A-Ea-e])\s*[\)\.\-\–\:]\s+/g)];
+  if (use.length < 2) return { statement: fixPdfText(body), alternatives: [] };
+
+  const statement = fixPdfText(body.slice(0, use[0].index));
   const alternatives = [];
-  for (let i = 0; i < matches.length; i++) {
-    const key = matches[i][1].toUpperCase();
+  for (let i = 0; i < use.length; i++) {
+    const key = use[i][1].toUpperCase();
     if (!"ABCDE".includes(key) || alternatives.some((a) => a.key === key)) continue;
-    const start = matches[i].index + matches[i][0].length;
-    const end = i + 1 < matches.length ? matches[i + 1].index : body.length;
-    alternatives.push({
-      key,
-      text: body
-        .slice(start, end)
-        .replace(/\s+/g, " ")
-        .trim(),
-    });
+    const start = use[i].index + use[i][0].length;
+    const end = i + 1 < use.length ? use[i + 1].index : body.length;
+    alternatives.push({ key, text: fixPdfText(body.slice(start, end)) });
   }
   return { statement, alternatives };
 }
 
 function parseQuestions(pages, year, gabarito) {
   const plain = joinPages(pages);
+  const subjectRanges = buildSubjectRanges(plain);
+
   // Vunesp: "01." … "70." / "100." — evita "001. PROVA OBJETIVA".
   const startRe = /(?:^|\n)\s*(\d{2,3})\.\s+(?![A-Za-z]*PROVA)/gi;
   const rawStarts = [];
@@ -145,21 +200,25 @@ function parseQuestions(pages, year, gabarito) {
   while ((sm = startRe.exec(plain))) {
     const number = Number(sm[1]);
     if (number < 1 || number > 120) continue;
-    // Ignora códigos tipo 001 (capa) — questões reais são 01–100 com 2 dígitos, ou 100.
     if (sm[1].length === 3 && number < 100) continue;
     const index = sm.index + (sm[0].startsWith("\n") ? 1 : 0);
     const matchLen = sm[0].startsWith("\n") ? sm[0].length - 1 : sm[0].length;
     rawStarts.push({ number, index, matchLen });
   }
 
-  // Uma entrada por número (primeira ocorrência), na ordem do caderno (índice no texto).
   const byNumber = new Map();
   for (const s of rawStarts) {
     if (!byNumber.has(s.number)) byNumber.set(s.number, s);
   }
   const filtered = [...byNumber.values()].sort((a, b) => a.index - b.index);
+  const stimuli = extractStimuli(plain, filtered);
 
-  let subject = "Geral";
+  console.log(
+    "  subjects headers",
+    subjectRanges.map((r) => r.name).join(" → ") || "(nenhum)",
+  );
+  console.log("  textos de apoio", new Set(stimuli.values()).size);
+
   const questions = [];
   const warnings = [];
 
@@ -168,25 +227,18 @@ function parseQuestions(pages, year, gabarito) {
     const next = filtered[i + 1];
     const bodyStart = cur.index + cur.matchLen;
     const bodyEnd = next ? next.index : plain.length;
-
-    const before = plain.slice(Math.max(0, cur.index - 250), cur.index);
-    for (const line of before.split(/\n/).reverse()) {
-      const s = detectSubject(line, null);
-      if (s) {
-        subject = s;
-        break;
-      }
-    }
+    const subject = subjectAt(subjectRanges, cur.index);
     const body = plain.slice(bodyStart, bodyEnd);
-    const { statement, alternatives } = splitStatementAndAlts(body);
-    // Descarta falsos positivos sem alternativas A–E.
+    const { statement: stem, alternatives } = splitStatementAndAlts(body);
     if (alternatives.length < 4) {
       warnings.push(`Q${cur.number} ignorada: ${alternatives.length} alts`);
       continue;
     }
+    const support = stimuli.get(cur.number);
+    const statement = support ? `${support}\n\n${stem}` : stem;
     const correctKey = gabarito.get(cur.number) ?? "";
     if (!correctKey) warnings.push(`Q${cur.number}: sem gabarito`);
-    if (!statement || statement.length < 10) warnings.push(`Q${cur.number}: enunciado curto`);
+    if (!stem || stem.length < 10) warnings.push(`Q${cur.number}: enunciado curto`);
 
     questions.push({
       id: `tjsp-oficial-${year}-q${String(cur.number).padStart(3, "0")}`,
