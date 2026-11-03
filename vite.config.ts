@@ -5,6 +5,11 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { loadEnv } from "vite";
+
+// Garante GEMINI_API_KEY / QUESTIONS_API_* etc. em process.env (não só VITE_*).
+const mode = process.env["NODE_ENV"] === "production" ? "production" : "development";
+Object.assign(process.env, loadEnv(mode, process.cwd(), ""));
 
 export default defineConfig({
   tanstackStart: {
@@ -12,4 +17,10 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    optimizeDeps: {
+      include: ["mpegts.js"],
+    },
+  },
 });
+

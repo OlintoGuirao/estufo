@@ -10,10 +10,10 @@ import { useAuthActions } from "@/hooks/use-auth";
 export const Route = createFileRoute("/cadastro")({
   head: () => ({
     meta: [
-      { title: "Criar conta — AprovaMind" },
+      { title: "Criar conta — Estufoo" },
       { name: "description", content: "Crie sua conta e monte seu plano de estudos para concursos." },
-      { property: "og:title", content: "Criar conta — AprovaMind" },
-      { property: "og:description", content: "Comece sua preparação com o AprovaMind." },
+      { property: "og:title", content: "Criar conta — Estufoo" },
+      { property: "og:description", content: "Comece sua preparação com o Estufoo." },
     ],
   }),
   component: Register,

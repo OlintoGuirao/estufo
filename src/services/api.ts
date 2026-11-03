@@ -1,6 +1,6 @@
 import { mockRequest } from "./mock/handlers";
 
-const TOKEN_KEY = "aprovamind.token";
+const TOKEN_KEY = "estufoo.token";
 
 export const API_URL = (import.meta.env['VITE_API_URL'] as string | undefined)?.replace(/\/$/, "");
 /** Usa mock quando VITE_API_URL não está definida ou VITE_USE_MOCK=true. */
@@ -15,10 +15,31 @@ export class ApiError extends Error {
   }
 }
 
+export type TokenPersistOptions = {
+  /** true = localStorage (sobrevive ao fechar o browser); false = sessionStorage. */
+  remember?: boolean;
+};
+
 export const tokenStore = {
-  get: () => (typeof window === "undefined" ? null : window.localStorage.getItem(TOKEN_KEY)),
-  set: (t: string) => window.localStorage.setItem(TOKEN_KEY, t),
-  clear: () => window.localStorage.removeItem(TOKEN_KEY),
+  get: () => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(TOKEN_KEY) ?? window.sessionStorage.getItem(TOKEN_KEY);
+  },
+  set: (t: string, opts?: TokenPersistOptions) => {
+    const remember = opts?.remember !== false;
+    if (remember) {
+      window.sessionStorage.removeItem(TOKEN_KEY);
+      window.localStorage.setItem(TOKEN_KEY, t);
+    } else {
+      window.localStorage.removeItem(TOKEN_KEY);
+      window.sessionStorage.setItem(TOKEN_KEY, t);
+    }
+  },
+  clear: () => {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(TOKEN_KEY);
+    window.sessionStorage.removeItem(TOKEN_KEY);
+  },
 };
 
 type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";

@@ -1,3 +1,11 @@
+# Env local (nunca versionar)
+.env
+.env.*
+!.env.example
+
+# PDFs de importação (privado no servidor)
+.data/
+
 # Logs
 logs
 *.log

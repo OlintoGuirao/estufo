@@ -10,9 +10,9 @@ import { authService } from "@/services";
 export const Route = createFileRoute("/recuperar-senha")({
   head: () => ({
     meta: [
-      { title: "Recuperar senha — AprovaMind" },
+      { title: "Recuperar senha — Estufoo" },
       { name: "description", content: "Receba um link para redefinir sua senha." },
-      { property: "og:title", content: "Recuperar senha — AprovaMind" },
+      { property: "og:title", content: "Recuperar senha — Estufoo" },
       { property: "og:description", content: "Receba um link para redefinir sua senha." },
     ],
   }),

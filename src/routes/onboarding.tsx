@@ -19,9 +19,9 @@ export const Route = createFileRoute("/onboarding")({
   },
   head: () => ({
     meta: [
-      { title: "Configurar seus estudos — AprovaMind" },
+      { title: "Configurar seus estudos — Estufoo" },
       { name: "description", content: "Escolha seu concurso e sua rotina de estudos." },
-      { property: "og:title", content: "Configurar seus estudos — AprovaMind" },
+      { property: "og:title", content: "Configurar seus estudos — Estufoo" },
       { property: "og:description", content: "Escolha seu concurso e sua rotina de estudos." },
     ],
   }),

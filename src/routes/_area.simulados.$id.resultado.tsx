@@ -7,7 +7,7 @@ import { ErrorState, GridSkeleton, PageHeader, Panel, StatCard, formatDuration }
 import { examsService } from "@/services";
 
 export const Route = createFileRoute("/_area/simulados/$id/resultado")({
-  head: () => ({ meta: [{ title: "Resultado do simulado — AprovaMind" }, { name: "description", content: "Veja seu desempenho no simulado." }, { property: "og:title", content: "Resultado do simulado — AprovaMind" }, { property: "og:description", content: "Veja seu desempenho no simulado." }] }),
+  head: () => ({ meta: [{ title: "Resultado do simulado — Estufoo" }, { name: "description", content: "Veja seu desempenho no simulado." }, { property: "og:title", content: "Resultado do simulado — Estufoo" }, { property: "og:description", content: "Veja seu desempenho no simulado." }] }),
   component: Result,
 });
 
@@ -19,7 +19,22 @@ function Result() {
   const r = q.data!;
   return (
     <>
-      <PageHeader title="Resultado do simulado" actions={<Button variant="outline" asChild><Link to="/simulados">Voltar</Link></Button>} />
+      <PageHeader
+        title="Resultado do simulado"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/erros">Caderno de erros</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/desempenho">Desempenho</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/simulados">Voltar</Link>
+            </Button>
+          </div>
+        }
+      />
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Nota" value={r.score} icon={Award} tone="highlight" />
         <StatCard label="Acertos" value={`${r.correctPct}%`} icon={Target} />

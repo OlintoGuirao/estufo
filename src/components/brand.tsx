@@ -7,7 +7,7 @@ export function Logo({ to = "/", className = "" }: { to?: "/" | "/painel"; class
       <span className="rounded-lg bg-primary p-1.5 text-primary-foreground">
         <BrainCircuit className="h-5 w-5" aria-hidden />
       </span>
-      Aprova<span className="text-highlight">Mind</span>
+      Estu<span className="text-highlight">foo</span>
     </Link>
   );
 }

@@ -13,7 +13,7 @@ import { useMe } from "@/hooks/use-auth";
 import { contestsService } from "@/services";
 
 export const Route = createFileRoute("/_area/concursos")({
-  head: () => ({ meta: [{ title: "Concursos — AprovaMind" }, { name: "description", content: "Encontre concursos e importe editais." }, { property: "og:title", content: "Concursos — AprovaMind" }, { property: "og:description", content: "Encontre concursos e importe editais." }] }),
+  head: () => ({ meta: [{ title: "Concursos — Estufoo" }, { name: "description", content: "Encontre concursos e importe editais." }, { property: "og:title", content: "Concursos — Estufoo" }, { property: "og:description", content: "Encontre concursos e importe editais." }] }),
   component: Contests,
 });
 

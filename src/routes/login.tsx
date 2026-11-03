@@ -2,7 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { AuthCard } from "@/components/brand";
 import { Field, errMsg } from "@/components/forms";
 import { useAuthActions } from "@/hooks/use-auth";
@@ -11,28 +13,32 @@ export const Route = createFileRoute("/login")({
   validateSearch: (s: Record<string, unknown>): { expirado?: string | undefined } => ({ expirado: s["expirado"] ? String(s["expirado"]) : undefined }),
   head: () => ({
     meta: [
-      { title: "Entrar — AprovaMind" },
-      { name: "description", content: "Acesse sua conta AprovaMind." },
-      { property: "og:title", content: "Entrar — AprovaMind" },
-      { property: "og:description", content: "Acesse sua conta AprovaMind." },
+      { title: "Entrar — Estufoo" },
+      { name: "description", content: "Acesse sua conta Estufoo." },
+      { property: "og:title", content: "Entrar — Estufoo" },
+      { property: "og:description", content: "Acesse sua conta Estufoo." },
     ],
   }),
   component: Login,
 });
 
-const schema = z.object({ email: z.string().email("Informe um e-mail válido."), password: z.string().min(6, "Mínimo de 6 caracteres.") });
+const schema = z.object({
+  email: z.string().email("Informe um e-mail válido."),
+  password: z.string().min(6, "Mínimo de 6 caracteres."),
+});
 
 function Login() {
   const { expirado } = Route.useSearch();
   const { login } = useAuthActions();
   const [form, setForm] = useState({ email: "", password: "" });
+  const [remember, setRemember] = useState(true);
   const [errors, setErrors] = useState<Partial<Record<"email" | "password", string>>>({});
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const r = schema.safeParse(form);
     if (!r.success) return setErrors(Object.fromEntries(r.error.issues.map((i) => [i.path[0], i.message])));
     setErrors({});
-    login.mutate(r.data);
+    login.mutate({ ...r.data, remember });
   };
   return (
     <AuthCard title="Entrar" subtitle="Bem-vindo de volta. Continue de onde parou.">
@@ -44,6 +50,16 @@ function Login() {
         <Field label="Senha" htmlFor="password" error={errors.password}>
           <Input id="password" type="password" autoComplete="current-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
         </Field>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="remember"
+            checked={remember}
+            onCheckedChange={(v) => setRemember(v === true)}
+          />
+          <Label htmlFor="remember" className="text-sm font-normal leading-none cursor-pointer">
+            Manter conectado
+          </Label>
+        </div>
         {login.error && <p role="alert" className="text-sm text-destructive">{errMsg(login.error)}</p>}
         <Button type="submit" className="w-full" disabled={login.isPending}>{login.isPending ? "Entrando..." : "Entrar"}</Button>
       </form>

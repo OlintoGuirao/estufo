@@ -15,18 +15,42 @@ import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
+import { Route as AreaAnotacoesAulaRouteImport } from './routes/_area.anotacoes-aula'
 import { Route as AreaConcursosRouteImport } from './routes/_area.concursos'
 import { Route as AreaConfiguracoesRouteImport } from './routes/_area.configuracoes'
 import { Route as AreaDesempenhoRouteImport } from './routes/_area.desempenho'
+import { Route as AreaErrosRouteImport } from './routes/_area.erros'
 import { Route as AreaPainelRouteImport } from './routes/_area.painel'
 import { Route as AreaPlanoRouteImport } from './routes/_area.plano'
+import { Route as AreaQuestRouteImport } from './routes/_area.quest'
 import { Route as AreaQuestoesRouteImport } from './routes/_area.questoes'
+import { Route as AreaRedacaoRouteImport } from './routes/_area.redacao'
 import { Route as AreaRevisoesRouteImport } from './routes/_area.revisoes'
+import { Route as AreaTrilhaRouteImport } from './routes/_area.trilha'
+import { Route as AreaTutorRouteImport } from './routes/_area.tutor'
+import { Route as AreaVideoAulasRouteImport } from './routes/_area.video-aulas'
+import { Route as AreaImportacaoIndexRouteImport } from './routes/_area.importacao.index'
+import { Route as AreaImportacaoIdRouteImport } from './routes/_area.importacao.$id'
 import { Route as AreaMapasIndexRouteImport } from './routes/_area.mapas.index'
 import { Route as AreaMapasIdRouteImport } from './routes/_area.mapas.$id'
+import { Route as AreaQuestIndexRouteImport } from './routes/_area.quest.index'
+import { Route as AreaQuestRevisaoRouteImport } from './routes/_area.quest.revisao'
+import { Route as AreaRedacaoIndexRouteImport } from './routes/_area.redacao.index'
+import { Route as AreaRedacaoEssayIdRouteImport } from './routes/_area.redacao.$essayId'
 import { Route as AreaSimuladosIndexRouteImport } from './routes/_area.simulados.index'
+import { Route as AreaTrilhaIndexRouteImport } from './routes/_area.trilha.index'
+import { Route as AreaVideoAulasIndexRouteImport } from './routes/_area.video-aulas.index'
+import { Route as AreaVideoAulasSubjectIdRouteImport } from './routes/_area.video-aulas.$subjectId'
+import { Route as AreaQuestFasePhaseIdRouteImport } from './routes/_area.quest.fase.$phaseId'
+import { Route as AreaQuestMateriaSubjectIdRouteImport } from './routes/_area.quest.materia.$subjectId'
 import { Route as AreaSimuladosIdIndexRouteImport } from './routes/_area.simulados.$id.index'
 import { Route as AreaSimuladosIdResultadoRouteImport } from './routes/_area.simulados.$id.resultado'
+import { Route as AreaTrilhaSemanaWeekRouteImport } from './routes/_area.trilha.semana.$week'
+import { Route as AreaQuestFasePhaseIdIndexRouteImport } from './routes/_area.quest.fase.$phaseId.index'
+import { Route as AreaQuestFasePhaseIdAulaRouteImport } from './routes/_area.quest.fase.$phaseId.aula'
+import { Route as AreaQuestFasePhaseIdChefaoRouteImport } from './routes/_area.quest.fase.$phaseId.chefao'
+import { Route as AreaQuestFasePhaseIdDesafioRouteImport } from './routes/_area.quest.fase.$phaseId.desafio'
+import { Route as AreaQuestFasePhaseIdResultadoRouteImport } from './routes/_area.quest.fase.$phaseId.resultado'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -57,6 +81,11 @@ const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
   path: '/recuperar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AreaAnotacoesAulaRoute = AreaAnotacoesAulaRouteImport.update({
+  id: '/anotacoes-aula',
+  path: '/anotacoes-aula',
+  getParentRoute: () => AreaRoute,
+} as any)
 const AreaConcursosRoute = AreaConcursosRouteImport.update({
   id: '/concursos',
   path: '/concursos',
@@ -72,6 +101,11 @@ const AreaDesempenhoRoute = AreaDesempenhoRouteImport.update({
   path: '/desempenho',
   getParentRoute: () => AreaRoute,
 } as any)
+const AreaErrosRoute = AreaErrosRouteImport.update({
+  id: '/erros',
+  path: '/erros',
+  getParentRoute: () => AreaRoute,
+} as any)
 const AreaPainelRoute = AreaPainelRouteImport.update({
   id: '/painel',
   path: '/painel',
@@ -82,14 +116,49 @@ const AreaPlanoRoute = AreaPlanoRouteImport.update({
   path: '/plano',
   getParentRoute: () => AreaRoute,
 } as any)
+const AreaQuestRoute = AreaQuestRouteImport.update({
+  id: '/quest',
+  path: '/quest',
+  getParentRoute: () => AreaRoute,
+} as any)
 const AreaQuestoesRoute = AreaQuestoesRouteImport.update({
   id: '/questoes',
   path: '/questoes',
   getParentRoute: () => AreaRoute,
 } as any)
+const AreaRedacaoRoute = AreaRedacaoRouteImport.update({
+  id: '/redacao',
+  path: '/redacao',
+  getParentRoute: () => AreaRoute,
+} as any)
 const AreaRevisoesRoute = AreaRevisoesRouteImport.update({
   id: '/revisoes',
   path: '/revisoes',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaTrilhaRoute = AreaTrilhaRouteImport.update({
+  id: '/trilha',
+  path: '/trilha',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaTutorRoute = AreaTutorRouteImport.update({
+  id: '/tutor',
+  path: '/tutor',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaVideoAulasRoute = AreaVideoAulasRouteImport.update({
+  id: '/video-aulas',
+  path: '/video-aulas',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaImportacaoIndexRoute = AreaImportacaoIndexRouteImport.update({
+  id: '/importacao/',
+  path: '/importacao/',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaImportacaoIdRoute = AreaImportacaoIdRouteImport.update({
+  id: '/importacao/$id',
+  path: '/importacao/$id',
   getParentRoute: () => AreaRoute,
 } as any)
 const AreaMapasIndexRoute = AreaMapasIndexRouteImport.update({
@@ -102,11 +171,57 @@ const AreaMapasIdRoute = AreaMapasIdRouteImport.update({
   path: '/mapas/$id',
   getParentRoute: () => AreaRoute,
 } as any)
+const AreaQuestIndexRoute = AreaQuestIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AreaQuestRoute,
+} as any)
+const AreaQuestRevisaoRoute = AreaQuestRevisaoRouteImport.update({
+  id: '/revisao',
+  path: '/revisao',
+  getParentRoute: () => AreaQuestRoute,
+} as any)
+const AreaRedacaoIndexRoute = AreaRedacaoIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AreaRedacaoRoute,
+} as any)
+const AreaRedacaoEssayIdRoute = AreaRedacaoEssayIdRouteImport.update({
+  id: '/$essayId',
+  path: '/$essayId',
+  getParentRoute: () => AreaRedacaoRoute,
+} as any)
 const AreaSimuladosIndexRoute = AreaSimuladosIndexRouteImport.update({
   id: '/simulados/',
   path: '/simulados/',
   getParentRoute: () => AreaRoute,
 } as any)
+const AreaTrilhaIndexRoute = AreaTrilhaIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AreaTrilhaRoute,
+} as any)
+const AreaVideoAulasIndexRoute = AreaVideoAulasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AreaVideoAulasRoute,
+} as any)
+const AreaVideoAulasSubjectIdRoute = AreaVideoAulasSubjectIdRouteImport.update({
+  id: '/$subjectId',
+  path: '/$subjectId',
+  getParentRoute: () => AreaVideoAulasRoute,
+} as any)
+const AreaQuestFasePhaseIdRoute = AreaQuestFasePhaseIdRouteImport.update({
+  id: '/fase/$phaseId',
+  path: '/fase/$phaseId',
+  getParentRoute: () => AreaQuestRoute,
+} as any)
+const AreaQuestMateriaSubjectIdRoute =
+  AreaQuestMateriaSubjectIdRouteImport.update({
+    id: '/materia/$subjectId',
+    path: '/materia/$subjectId',
+    getParentRoute: () => AreaQuestRoute,
+  } as any)
 const AreaSimuladosIdIndexRoute = AreaSimuladosIdIndexRouteImport.update({
   id: '/simulados/$id/',
   path: '/simulados/$id/',
@@ -118,6 +233,41 @@ const AreaSimuladosIdResultadoRoute =
     path: '/simulados/$id/resultado',
     getParentRoute: () => AreaRoute,
   } as any)
+const AreaTrilhaSemanaWeekRoute = AreaTrilhaSemanaWeekRouteImport.update({
+  id: '/semana/$week',
+  path: '/semana/$week',
+  getParentRoute: () => AreaTrilhaRoute,
+} as any)
+const AreaQuestFasePhaseIdIndexRoute =
+  AreaQuestFasePhaseIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AreaQuestFasePhaseIdRoute,
+  } as any)
+const AreaQuestFasePhaseIdAulaRoute =
+  AreaQuestFasePhaseIdAulaRouteImport.update({
+    id: '/aula',
+    path: '/aula',
+    getParentRoute: () => AreaQuestFasePhaseIdRoute,
+  } as any)
+const AreaQuestFasePhaseIdChefaoRoute =
+  AreaQuestFasePhaseIdChefaoRouteImport.update({
+    id: '/chefao',
+    path: '/chefao',
+    getParentRoute: () => AreaQuestFasePhaseIdRoute,
+  } as any)
+const AreaQuestFasePhaseIdDesafioRoute =
+  AreaQuestFasePhaseIdDesafioRouteImport.update({
+    id: '/desafio',
+    path: '/desafio',
+    getParentRoute: () => AreaQuestFasePhaseIdRoute,
+  } as any)
+const AreaQuestFasePhaseIdResultadoRoute =
+  AreaQuestFasePhaseIdResultadoRouteImport.update({
+    id: '/resultado',
+    path: '/resultado',
+    getParentRoute: () => AreaQuestFasePhaseIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -125,18 +275,42 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/anotacoes-aula': typeof AreaAnotacoesAulaRoute
   '/concursos': typeof AreaConcursosRoute
   '/configuracoes': typeof AreaConfiguracoesRoute
   '/desempenho': typeof AreaDesempenhoRoute
+  '/erros': typeof AreaErrosRoute
   '/painel': typeof AreaPainelRoute
   '/plano': typeof AreaPlanoRoute
+  '/quest': typeof AreaQuestRouteWithChildren
   '/questoes': typeof AreaQuestoesRoute
+  '/redacao': typeof AreaRedacaoRouteWithChildren
   '/revisoes': typeof AreaRevisoesRoute
+  '/trilha': typeof AreaTrilhaRouteWithChildren
+  '/tutor': typeof AreaTutorRoute
+  '/video-aulas': typeof AreaVideoAulasRouteWithChildren
+  '/importacao/$id': typeof AreaImportacaoIdRoute
   '/mapas/$id': typeof AreaMapasIdRoute
+  '/quest/revisao': typeof AreaQuestRevisaoRoute
+  '/redacao/$essayId': typeof AreaRedacaoEssayIdRoute
+  '/video-aulas/$subjectId': typeof AreaVideoAulasSubjectIdRoute
+  '/importacao/': typeof AreaImportacaoIndexRoute
   '/mapas/': typeof AreaMapasIndexRoute
+  '/quest/': typeof AreaQuestIndexRoute
+  '/redacao/': typeof AreaRedacaoIndexRoute
   '/simulados/': typeof AreaSimuladosIndexRoute
+  '/trilha/': typeof AreaTrilhaIndexRoute
+  '/video-aulas/': typeof AreaVideoAulasIndexRoute
+  '/quest/fase/$phaseId': typeof AreaQuestFasePhaseIdRouteWithChildren
+  '/quest/materia/$subjectId': typeof AreaQuestMateriaSubjectIdRoute
   '/simulados/$id/resultado': typeof AreaSimuladosIdResultadoRoute
+  '/trilha/semana/$week': typeof AreaTrilhaSemanaWeekRoute
   '/simulados/$id/': typeof AreaSimuladosIdIndexRoute
+  '/quest/fase/$phaseId/aula': typeof AreaQuestFasePhaseIdAulaRoute
+  '/quest/fase/$phaseId/chefao': typeof AreaQuestFasePhaseIdChefaoRoute
+  '/quest/fase/$phaseId/desafio': typeof AreaQuestFasePhaseIdDesafioRoute
+  '/quest/fase/$phaseId/resultado': typeof AreaQuestFasePhaseIdResultadoRoute
+  '/quest/fase/$phaseId/': typeof AreaQuestFasePhaseIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -144,18 +318,37 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/anotacoes-aula': typeof AreaAnotacoesAulaRoute
   '/concursos': typeof AreaConcursosRoute
   '/configuracoes': typeof AreaConfiguracoesRoute
   '/desempenho': typeof AreaDesempenhoRoute
+  '/erros': typeof AreaErrosRoute
   '/painel': typeof AreaPainelRoute
   '/plano': typeof AreaPlanoRoute
   '/questoes': typeof AreaQuestoesRoute
   '/revisoes': typeof AreaRevisoesRoute
+  '/tutor': typeof AreaTutorRoute
+  '/importacao/$id': typeof AreaImportacaoIdRoute
   '/mapas/$id': typeof AreaMapasIdRoute
+  '/quest/revisao': typeof AreaQuestRevisaoRoute
+  '/redacao/$essayId': typeof AreaRedacaoEssayIdRoute
+  '/video-aulas/$subjectId': typeof AreaVideoAulasSubjectIdRoute
+  '/importacao': typeof AreaImportacaoIndexRoute
   '/mapas': typeof AreaMapasIndexRoute
+  '/quest': typeof AreaQuestIndexRoute
+  '/redacao': typeof AreaRedacaoIndexRoute
   '/simulados': typeof AreaSimuladosIndexRoute
+  '/trilha': typeof AreaTrilhaIndexRoute
+  '/video-aulas': typeof AreaVideoAulasIndexRoute
+  '/quest/materia/$subjectId': typeof AreaQuestMateriaSubjectIdRoute
   '/simulados/$id/resultado': typeof AreaSimuladosIdResultadoRoute
+  '/trilha/semana/$week': typeof AreaTrilhaSemanaWeekRoute
   '/simulados/$id': typeof AreaSimuladosIdIndexRoute
+  '/quest/fase/$phaseId/aula': typeof AreaQuestFasePhaseIdAulaRoute
+  '/quest/fase/$phaseId/chefao': typeof AreaQuestFasePhaseIdChefaoRoute
+  '/quest/fase/$phaseId/desafio': typeof AreaQuestFasePhaseIdDesafioRoute
+  '/quest/fase/$phaseId/resultado': typeof AreaQuestFasePhaseIdResultadoRoute
+  '/quest/fase/$phaseId': typeof AreaQuestFasePhaseIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -165,18 +358,42 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
+  '/_area/anotacoes-aula': typeof AreaAnotacoesAulaRoute
   '/_area/concursos': typeof AreaConcursosRoute
   '/_area/configuracoes': typeof AreaConfiguracoesRoute
   '/_area/desempenho': typeof AreaDesempenhoRoute
+  '/_area/erros': typeof AreaErrosRoute
   '/_area/painel': typeof AreaPainelRoute
   '/_area/plano': typeof AreaPlanoRoute
+  '/_area/quest': typeof AreaQuestRouteWithChildren
   '/_area/questoes': typeof AreaQuestoesRoute
+  '/_area/redacao': typeof AreaRedacaoRouteWithChildren
   '/_area/revisoes': typeof AreaRevisoesRoute
+  '/_area/trilha': typeof AreaTrilhaRouteWithChildren
+  '/_area/tutor': typeof AreaTutorRoute
+  '/_area/video-aulas': typeof AreaVideoAulasRouteWithChildren
+  '/_area/importacao/$id': typeof AreaImportacaoIdRoute
   '/_area/mapas/$id': typeof AreaMapasIdRoute
+  '/_area/quest/revisao': typeof AreaQuestRevisaoRoute
+  '/_area/redacao/$essayId': typeof AreaRedacaoEssayIdRoute
+  '/_area/video-aulas/$subjectId': typeof AreaVideoAulasSubjectIdRoute
+  '/_area/importacao/': typeof AreaImportacaoIndexRoute
   '/_area/mapas/': typeof AreaMapasIndexRoute
+  '/_area/quest/': typeof AreaQuestIndexRoute
+  '/_area/redacao/': typeof AreaRedacaoIndexRoute
   '/_area/simulados/': typeof AreaSimuladosIndexRoute
+  '/_area/trilha/': typeof AreaTrilhaIndexRoute
+  '/_area/video-aulas/': typeof AreaVideoAulasIndexRoute
+  '/_area/quest/fase/$phaseId': typeof AreaQuestFasePhaseIdRouteWithChildren
+  '/_area/quest/materia/$subjectId': typeof AreaQuestMateriaSubjectIdRoute
   '/_area/simulados/$id/resultado': typeof AreaSimuladosIdResultadoRoute
+  '/_area/trilha/semana/$week': typeof AreaTrilhaSemanaWeekRoute
   '/_area/simulados/$id/': typeof AreaSimuladosIdIndexRoute
+  '/_area/quest/fase/$phaseId/aula': typeof AreaQuestFasePhaseIdAulaRoute
+  '/_area/quest/fase/$phaseId/chefao': typeof AreaQuestFasePhaseIdChefaoRoute
+  '/_area/quest/fase/$phaseId/desafio': typeof AreaQuestFasePhaseIdDesafioRoute
+  '/_area/quest/fase/$phaseId/resultado': typeof AreaQuestFasePhaseIdResultadoRoute
+  '/_area/quest/fase/$phaseId/': typeof AreaQuestFasePhaseIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -186,18 +403,42 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/recuperar-senha'
+    | '/anotacoes-aula'
     | '/concursos'
     | '/configuracoes'
     | '/desempenho'
+    | '/erros'
     | '/painel'
     | '/plano'
+    | '/quest'
     | '/questoes'
+    | '/redacao'
     | '/revisoes'
+    | '/trilha'
+    | '/tutor'
+    | '/video-aulas'
+    | '/importacao/$id'
     | '/mapas/$id'
+    | '/quest/revisao'
+    | '/redacao/$essayId'
+    | '/video-aulas/$subjectId'
+    | '/importacao/'
     | '/mapas/'
+    | '/quest/'
+    | '/redacao/'
     | '/simulados/'
+    | '/trilha/'
+    | '/video-aulas/'
+    | '/quest/fase/$phaseId'
+    | '/quest/materia/$subjectId'
     | '/simulados/$id/resultado'
+    | '/trilha/semana/$week'
     | '/simulados/$id/'
+    | '/quest/fase/$phaseId/aula'
+    | '/quest/fase/$phaseId/chefao'
+    | '/quest/fase/$phaseId/desafio'
+    | '/quest/fase/$phaseId/resultado'
+    | '/quest/fase/$phaseId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -205,18 +446,37 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/recuperar-senha'
+    | '/anotacoes-aula'
     | '/concursos'
     | '/configuracoes'
     | '/desempenho'
+    | '/erros'
     | '/painel'
     | '/plano'
     | '/questoes'
     | '/revisoes'
+    | '/tutor'
+    | '/importacao/$id'
     | '/mapas/$id'
+    | '/quest/revisao'
+    | '/redacao/$essayId'
+    | '/video-aulas/$subjectId'
+    | '/importacao'
     | '/mapas'
+    | '/quest'
+    | '/redacao'
     | '/simulados'
+    | '/trilha'
+    | '/video-aulas'
+    | '/quest/materia/$subjectId'
     | '/simulados/$id/resultado'
+    | '/trilha/semana/$week'
     | '/simulados/$id'
+    | '/quest/fase/$phaseId/aula'
+    | '/quest/fase/$phaseId/chefao'
+    | '/quest/fase/$phaseId/desafio'
+    | '/quest/fase/$phaseId/resultado'
+    | '/quest/fase/$phaseId'
   id:
     | '__root__'
     | '/'
@@ -225,18 +485,42 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/recuperar-senha'
+    | '/_area/anotacoes-aula'
     | '/_area/concursos'
     | '/_area/configuracoes'
     | '/_area/desempenho'
+    | '/_area/erros'
     | '/_area/painel'
     | '/_area/plano'
+    | '/_area/quest'
     | '/_area/questoes'
+    | '/_area/redacao'
     | '/_area/revisoes'
+    | '/_area/trilha'
+    | '/_area/tutor'
+    | '/_area/video-aulas'
+    | '/_area/importacao/$id'
     | '/_area/mapas/$id'
+    | '/_area/quest/revisao'
+    | '/_area/redacao/$essayId'
+    | '/_area/video-aulas/$subjectId'
+    | '/_area/importacao/'
     | '/_area/mapas/'
+    | '/_area/quest/'
+    | '/_area/redacao/'
     | '/_area/simulados/'
+    | '/_area/trilha/'
+    | '/_area/video-aulas/'
+    | '/_area/quest/fase/$phaseId'
+    | '/_area/quest/materia/$subjectId'
     | '/_area/simulados/$id/resultado'
+    | '/_area/trilha/semana/$week'
     | '/_area/simulados/$id/'
+    | '/_area/quest/fase/$phaseId/aula'
+    | '/_area/quest/fase/$phaseId/chefao'
+    | '/_area/quest/fase/$phaseId/desafio'
+    | '/_area/quest/fase/$phaseId/resultado'
+    | '/_area/quest/fase/$phaseId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -292,6 +576,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecuperarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_area/anotacoes-aula': {
+      id: '/_area/anotacoes-aula'
+      path: '/anotacoes-aula'
+      fullPath: '/anotacoes-aula'
+      preLoaderRoute: typeof AreaAnotacoesAulaRouteImport
+      parentRoute: typeof AreaRoute
+    }
     '/_area/concursos': {
       id: '/_area/concursos'
       path: '/concursos'
@@ -313,6 +604,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AreaDesempenhoRouteImport
       parentRoute: typeof AreaRoute
     }
+    '/_area/erros': {
+      id: '/_area/erros'
+      path: '/erros'
+      fullPath: '/erros'
+      preLoaderRoute: typeof AreaErrosRouteImport
+      parentRoute: typeof AreaRoute
+    }
     '/_area/painel': {
       id: '/_area/painel'
       path: '/painel'
@@ -327,6 +625,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AreaPlanoRouteImport
       parentRoute: typeof AreaRoute
     }
+    '/_area/quest': {
+      id: '/_area/quest'
+      path: '/quest'
+      fullPath: '/quest'
+      preLoaderRoute: typeof AreaQuestRouteImport
+      parentRoute: typeof AreaRoute
+    }
     '/_area/questoes': {
       id: '/_area/questoes'
       path: '/questoes'
@@ -334,11 +639,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AreaQuestoesRouteImport
       parentRoute: typeof AreaRoute
     }
+    '/_area/redacao': {
+      id: '/_area/redacao'
+      path: '/redacao'
+      fullPath: '/redacao'
+      preLoaderRoute: typeof AreaRedacaoRouteImport
+      parentRoute: typeof AreaRoute
+    }
     '/_area/revisoes': {
       id: '/_area/revisoes'
       path: '/revisoes'
       fullPath: '/revisoes'
       preLoaderRoute: typeof AreaRevisoesRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/trilha': {
+      id: '/_area/trilha'
+      path: '/trilha'
+      fullPath: '/trilha'
+      preLoaderRoute: typeof AreaTrilhaRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/tutor': {
+      id: '/_area/tutor'
+      path: '/tutor'
+      fullPath: '/tutor'
+      preLoaderRoute: typeof AreaTutorRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/video-aulas': {
+      id: '/_area/video-aulas'
+      path: '/video-aulas'
+      fullPath: '/video-aulas'
+      preLoaderRoute: typeof AreaVideoAulasRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/importacao/': {
+      id: '/_area/importacao/'
+      path: '/importacao'
+      fullPath: '/importacao/'
+      preLoaderRoute: typeof AreaImportacaoIndexRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/importacao/$id': {
+      id: '/_area/importacao/$id'
+      path: '/importacao/$id'
+      fullPath: '/importacao/$id'
+      preLoaderRoute: typeof AreaImportacaoIdRouteImport
       parentRoute: typeof AreaRoute
     }
     '/_area/mapas/': {
@@ -355,12 +702,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AreaMapasIdRouteImport
       parentRoute: typeof AreaRoute
     }
+    '/_area/quest/': {
+      id: '/_area/quest/'
+      path: '/'
+      fullPath: '/quest/'
+      preLoaderRoute: typeof AreaQuestIndexRouteImport
+      parentRoute: typeof AreaQuestRoute
+    }
+    '/_area/quest/revisao': {
+      id: '/_area/quest/revisao'
+      path: '/revisao'
+      fullPath: '/quest/revisao'
+      preLoaderRoute: typeof AreaQuestRevisaoRouteImport
+      parentRoute: typeof AreaQuestRoute
+    }
+    '/_area/redacao/': {
+      id: '/_area/redacao/'
+      path: '/'
+      fullPath: '/redacao/'
+      preLoaderRoute: typeof AreaRedacaoIndexRouteImport
+      parentRoute: typeof AreaRedacaoRoute
+    }
+    '/_area/redacao/$essayId': {
+      id: '/_area/redacao/$essayId'
+      path: '/$essayId'
+      fullPath: '/redacao/$essayId'
+      preLoaderRoute: typeof AreaRedacaoEssayIdRouteImport
+      parentRoute: typeof AreaRedacaoRoute
+    }
     '/_area/simulados/': {
       id: '/_area/simulados/'
       path: '/simulados'
       fullPath: '/simulados/'
       preLoaderRoute: typeof AreaSimuladosIndexRouteImport
       parentRoute: typeof AreaRoute
+    }
+    '/_area/trilha/': {
+      id: '/_area/trilha/'
+      path: '/'
+      fullPath: '/trilha/'
+      preLoaderRoute: typeof AreaTrilhaIndexRouteImport
+      parentRoute: typeof AreaTrilhaRoute
+    }
+    '/_area/video-aulas/': {
+      id: '/_area/video-aulas/'
+      path: '/'
+      fullPath: '/video-aulas/'
+      preLoaderRoute: typeof AreaVideoAulasIndexRouteImport
+      parentRoute: typeof AreaVideoAulasRoute
+    }
+    '/_area/video-aulas/$subjectId': {
+      id: '/_area/video-aulas/$subjectId'
+      path: '/$subjectId'
+      fullPath: '/video-aulas/$subjectId'
+      preLoaderRoute: typeof AreaVideoAulasSubjectIdRouteImport
+      parentRoute: typeof AreaVideoAulasRoute
+    }
+    '/_area/quest/fase/$phaseId': {
+      id: '/_area/quest/fase/$phaseId'
+      path: '/fase/$phaseId'
+      fullPath: '/quest/fase/$phaseId'
+      preLoaderRoute: typeof AreaQuestFasePhaseIdRouteImport
+      parentRoute: typeof AreaQuestRoute
+    }
+    '/_area/quest/materia/$subjectId': {
+      id: '/_area/quest/materia/$subjectId'
+      path: '/materia/$subjectId'
+      fullPath: '/quest/materia/$subjectId'
+      preLoaderRoute: typeof AreaQuestMateriaSubjectIdRouteImport
+      parentRoute: typeof AreaQuestRoute
     }
     '/_area/simulados/$id/': {
       id: '/_area/simulados/$id/'
@@ -376,18 +786,148 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AreaSimuladosIdResultadoRouteImport
       parentRoute: typeof AreaRoute
     }
+    '/_area/trilha/semana/$week': {
+      id: '/_area/trilha/semana/$week'
+      path: '/semana/$week'
+      fullPath: '/trilha/semana/$week'
+      preLoaderRoute: typeof AreaTrilhaSemanaWeekRouteImport
+      parentRoute: typeof AreaTrilhaRoute
+    }
+    '/_area/quest/fase/$phaseId/': {
+      id: '/_area/quest/fase/$phaseId/'
+      path: '/'
+      fullPath: '/quest/fase/$phaseId/'
+      preLoaderRoute: typeof AreaQuestFasePhaseIdIndexRouteImport
+      parentRoute: typeof AreaQuestFasePhaseIdRoute
+    }
+    '/_area/quest/fase/$phaseId/aula': {
+      id: '/_area/quest/fase/$phaseId/aula'
+      path: '/aula'
+      fullPath: '/quest/fase/$phaseId/aula'
+      preLoaderRoute: typeof AreaQuestFasePhaseIdAulaRouteImport
+      parentRoute: typeof AreaQuestFasePhaseIdRoute
+    }
+    '/_area/quest/fase/$phaseId/chefao': {
+      id: '/_area/quest/fase/$phaseId/chefao'
+      path: '/chefao'
+      fullPath: '/quest/fase/$phaseId/chefao'
+      preLoaderRoute: typeof AreaQuestFasePhaseIdChefaoRouteImport
+      parentRoute: typeof AreaQuestFasePhaseIdRoute
+    }
+    '/_area/quest/fase/$phaseId/desafio': {
+      id: '/_area/quest/fase/$phaseId/desafio'
+      path: '/desafio'
+      fullPath: '/quest/fase/$phaseId/desafio'
+      preLoaderRoute: typeof AreaQuestFasePhaseIdDesafioRouteImport
+      parentRoute: typeof AreaQuestFasePhaseIdRoute
+    }
+    '/_area/quest/fase/$phaseId/resultado': {
+      id: '/_area/quest/fase/$phaseId/resultado'
+      path: '/resultado'
+      fullPath: '/quest/fase/$phaseId/resultado'
+      preLoaderRoute: typeof AreaQuestFasePhaseIdResultadoRouteImport
+      parentRoute: typeof AreaQuestFasePhaseIdRoute
+    }
   }
 }
 
+interface AreaQuestFasePhaseIdRouteChildren {
+  AreaQuestFasePhaseIdAulaRoute: typeof AreaQuestFasePhaseIdAulaRoute
+  AreaQuestFasePhaseIdChefaoRoute: typeof AreaQuestFasePhaseIdChefaoRoute
+  AreaQuestFasePhaseIdDesafioRoute: typeof AreaQuestFasePhaseIdDesafioRoute
+  AreaQuestFasePhaseIdResultadoRoute: typeof AreaQuestFasePhaseIdResultadoRoute
+  AreaQuestFasePhaseIdIndexRoute: typeof AreaQuestFasePhaseIdIndexRoute
+}
+
+const AreaQuestFasePhaseIdRouteChildren: AreaQuestFasePhaseIdRouteChildren = {
+  AreaQuestFasePhaseIdAulaRoute: AreaQuestFasePhaseIdAulaRoute,
+  AreaQuestFasePhaseIdChefaoRoute: AreaQuestFasePhaseIdChefaoRoute,
+  AreaQuestFasePhaseIdDesafioRoute: AreaQuestFasePhaseIdDesafioRoute,
+  AreaQuestFasePhaseIdResultadoRoute: AreaQuestFasePhaseIdResultadoRoute,
+  AreaQuestFasePhaseIdIndexRoute: AreaQuestFasePhaseIdIndexRoute,
+}
+
+const AreaQuestFasePhaseIdRouteWithChildren =
+  AreaQuestFasePhaseIdRoute._addFileChildren(AreaQuestFasePhaseIdRouteChildren)
+
+interface AreaQuestRouteChildren {
+  AreaQuestRevisaoRoute: typeof AreaQuestRevisaoRoute
+  AreaQuestIndexRoute: typeof AreaQuestIndexRoute
+  AreaQuestFasePhaseIdRoute: typeof AreaQuestFasePhaseIdRouteWithChildren
+  AreaQuestMateriaSubjectIdRoute: typeof AreaQuestMateriaSubjectIdRoute
+}
+
+const AreaQuestRouteChildren: AreaQuestRouteChildren = {
+  AreaQuestRevisaoRoute: AreaQuestRevisaoRoute,
+  AreaQuestIndexRoute: AreaQuestIndexRoute,
+  AreaQuestFasePhaseIdRoute: AreaQuestFasePhaseIdRouteWithChildren,
+  AreaQuestMateriaSubjectIdRoute: AreaQuestMateriaSubjectIdRoute,
+}
+
+const AreaQuestRouteWithChildren = AreaQuestRoute._addFileChildren(
+  AreaQuestRouteChildren,
+)
+
+interface AreaRedacaoRouteChildren {
+  AreaRedacaoEssayIdRoute: typeof AreaRedacaoEssayIdRoute
+  AreaRedacaoIndexRoute: typeof AreaRedacaoIndexRoute
+}
+
+const AreaRedacaoRouteChildren: AreaRedacaoRouteChildren = {
+  AreaRedacaoEssayIdRoute: AreaRedacaoEssayIdRoute,
+  AreaRedacaoIndexRoute: AreaRedacaoIndexRoute,
+}
+
+const AreaRedacaoRouteWithChildren = AreaRedacaoRoute._addFileChildren(
+  AreaRedacaoRouteChildren,
+)
+
+interface AreaTrilhaRouteChildren {
+  AreaTrilhaIndexRoute: typeof AreaTrilhaIndexRoute
+  AreaTrilhaSemanaWeekRoute: typeof AreaTrilhaSemanaWeekRoute
+}
+
+const AreaTrilhaRouteChildren: AreaTrilhaRouteChildren = {
+  AreaTrilhaIndexRoute: AreaTrilhaIndexRoute,
+  AreaTrilhaSemanaWeekRoute: AreaTrilhaSemanaWeekRoute,
+}
+
+const AreaTrilhaRouteWithChildren = AreaTrilhaRoute._addFileChildren(
+  AreaTrilhaRouteChildren,
+)
+
+interface AreaVideoAulasRouteChildren {
+  AreaVideoAulasSubjectIdRoute: typeof AreaVideoAulasSubjectIdRoute
+  AreaVideoAulasIndexRoute: typeof AreaVideoAulasIndexRoute
+}
+
+const AreaVideoAulasRouteChildren: AreaVideoAulasRouteChildren = {
+  AreaVideoAulasSubjectIdRoute: AreaVideoAulasSubjectIdRoute,
+  AreaVideoAulasIndexRoute: AreaVideoAulasIndexRoute,
+}
+
+const AreaVideoAulasRouteWithChildren = AreaVideoAulasRoute._addFileChildren(
+  AreaVideoAulasRouteChildren,
+)
+
 interface AreaRouteChildren {
+  AreaAnotacoesAulaRoute: typeof AreaAnotacoesAulaRoute
   AreaConcursosRoute: typeof AreaConcursosRoute
   AreaConfiguracoesRoute: typeof AreaConfiguracoesRoute
   AreaDesempenhoRoute: typeof AreaDesempenhoRoute
+  AreaErrosRoute: typeof AreaErrosRoute
   AreaPainelRoute: typeof AreaPainelRoute
   AreaPlanoRoute: typeof AreaPlanoRoute
+  AreaQuestRoute: typeof AreaQuestRouteWithChildren
   AreaQuestoesRoute: typeof AreaQuestoesRoute
+  AreaRedacaoRoute: typeof AreaRedacaoRouteWithChildren
   AreaRevisoesRoute: typeof AreaRevisoesRoute
+  AreaTrilhaRoute: typeof AreaTrilhaRouteWithChildren
+  AreaTutorRoute: typeof AreaTutorRoute
+  AreaVideoAulasRoute: typeof AreaVideoAulasRouteWithChildren
+  AreaImportacaoIdRoute: typeof AreaImportacaoIdRoute
   AreaMapasIdRoute: typeof AreaMapasIdRoute
+  AreaImportacaoIndexRoute: typeof AreaImportacaoIndexRoute
   AreaMapasIndexRoute: typeof AreaMapasIndexRoute
   AreaSimuladosIndexRoute: typeof AreaSimuladosIndexRoute
   AreaSimuladosIdResultadoRoute: typeof AreaSimuladosIdResultadoRoute
@@ -395,14 +935,23 @@ interface AreaRouteChildren {
 }
 
 const AreaRouteChildren: AreaRouteChildren = {
+  AreaAnotacoesAulaRoute: AreaAnotacoesAulaRoute,
   AreaConcursosRoute: AreaConcursosRoute,
   AreaConfiguracoesRoute: AreaConfiguracoesRoute,
   AreaDesempenhoRoute: AreaDesempenhoRoute,
+  AreaErrosRoute: AreaErrosRoute,
   AreaPainelRoute: AreaPainelRoute,
   AreaPlanoRoute: AreaPlanoRoute,
+  AreaQuestRoute: AreaQuestRouteWithChildren,
   AreaQuestoesRoute: AreaQuestoesRoute,
+  AreaRedacaoRoute: AreaRedacaoRouteWithChildren,
   AreaRevisoesRoute: AreaRevisoesRoute,
+  AreaTrilhaRoute: AreaTrilhaRouteWithChildren,
+  AreaTutorRoute: AreaTutorRoute,
+  AreaVideoAulasRoute: AreaVideoAulasRouteWithChildren,
+  AreaImportacaoIdRoute: AreaImportacaoIdRoute,
   AreaMapasIdRoute: AreaMapasIdRoute,
+  AreaImportacaoIndexRoute: AreaImportacaoIndexRoute,
   AreaMapasIndexRoute: AreaMapasIndexRoute,
   AreaSimuladosIndexRoute: AreaSimuladosIndexRoute,
   AreaSimuladosIdResultadoRoute: AreaSimuladosIdResultadoRoute,

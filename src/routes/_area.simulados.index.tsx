@@ -13,7 +13,7 @@ import { examsService } from "@/services";
 import type { MockExam } from "@/types";
 
 export const Route = createFileRoute("/_area/simulados/")({
-  head: () => ({ meta: [{ title: "Simulados — AprovaMind" }, { name: "description", content: "Crie e faça simulados cronometrados." }, { property: "og:title", content: "Simulados — AprovaMind" }, { property: "og:description", content: "Crie e faça simulados cronometrados." }] }),
+  head: () => ({ meta: [{ title: "Simulados — Estufoo" }, { name: "description", content: "Crie e faça simulados cronometrados." }, { property: "og:title", content: "Simulados — Estufoo" }, { property: "og:description", content: "Crie e faça simulados cronometrados." }] }),
   component: Exams,
 });
 
@@ -67,6 +67,10 @@ function NewExam({ onClose }: { onClose: () => void }) {
             <Field label="Tempo (min)" htmlFor="m"><Input id="m" type="number" min={1} value={f.timeLimitMin} onChange={(e) => setF({ ...f, timeLimitMin: Number(e.target.value) })} /></Field>
           </div>
           <Field label="Correção" htmlFor="c"><NativeSelect id="c" value={f.correctionMode} onChange={(e) => setF({ ...f, correctionMode: e.target.value as MockExam["correctionMode"] })}><option value="ao-final">Ao final</option><option value="imediata">Imediata</option></NativeSelect></Field>
+          <p className="text-xs text-muted-foreground">
+            As questões vêm do <strong>banco de provas TJSP</strong> (não são geradas por IA). O
+            cronômetro começa na tela do simulado.
+          </p>
         </div>
         <DialogFooter><Button disabled={m.isPending} onClick={() => m.mutate()}>Criar e iniciar</Button></DialogFooter>
       </DialogContent>

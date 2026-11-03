@@ -1,14 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Flame, Target, ListChecks } from "lucide-react";
+import { Clock, Flame, ListChecks, Target } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { EmptyState, ErrorState, GridSkeleton, MasteryBadge, PageHeader, Panel, StatCard, daysUntil, formatDate } from "@/components/common";
+import { ErrorState, GridSkeleton, MasteryBadge, Panel, StatCard, formatDate } from "@/components/common";
+import { StudyDayCalendar } from "@/components/painel/study-day-calendar";
+import { TrailResumeCard } from "@/components/trail/resume-card";
+import { VideoLessonResumeCard } from "@/components/video-lessons/resume-card";
 import { dashboardService } from "@/services";
 
 export const Route = createFileRoute("/_area/painel")({
-  head: () => ({ meta: [{ title: "Visão geral — AprovaMind" }, { name: "description", content: "Seu progresso de estudos." }, { property: "og:title", content: "Visão geral — AprovaMind" }, { property: "og:description", content: "Seu progresso de estudos." }] }),
+  head: () => ({ meta: [{ title: "Visão geral — Estufoo" }, { name: "description", content: "Seu progresso de estudos." }, { property: "og:title", content: "Visão geral — Estufoo" }, { property: "og:description", content: "Seu progresso de estudos." }] }),
   component: Dashboard,
 });
 
@@ -21,33 +23,37 @@ function Dashboard() {
   const d = q.data!;
   return (
     <>
-      <PageHeader
-        title="Visão geral"
-        description={d.contest ? `${d.contest.name} · prova em ${daysUntil(d.contest.examDate)} dias (${formatDate(d.contest.examDate)})` : "Selecione um concurso para começar."}
-        actions={<Button asChild variant="highlight"><Link to="/questoes">Resolver questões</Link></Button>}
-      />
+      {d.dataNote && <p className="mb-4 text-xs text-muted-foreground">{d.dataNote}</p>}
+
+      <div className="mb-6">
+        <StudyDayCalendar />
+      </div>
+
+      <TrailResumeCard className="mb-6" />
+      <VideoLessonResumeCard className="mb-6" />
+
       <Panel className="mb-6">
-        <div className="flex items-center justify-between text-sm"><span>Progresso do edital</span><span className="font-semibold">{d.progress}%</span></div>
+        <div className="flex items-center justify-between text-sm"><span>Progresso do plano (sessões concluídas)</span><span className="font-semibold">{d.progress}%</span></div>
         <Progress value={d.progress} className="mt-2" />
       </Panel>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Horas na semana" value={`${d.weekHours}h`} icon={Clock} />
+        <StatCard label="Horas na semana (sessões)" value={`${d.weekHours}h`} hint="Tempo planejado concluído — não mede aprendizado" icon={Clock} />
         <StatCard label="Questões respondidas" value={d.answered} icon={ListChecks} />
-        <StatCard label="Taxa de acerto" value={`${d.accuracy}%`} icon={Target} tone="highlight" />
-        <StatCard label="Sequência" value={`${d.streak} dias`} icon={Flame} tone="highlight" />
+        <StatCard label="Taxa de acerto" value={d.answered ? `${d.accuracy}%` : "—"} hint={d.answered ? undefined : "Responda questões para calcular"} icon={Target} tone="highlight" />
+        <StatCard label="Sequência" value={`${d.streak} dias`} hint="Dias seguidos com sessão concluída" icon={Flame} tone="highlight" />
       </div>
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <Panel title="Semana" className="lg:col-span-2">
+        <Panel title="Semana (horas concluídas)" className="lg:col-span-2">
           <div className="h-64">
             <ResponsiveContainer>
               <BarChart data={d.weekly}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="day" fontSize={12} /><YAxis fontSize={12} /><Tooltip />
                 <Bar dataKey="horas" name="Horas" fill="var(--chart-1)" radius={4} />
-                <Bar dataKey="acertos" name="Acertos" fill="var(--chart-2)" radius={4} />
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">% de acerto diário não é exibido: o mock ainda não guarda data de cada resposta.</p>
         </Panel>
         <Panel title="Distribuição do tempo">
           <div className="h-64">
@@ -61,27 +67,23 @@ function Dashboard() {
             </ResponsiveContainer>
           </div>
         </Panel>
-        <Panel title="Hoje" action={<Link to="/plano" className="text-sm text-primary">Ver plano</Link>} className="lg:col-span-2">
-          {d.today.length ? (
-            <ul className="divide-y">
-              {d.today.map((s) => (
-                <li key={s.id} className="flex items-center justify-between py-3 text-sm">
-                  <div><p className="font-medium">{s.subject}</p><p className="text-muted-foreground">{s.topic} · {s.activity}</p></div>
-                  <span className="text-muted-foreground">{s.durationMin} min</span>
-                </li>
+        <Panel title="Próximas revisões" action={<Link to="/revisoes" className="text-sm text-primary">Ver todas</Link>} className="lg:col-span-2">
+          {d.upcomingReviews.length ? (
+            <ul className="space-y-3">
+              {d.upcomingReviews.slice(0, 5).map((r) => (
+                <li key={r.id} className="text-sm"><p className="font-medium">{r.topic}</p><div className="mt-1 flex items-center gap-2"><MasteryBadge mastery={r.mastery} /><span className="text-xs text-muted-foreground">{formatDate(r.dueDate)}</span></div></li>
               ))}
             </ul>
-          ) : <EmptyState title="Nada para hoje" description="Aproveite para revisar ou resolver questões." />}
+          ) : (
+            <p className="text-sm text-muted-foreground">Nenhuma revisão vencida ou para hoje.</p>
+          )}
         </Panel>
-        <Panel title="Próximas revisões" action={<Link to="/revisoes" className="text-sm text-primary">Ver todas</Link>}>
-          <ul className="space-y-3">
-            {d.upcomingReviews.slice(0, 5).map((r) => (
-              <li key={r.id} className="text-sm"><p className="font-medium">{r.topic}</p><div className="mt-1 flex items-center gap-2"><MasteryBadge mastery={r.mastery} /><span className="text-xs text-muted-foreground">{formatDate(r.dueDate)}</span></div></li>
-            ))}
-          </ul>
+        <Panel title="Pontos fracos">
+          {d.weakest.length ? <Bars items={d.weakest} /> : <p className="text-sm text-muted-foreground">Sem respostas por matéria ainda.</p>}
         </Panel>
-        <Panel title="Pontos fracos"><Bars items={d.weakest} /></Panel>
-        <Panel title="Pontos fortes"><Bars items={d.strongest} /></Panel>
+        <Panel title="Pontos fortes">
+          {d.strongest.length ? <Bars items={d.strongest} /> : <p className="text-sm text-muted-foreground">Sem respostas por matéria ainda.</p>}
+        </Panel>
       </div>
     </>
   );

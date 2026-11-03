@@ -1,8 +1,8 @@
-import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  Bell, CalendarDays, FileText, Gauge, LineChart, ListChecks, LogOut, Menu, Network, RefreshCcw, Settings, Trophy,
+  Bell, BookMarked, CalendarDays, Clapperboard, FileText, Gauge, LineChart, ListChecks, LogOut, Map, Menu, Network, NotebookPen, PenLine, RefreshCcw, Settings, Swords,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -10,9 +10,8 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Logo } from "@/components/brand";
-import { NativeSelect } from "@/components/forms";
 import { useAuthActions, useMe } from "@/hooks/use-auth";
-import { contestsService, dashboardService } from "@/services";
+import { dashboardService } from "@/services";
 import { tokenStore } from "@/services/api";
 import { cn } from "@/lib/utils";
 
@@ -26,13 +25,18 @@ export const Route = createFileRoute("/_area")({
 
 const nav = [
   { to: "/painel", label: "Visão geral", icon: Gauge },
-  { to: "/plano", label: "Plano de estudos", icon: CalendarDays },
-  { to: "/questoes", label: "Questões", icon: ListChecks },
+  { to: "/trilha", label: "Trilha da aprovação", icon: Map },
+  { to: "/questoes", label: "Plano de estudo", icon: ListChecks },
+  { to: "/quest", label: "TJSP Quest", icon: Swords },
+  { to: "/video-aulas", label: "Video aulas", icon: Clapperboard },
+  { to: "/anotacoes-aula", label: "Anotações de aula", icon: NotebookPen },
+  { to: "/redacao", label: "Redação", icon: PenLine },
+  { to: "/plano", label: "Cronograma", icon: CalendarDays },
+  { to: "/erros", label: "Caderno de erros", icon: BookMarked },
   { to: "/simulados", label: "Simulados", icon: FileText },
   { to: "/mapas", label: "Mapas mentais", icon: Network },
   { to: "/revisoes", label: "Revisões", icon: RefreshCcw },
   { to: "/desempenho", label: "Desempenho", icon: LineChart },
-  { to: "/concursos", label: "Concursos", icon: Trophy },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 
@@ -55,12 +59,9 @@ function AppShell() {
   const me = useMe();
   const { logout } = useAuthActions();
   const qc = useQueryClient();
-  const contests = useQuery({ queryKey: ["contests", {}], queryFn: () => contestsService.list({}) });
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const wide = pathname.startsWith("/video-aulas/");
   const notes = useQuery({ queryKey: ["notifications"], queryFn: dashboardService.notifications });
-  const activate = useMutation({
-    mutationFn: contestsService.setActive,
-    onSuccess: (u) => { qc.setQueryData(["me"], u); qc.invalidateQueries(); },
-  });
   const read = useMutation({ mutationFn: dashboardService.readNotification, onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }) });
   const unread = notes.data?.filter((n) => !n.read).length ?? 0;
   const initials = me.data?.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
@@ -80,12 +81,6 @@ function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur md:px-6">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen(true)} aria-label="Abrir menu"><Menu /></Button>
-          <div className="w-full max-w-xs">
-            <NativeSelect aria-label="Concurso ativo" value={me.data?.activeContestId ?? ""} onChange={(e) => activate.mutate(e.target.value)}>
-              <option value="" disabled>Selecione um concurso</option>
-              {contests.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </NativeSelect>
-          </div>
           <div className="ml-auto flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -121,7 +116,9 @@ function AppShell() {
             </DropdownMenu>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-6"><Outlet /></main>
+        <main className={cn("mx-auto w-full flex-1 p-4 md:p-6", wide ? "max-w-[1600px]" : "max-w-7xl")}>
+          <Outlet />
+        </main>
       </div>
     </div>
   );
