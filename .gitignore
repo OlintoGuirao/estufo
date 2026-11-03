@@ -27,6 +27,18 @@ dist-ssr
 .nitro
 *.local
 
+# Capacitor / Android
+android/.gradle/
+android/app/build/
+android/build/
+android/captures/
+android/local.properties
+*.apk
+*.aab
+!/releases/
+!/releases/*.apk
+android/local.properties
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
