@@ -20,18 +20,14 @@ export function useAuthActions() {
     tokenStore.set(r.token, { remember });
     qc.setQueryData(["me"], r.user);
     if (authService.isCloud()) {
-      const { setStudyOwnerUserId, claimDeviceStudyDataToAccount } = await import(
-        "@/lib/study-owner"
-      );
-      setStudyOwnerUserId(r.user.id);
+      const { syncCloudUserIntoMock } = await import("@/services/mock/handlers");
+      syncCloudUserIntoMock(r.user);
+      const { syncAccountStudyData } = await import("@/lib/study-account-sync");
       try {
-        await claimDeviceStudyDataToAccount(r.user.id);
+        await syncAccountStudyData(r.user.id);
       } catch (err) {
-        console.warn("[auth] claim estudo → conta falhou", err);
+        console.warn("[auth] sync estudo → conta falhou", err);
       }
-      void import("@/services/mock/handlers").then(({ syncCloudUserIntoMock }) => {
-        syncCloudUserIntoMock(r.user);
-      });
     }
   };
   const login = useMutation({
@@ -63,6 +59,9 @@ export function useAuthActions() {
       }
       void import("@/lib/study-owner").then(({ setStudyOwnerUserId }) => {
         setStudyOwnerUserId(null);
+      });
+      void import("@/lib/study-account-sync").then(({ resetAccountStudySync }) => {
+        resetAccountStudySync();
       });
       qc.clear();
       window.location.assign("/login");

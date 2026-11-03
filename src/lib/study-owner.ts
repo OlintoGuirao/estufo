@@ -111,10 +111,14 @@ export async function claimDeviceStudyDataToAccount(userId: string): Promise<voi
   const device = getDeviceId();
   const owner = userStudyOwnerKey(userId);
   if (device === owner) return;
-  if (alreadyClaimed(userId)) return;
+  // Reexecuta se a sessão anterior marcou claimed sem subir o material local.
+  if (alreadyClaimed(userId)) {
+    /* ainda assim tenta UPDATE — é barato e idempotente */
+  }
 
   setStudyOwnerUserId(userId);
   const sb = requireSupabase();
+  let anyOk = false;
 
   for (const table of CLAIM_TABLES) {
     try {
@@ -142,22 +146,26 @@ export async function claimDeviceStudyDataToAccount(userId: string): Promise<voi
         }
         const { error: delErr } = await sb.from(table.name).delete().eq("device_id", device);
         if (delErr) throw delErr;
+        anyOk = true;
         continue;
       }
 
-      const { error } = await sb
+      const { data, error } = await sb
         .from(table.name)
         .update({ device_id: owner })
-        .eq("device_id", device);
+        .eq("device_id", device)
+        .select("device_id");
       if (error) {
         // Conflito de PK (ex.: progresso já existe na conta) — remove órfãos do aparelho.
         const { error: delErr } = await sb.from(table.name).delete().eq("device_id", device);
         if (delErr) console.warn(`[study-owner] claim delete ${table.name}`, delErr);
+      } else if (data?.length) {
+        anyOk = true;
       }
     } catch (err) {
       console.warn(`[study-owner] claim ${table.name} falhou`, err);
     }
   }
 
-  markClaimed(userId);
+  if (anyOk) markClaimed(userId);
 }

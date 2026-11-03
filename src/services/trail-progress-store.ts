@@ -176,6 +176,12 @@ export const trailProgressStore = {
   },
 
   async hydrateAll(trailId: string): Promise<TrailWeekProgress[]> {
+    try {
+      const { waitForAccountStudySync } = await import("@/lib/study-account-sync");
+      await waitForAccountStudySync();
+    } catch {
+      /* ignore */
+    }
     const local = trailProgressStore.listLocal(trailId);
     try {
       const remote = await approvalTrailDb.loadAllProgress(trailId);

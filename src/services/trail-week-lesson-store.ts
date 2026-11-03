@@ -36,6 +36,11 @@ export const trailWeekLessonStore = {
   get(trailId: string, week: number): TrailWeekLesson | null {
     return read()[lessonKey(trailId, week)] ?? null;
   },
+  listLocal(trailId: string): TrailWeekLesson[] {
+    return Object.values(read())
+      .filter((l) => l.trailId === trailId)
+      .sort((a, b) => a.week - b.week);
+  },
   save(lesson: TrailWeekLesson): TrailWeekLesson {
     const bag = read();
     bag[lessonKey(lesson.trailId, lesson.week)] = lesson;

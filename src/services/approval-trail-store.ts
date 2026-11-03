@@ -191,6 +191,12 @@ export const approvalTrailStore = {
   },
 
   async hydrate(): Promise<ApprovalTrail | null> {
+    try {
+      const { waitForAccountStudySync } = await import("@/lib/study-account-sync");
+      await waitForAccountStudySync();
+    } catch {
+      /* ignore */
+    }
     const local = read();
     try {
       const remote = await approvalTrailDb.loadLatestTrail();
@@ -206,14 +212,18 @@ export const approvalTrailStore = {
           write(remote);
           return remote;
         }
-        syncApprovalTrail(local);
+        await syncApprovalTrailNow(local);
         return local;
       }
     } catch (err) {
       console.warn("[approval-trail] hydrate falhou", err);
     }
     if (local) {
-      syncApprovalTrail(local);
+      try {
+        await syncApprovalTrailNow(local);
+      } catch {
+        syncApprovalTrail(local);
+      }
       return local;
     }
     return null;
