@@ -1,6 +1,6 @@
 import type { StudySchedule, StudyWeekday } from "@/types/study-schedule";
 import { isSupabaseConfigured, requireSupabase } from "@/lib/supabase";
-import { getDeviceId } from "@/lib/device-id";
+import { getStudyOwnerId, studyOwnerQueryIds } from "@/lib/study-owner";
 
 const KEY = "estufoo.study-schedule.v1";
 
@@ -57,7 +57,7 @@ function syncRemote(schedule: StudySchedule) {
       const sb = requireSupabase();
       await sb.from("user_study_schedule").upsert(
         {
-          device_id: getDeviceId(),
+          device_id: getStudyOwnerId(),
           payload: schedule,
           updated_at: new Date().toISOString(),
         },
@@ -82,10 +82,10 @@ export const studyScheduleStore = {
       const { data, error } = await sb
         .from("user_study_schedule")
         .select("payload")
-        .eq("device_id", getDeviceId())
-        .maybeSingle();
+        .in("device_id", studyOwnerQueryIds())
+        .limit(1);
       if (error) throw error;
-      const remote = data?.payload as StudySchedule | undefined;
+      const remote = data?.[0]?.payload as StudySchedule | undefined;
       if (remote && typeof remote === "object") {
         const next: StudySchedule = {
           studyDays: Array.isArray(remote.studyDays)

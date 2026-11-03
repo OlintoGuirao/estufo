@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, requireSupabase } from "@/lib/supabase";
-import { getDeviceId } from "@/lib/device-id";
+import { getStudyOwnerId, studyOwnerQueryIds } from "@/lib/study-owner";
 import type { ErrorNote, MockExam, MockExamResult, Review, StudySession } from "@/types";
 import type { QuestPlayerState } from "@/types/tjsp-quest";
 import type { QuestPhaseAiPayload } from "@/lib/tjsp-quest/ai-phase-content";
@@ -34,7 +34,7 @@ export const studyUserDataDb = {
   async upsertErrorNotes(notes: ErrorNote[]): Promise<void> {
     if (!isSupabaseConfigured || !notes.length) return;
     const sb = requireSupabase();
-    const deviceId = getDeviceId();
+    const deviceId = getStudyOwnerId();
     const rows = notes.map((n) => ({
       id: n.id,
       device_id: deviceId,
@@ -53,7 +53,7 @@ export const studyUserDataDb = {
       .from("user_error_notes")
       .delete()
       .eq("id", id)
-      .eq("device_id", getDeviceId());
+      .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
 
@@ -63,7 +63,7 @@ export const studyUserDataDb = {
     const { data, error } = await sb
       .from("user_error_notes")
       .select("payload")
-      .eq("device_id", getDeviceId())
+      .in("device_id", studyOwnerQueryIds())
       .order("updated_at", { ascending: false });
     if (error) throw error;
     return (data ?? []).map((r) => r.payload as ErrorNote).filter(Boolean);
@@ -75,7 +75,7 @@ export const studyUserDataDb = {
   ): Promise<void> {
     if (!isSupabaseConfigured || !exams.length) return;
     const sb = requireSupabase();
-    const deviceId = getDeviceId();
+    const deviceId = getStudyOwnerId();
     const rows = exams.map((e) => ({
       id: e.id,
       device_id: deviceId,
@@ -94,7 +94,7 @@ export const studyUserDataDb = {
     const { data, error } = await sb
       .from("user_mock_exams")
       .select("exam, result")
-      .eq("device_id", getDeviceId())
+      .in("device_id", studyOwnerQueryIds())
       .order("updated_at", { ascending: false });
     if (error) throw error;
     return (data ?? [])
@@ -109,7 +109,7 @@ export const studyUserDataDb = {
   async upsertReviews(reviews: Review[]): Promise<void> {
     if (!isSupabaseConfigured || !reviews.length) return;
     const sb = requireSupabase();
-    const deviceId = getDeviceId();
+    const deviceId = getStudyOwnerId();
     const rows = reviews.map((r) => ({
       id: r.id,
       device_id: deviceId,
@@ -127,7 +127,7 @@ export const studyUserDataDb = {
     const { data, error } = await sb
       .from("user_reviews")
       .select("payload")
-      .eq("device_id", getDeviceId())
+      .in("device_id", studyOwnerQueryIds())
       .order("due_date", { ascending: true });
     if (error) throw error;
     return (data ?? []).map((r) => r.payload as Review).filter(Boolean);
@@ -136,7 +136,7 @@ export const studyUserDataDb = {
   async upsertSessions(sessions: StudySession[]): Promise<void> {
     if (!isSupabaseConfigured || !sessions.length) return;
     const sb = requireSupabase();
-    const deviceId = getDeviceId();
+    const deviceId = getStudyOwnerId();
     const rows = sessions.map((s) => ({
       id: s.id,
       device_id: deviceId,
@@ -155,7 +155,7 @@ export const studyUserDataDb = {
       .from("user_study_sessions")
       .delete()
       .eq("id", id)
-      .eq("device_id", getDeviceId());
+      .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
 
@@ -165,7 +165,7 @@ export const studyUserDataDb = {
     const { data, error } = await sb
       .from("user_study_sessions")
       .select("payload")
-      .eq("device_id", getDeviceId())
+      .in("device_id", studyOwnerQueryIds())
       .order("session_date", { ascending: true });
     if (error) throw error;
     return (data ?? []).map((r) => r.payload as StudySession).filter(Boolean);
@@ -176,7 +176,7 @@ export const studyUserDataDb = {
     const sb = requireSupabase();
     const { error } = await sb.from("user_quest_state").upsert(
       {
-        device_id: getDeviceId(),
+        device_id: getStudyOwnerId(),
         payload: state,
         updated_at: state.updatedAt || nowIso(),
       },
@@ -191,10 +191,10 @@ export const studyUserDataDb = {
     const { data, error } = await sb
       .from("user_quest_state")
       .select("payload")
-      .eq("device_id", getDeviceId())
-      .maybeSingle();
+      .in("device_id", studyOwnerQueryIds())
+      .limit(1);
     if (error) throw error;
-    return (data?.payload as QuestPlayerState) ?? null;
+    return (data?.[0]?.payload as QuestPlayerState) ?? null;
   },
 
   async upsertQuestPhaseAi(entry: {
@@ -206,7 +206,7 @@ export const studyUserDataDb = {
   }): Promise<void> {
     if (!isSupabaseConfigured) return;
     const sb = requireSupabase();
-    const deviceId = getDeviceId();
+    const deviceId = getStudyOwnerId();
     const id = `${deviceId}:${entry.phaseId}`;
     const { error } = await sb.from("user_quest_phase_ai").upsert(
       {
@@ -229,7 +229,7 @@ export const studyUserDataDb = {
     const { error } = await sb
       .from("user_quest_phase_ai")
       .delete()
-      .eq("device_id", getDeviceId())
+      .in("device_id", studyOwnerQueryIds())
       .eq("phase_id", phaseId);
     if (error) throw error;
   },
@@ -248,7 +248,7 @@ export const studyUserDataDb = {
     const { data, error } = await sb
       .from("user_quest_phase_ai")
       .select("payload")
-      .eq("device_id", getDeviceId());
+      .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
     return (data ?? [])
       .map((r) => r.payload as StudyUserSnapshot["questPhaseAi"][number])
@@ -260,7 +260,7 @@ export const studyUserDataDb = {
     const sb = requireSupabase();
     const { error } = await sb.from("user_question_local_state").upsert(
       {
-        device_id: getDeviceId(),
+        device_id: getStudyOwnerId(),
         payload,
         updated_at: nowIso(),
       },
@@ -275,10 +275,10 @@ export const studyUserDataDb = {
     const { data, error } = await sb
       .from("user_question_local_state")
       .select("payload")
-      .eq("device_id", getDeviceId())
-      .maybeSingle();
+      .in("device_id", studyOwnerQueryIds())
+      .limit(1);
     if (error) throw error;
-    const p = data?.payload;
+    const p = data?.[0]?.payload;
     return p && typeof p === "object" ? (p as Record<string, LocalQuestionUserState>) : {};
   },
 

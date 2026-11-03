@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, requireSupabase } from "@/lib/supabase";
-import { getDeviceId } from "@/lib/device-id";
+import { getStudyOwnerId, studyOwnerQueryIds } from "@/lib/study-owner";
 import type { ApprovalTrail } from "@/types/approval-trail";
 import type { TrailWeekLesson } from "@/types/trail-week-lesson";
 import type { TrailWeekProgress } from "@/types/trail-progress";
@@ -47,7 +47,7 @@ type ProgressRow = {
 function trailToRow(trail: ApprovalTrail): TrailRow {
   return {
     id: trail.id,
-    device_id: getDeviceId(),
+    device_id: getStudyOwnerId(),
     file_name: trail.fileName,
     contest_name: trail.contestName,
     organ: trail.organ,
@@ -67,7 +67,7 @@ function progressToRow(p: TrailWeekProgress): ProgressRow & { topic_ids: string[
   return {
     trail_id: p.trailId,
     week: p.week,
-    device_id: getDeviceId(),
+    device_id: getStudyOwnerId(),
     status: p.status,
     active_module_id: p.activeModuleId,
     active_module_index: p.activeModuleIndex ?? null,
@@ -118,13 +118,13 @@ export const approvalTrailDb = {
     const { data, error } = await sb
       .from("approval_trails")
       .select("plan")
-      .eq("device_id", getDeviceId())
+      .in("device_id", studyOwnerQueryIds())
       .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
     if (error) throw error;
-    if (!data?.plan) return null;
-    return data.plan as ApprovalTrail;
+    const plan = data?.[0]?.plan;
+    if (!plan) return null;
+    return plan as ApprovalTrail;
   },
 
   async deleteTrail(trailId: string): Promise<void> {
@@ -134,7 +134,7 @@ export const approvalTrailDb = {
       .from("approval_trails")
       .delete()
       .eq("id", trailId)
-      .eq("device_id", getDeviceId());
+      .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
 
@@ -144,7 +144,7 @@ export const approvalTrailDb = {
     const row: LessonRow = {
       trail_id: lesson.trailId,
       week: lesson.week,
-      device_id: getDeviceId(),
+      device_id: getStudyOwnerId(),
       lesson,
       mocked: lesson.mocked,
       created_at: lesson.createdAt,
@@ -161,14 +161,16 @@ export const approvalTrailDb = {
     const sb = requireSupabase();
     const { data, error } = await sb
       .from("trail_week_lessons")
-      .select("lesson")
+      .select("lesson, updated_at")
       .eq("trail_id", trailId)
       .eq("week", week)
-      .eq("device_id", getDeviceId())
-      .maybeSingle();
+      .in("device_id", studyOwnerQueryIds())
+      .order("updated_at", { ascending: false })
+      .limit(1);
     if (error) throw error;
-    if (!data?.lesson) return null;
-    return data.lesson as TrailWeekLesson;
+    const row = data?.[0];
+    if (!row?.lesson) return null;
+    return row.lesson as TrailWeekLesson;
   },
 
   async deleteLessonsForTrail(trailId: string): Promise<void> {
@@ -178,7 +180,7 @@ export const approvalTrailDb = {
       .from("trail_week_lessons")
       .delete()
       .eq("trail_id", trailId)
-      .eq("device_id", getDeviceId());
+      .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
 
@@ -199,11 +201,13 @@ export const approvalTrailDb = {
       .select("*")
       .eq("trail_id", trailId)
       .eq("week", week)
-      .eq("device_id", getDeviceId())
-      .maybeSingle();
+      .in("device_id", studyOwnerQueryIds())
+      .order("updated_at", { ascending: false })
+      .limit(1);
     if (error) throw error;
-    if (!data) return null;
-    return progressFromRow(data as ProgressRow);
+    const row = data?.[0];
+    if (!row) return null;
+    return progressFromRow(row as ProgressRow);
   },
 
   async loadAllProgress(trailId: string): Promise<TrailWeekProgress[]> {
@@ -213,9 +217,17 @@ export const approvalTrailDb = {
       .from("trail_week_progress")
       .select("*")
       .eq("trail_id", trailId)
-      .eq("device_id", getDeviceId());
+      .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
-    return (data ?? []).map((row) => progressFromRow(row as ProgressRow));
+    const byWeek = new Map<number, TrailWeekProgress>();
+    for (const row of data ?? []) {
+      const p = progressFromRow(row as ProgressRow);
+      const cur = byWeek.get(p.week);
+      if (!cur || new Date(p.updatedAt) > new Date(cur.updatedAt)) {
+        byWeek.set(p.week, p);
+      }
+    }
+    return [...byWeek.values()].sort((a, b) => a.week - b.week);
   },
 
   async deleteProgressForTrail(trailId: string): Promise<void> {
@@ -225,7 +237,7 @@ export const approvalTrailDb = {
       .from("trail_week_progress")
       .delete()
       .eq("trail_id", trailId)
-      .eq("device_id", getDeviceId());
+      .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
 };

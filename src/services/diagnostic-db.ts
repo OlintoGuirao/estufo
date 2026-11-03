@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, requireSupabase } from "@/lib/supabase";
-import { getDeviceId } from "@/lib/device-id";
+import { getStudyOwnerId, studyOwnerQueryIds } from "@/lib/study-owner";
 import type { DiagnosticAnalysis, DiagnosticItemResult } from "@/lib/study-plan-diagnostic";
 import type { DiagnosticRun } from "@/types/diagnostic";
 import type { Question } from "@/types";
@@ -25,7 +25,7 @@ type DbRunRow = {
 function toRow(run: DiagnosticRun): DbRunRow {
   return {
     id: run.id,
-    device_id: getDeviceId(),
+    device_id: getStudyOwnerId(),
     prova_id: run.provaId,
     prova_title: run.provaTitle,
     status: run.finishedAt ? "finished" : "running",
@@ -96,41 +96,43 @@ export const diagnosticDb = {
   async loadRunning(): Promise<DiagnosticRun | null> {
     if (!isSupabaseConfigured) return null;
     const sb = requireSupabase();
-    const deviceId = getDeviceId();
     const { data, error } = await sb
       .from("diagnostic_runs")
       .select("*")
-      .eq("device_id", deviceId)
+      .in("device_id", studyOwnerQueryIds())
       .eq("status", "running")
       .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
     if (error) throw error;
-    if (!data) return null;
-    return fromRow(data as DbRunRow);
+    const row = data?.[0];
+    if (!row) return null;
+    return fromRow(row as DbRunRow);
   },
 
   async loadLatestFinished(): Promise<DiagnosticRun | null> {
     if (!isSupabaseConfigured) return null;
     const sb = requireSupabase();
-    const deviceId = getDeviceId();
     const { data, error } = await sb
       .from("diagnostic_runs")
       .select("*")
-      .eq("device_id", deviceId)
+      .in("device_id", studyOwnerQueryIds())
       .eq("status", "finished")
       .order("finished_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
     if (error) throw error;
-    if (!data) return null;
-    return fromRow(data as DbRunRow);
+    const row = data?.[0];
+    if (!row) return null;
+    return fromRow(row as DbRunRow);
   },
 
   async deleteRun(id: string): Promise<void> {
     if (!isSupabaseConfigured) return;
     const sb = requireSupabase();
-    const { error } = await sb.from("diagnostic_runs").delete().eq("id", id).eq("device_id", getDeviceId());
+    const { error } = await sb
+      .from("diagnostic_runs")
+      .delete()
+      .eq("id", id)
+      .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
 };

@@ -142,6 +142,15 @@ function CloudAuthBootstrap() {
         const restored = await authService.restoreCloudSession();
         if (!restored) return;
         if (!tokenStore.get()) tokenStore.set(restored.token, { remember: true });
+        const { setStudyOwnerUserId, claimDeviceStudyDataToAccount } = await import(
+          "@/lib/study-owner"
+        );
+        setStudyOwnerUserId(restored.user.id);
+        try {
+          await claimDeviceStudyDataToAccount(restored.user.id);
+        } catch (err) {
+          console.warn("[auth] claim estudo → conta falhou", err);
+        }
         const { syncCloudUserIntoMock } = await import("@/services/mock/handlers");
         syncCloudUserIntoMock(restored.user);
       } catch {

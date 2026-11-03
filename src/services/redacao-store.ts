@@ -7,7 +7,7 @@ import type {
   RedacaoWeekday,
 } from "@/types/redacao";
 import { isSupabaseConfigured, requireSupabase } from "@/lib/supabase";
-import { getDeviceId } from "@/lib/device-id";
+import { getStudyOwnerId, studyOwnerQueryIds } from "@/lib/study-owner";
 
 const KEY = "estufoo.redacao.v1";
 
@@ -59,7 +59,7 @@ function syncRemote(state: RedacaoState) {
       const sb = requireSupabase();
       await sb.from("user_redacao_state").upsert(
         {
-          device_id: getDeviceId(),
+          device_id: getStudyOwnerId(),
           payload: state,
           updated_at: new Date().toISOString(),
         },
@@ -91,10 +91,10 @@ export const redacaoStore = {
       const { data, error } = await sb
         .from("user_redacao_state")
         .select("payload")
-        .eq("device_id", getDeviceId())
-        .maybeSingle();
+        .in("device_id", studyOwnerQueryIds())
+        .limit(1);
       if (error) throw error;
-      const remote = data?.payload as RedacaoState | undefined;
+      const remote = data?.[0]?.payload as RedacaoState | undefined;
       if (remote && typeof remote === "object") {
         const next: RedacaoState = {
           schedule: remote.schedule ?? emptyState().schedule,

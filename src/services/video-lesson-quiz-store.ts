@@ -1,6 +1,6 @@
 import type { VideoLessonAnswer, VideoLessonQuizCache } from "@/types/video-lessons";
 import { isSupabaseConfigured, requireSupabase } from "@/lib/supabase";
-import { getDeviceId } from "@/lib/device-id";
+import { getStudyOwnerId, studyOwnerQueryIds } from "@/lib/study-owner";
 
 const QUIZ_KEY = "estufoo.video-lesson-quiz.v1";
 const ANS_KEY = "estufoo.video-lesson-answers.v1";
@@ -46,7 +46,7 @@ function writeAnswers(rows: VideoLessonAnswer[]) {
       const sb = requireSupabase();
       await sb.from("user_video_lesson_answers").upsert(
         {
-          device_id: getDeviceId(),
+          device_id: getStudyOwnerId(),
           payload: rows.slice(-2000),
           updated_at: new Date().toISOString(),
         },
@@ -70,7 +70,7 @@ export const videoLessonQuizStore = {
     void (async () => {
       try {
         const sb = requireSupabase();
-        const deviceId = getDeviceId();
+        const deviceId = getStudyOwnerId();
         await sb.from("user_video_lesson_quiz").upsert(
           {
             id: `${deviceId}:${entry.lessonId}`,
@@ -103,12 +103,12 @@ export const videoLessonQuizStore = {
     if (!isSupabaseConfigured) return;
     try {
       const sb = requireSupabase();
-      const deviceId = getDeviceId();
+      const owners = studyOwnerQueryIds();
       if (!Object.keys(readQuiz()).length) {
         const { data } = await sb
           .from("user_video_lesson_quiz")
           .select("payload")
-          .eq("device_id", deviceId);
+          .in("device_id", owners);
         const bag: Record<string, VideoLessonQuizCache> = {};
         for (const row of data ?? []) {
           const p = row.payload as VideoLessonQuizCache;
@@ -120,9 +120,9 @@ export const videoLessonQuizStore = {
         const { data } = await sb
           .from("user_video_lesson_answers")
           .select("payload")
-          .eq("device_id", deviceId)
-          .maybeSingle();
-        const remote = data?.payload as VideoLessonAnswer[] | undefined;
+          .in("device_id", owners)
+          .limit(1);
+        const remote = data?.[0]?.payload as VideoLessonAnswer[] | undefined;
         if (Array.isArray(remote) && remote.length) writeAnswers(remote);
       }
     } catch (err) {

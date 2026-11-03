@@ -16,10 +16,19 @@ export function useMe() {
 
 export function useAuthActions() {
   const qc = useQueryClient();
-  const onAuth = (r: AuthResponse, remember = true) => {
+  const onAuth = async (r: AuthResponse, remember = true) => {
     tokenStore.set(r.token, { remember });
     qc.setQueryData(["me"], r.user);
     if (authService.isCloud()) {
+      const { setStudyOwnerUserId, claimDeviceStudyDataToAccount } = await import(
+        "@/lib/study-owner"
+      );
+      setStudyOwnerUserId(r.user.id);
+      try {
+        await claimDeviceStudyDataToAccount(r.user.id);
+      } catch (err) {
+        console.warn("[auth] claim estudo → conta falhou", err);
+      }
       void import("@/services/mock/handlers").then(({ syncCloudUserIntoMock }) => {
         syncCloudUserIntoMock(r.user);
       });
@@ -31,15 +40,17 @@ export function useAuthActions() {
       return { ...r, remember: remember !== false };
     },
     onSuccess: (r) => {
-      onAuth(r, r.remember);
-      window.location.assign(r.user.onboarded ? "/painel" : "/onboarding");
+      void onAuth(r, r.remember).then(() => {
+        window.location.assign(r.user.onboarded ? "/painel" : "/onboarding");
+      });
     },
   });
   const register = useMutation({
     mutationFn: authService.register,
     onSuccess: (r) => {
-      onAuth(r, true);
-      window.location.assign("/onboarding");
+      void onAuth(r, true).then(() => {
+        window.location.assign("/onboarding");
+      });
     },
   });
   const logout = () => {
@@ -50,6 +61,9 @@ export function useAuthActions() {
       } catch {
         /* ignore */
       }
+      void import("@/lib/study-owner").then(({ setStudyOwnerUserId }) => {
+        setStudyOwnerUserId(null);
+      });
       qc.clear();
       window.location.assign("/login");
     });

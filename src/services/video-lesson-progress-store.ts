@@ -1,6 +1,6 @@
 import type { VideoLessonProgress } from "@/types/video-lessons";
 import { isSupabaseConfigured, requireSupabase } from "@/lib/supabase";
-import { getDeviceId } from "@/lib/device-id";
+import { getStudyOwnerId, studyOwnerQueryIds } from "@/lib/study-owner";
 
 const KEY = "estufoo.video-lesson-progress.v1";
 
@@ -29,7 +29,7 @@ function syncRemote(bag: Record<string, VideoLessonProgress>) {
       const sb = requireSupabase();
       await sb.from("user_video_lesson_progress").upsert(
         {
-          device_id: getDeviceId(),
+          device_id: getStudyOwnerId(),
           payload: bag,
           updated_at: new Date().toISOString(),
         },
@@ -86,10 +86,10 @@ export const videoLessonProgressStore = {
       const { data, error } = await sb
         .from("user_video_lesson_progress")
         .select("payload")
-        .eq("device_id", getDeviceId())
-        .maybeSingle();
+        .in("device_id", studyOwnerQueryIds())
+        .limit(1);
       if (error) throw error;
-      const remote = (data?.payload ?? {}) as Record<string, VideoLessonProgress>;
+      const remote = (data?.[0]?.payload ?? {}) as Record<string, VideoLessonProgress>;
       if (remote && typeof remote === "object" && Object.keys(remote).length) {
         writeLocal(remote);
         return remote;

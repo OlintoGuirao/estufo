@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, requireSupabase } from "@/lib/supabase";
-import { getDeviceId } from "@/lib/device-id";
+import { getStudyOwnerId, studyOwnerQueryIds } from "@/lib/study-owner";
 import type { MindMap } from "@/types";
 
 export const studyMindPackDb = {
@@ -13,7 +13,7 @@ export const studyMindPackDb = {
     const { error } = await sb.from("study_mind_packs").upsert(
       {
         id: map.id,
-        device_id: getDeviceId(),
+        device_id: getStudyOwnerId(),
         title: map.title,
         subject: map.subject,
         material: map.material ?? "",
@@ -36,7 +36,7 @@ export const studyMindPackDb = {
     const { data, error } = await sb
       .from("study_mind_packs")
       .select("pack")
-      .eq("device_id", getDeviceId())
+      .in("device_id", studyOwnerQueryIds())
       .order("updated_at", { ascending: false });
     if (error) throw error;
     return (data ?? []).map((r) => r.pack as MindMap).filter(Boolean);
@@ -49,7 +49,7 @@ export const studyMindPackDb = {
       .from("study_mind_packs")
       .delete()
       .eq("id", id)
-      .eq("device_id", getDeviceId());
+      .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
 };

@@ -1,6 +1,6 @@
 import type { VideoLessonNote } from "@/types/video-lessons";
 import { isSupabaseConfigured, requireSupabase } from "@/lib/supabase";
-import { getDeviceId } from "@/lib/device-id";
+import { getStudyOwnerId, studyOwnerQueryIds } from "@/lib/study-owner";
 
 const KEY = "estufoo.video-lesson-notes.v1";
 
@@ -34,7 +34,7 @@ function syncRemote(notes: VideoLessonNote[]) {
   void (async () => {
     try {
       const sb = requireSupabase();
-      const deviceId = getDeviceId();
+      const deviceId = getStudyOwnerId();
       const rows = notes.map((n) => ({
         id: n.id,
         device_id: deviceId,
@@ -97,7 +97,7 @@ export const videoLessonNotesStore = {
     void (async () => {
       try {
         const sb = requireSupabase();
-        await sb.from("user_video_lesson_notes").delete().eq("id", id).eq("device_id", getDeviceId());
+        await sb.from("user_video_lesson_notes").delete().eq("id", id).in("device_id", studyOwnerQueryIds());
       } catch {
         /* ignore */
       }
@@ -111,7 +111,7 @@ export const videoLessonNotesStore = {
       const { data, error } = await sb
         .from("user_video_lesson_notes")
         .select("payload")
-        .eq("device_id", getDeviceId())
+        .in("device_id", studyOwnerQueryIds())
         .order("updated_at", { ascending: false });
       if (error) throw error;
       const remote = (data ?? []).map((r) => r.payload as VideoLessonNote).filter(Boolean);
