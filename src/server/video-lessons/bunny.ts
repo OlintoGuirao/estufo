@@ -61,6 +61,46 @@ export function bunnyStorageFileUrl(cfg: BunnyVideoConfig, relativePath: string)
   return `https://${cfg.storageHost}/${encodeURIComponent(cfg.storageZone)}/${encoded}`;
 }
 
+/** GET binário da Storage (AccessKey). null se 404/erro. */
+export async function bunnyStorageGetBytes(
+  cfg: BunnyVideoConfig,
+  relativePath: string,
+): Promise<Uint8Array | null> {
+  const url = bunnyStorageFileUrl(cfg, relativePath);
+  try {
+    const res = await fetch(url, {
+      headers: { AccessKey: cfg.accessKey, Accept: "*/*" },
+    });
+    if (!res.ok) return null;
+    return new Uint8Array(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+/** PUT binário na Storage (AccessKey). */
+export async function bunnyStoragePutBytes(
+  cfg: BunnyVideoConfig,
+  relativePath: string,
+  body: Uint8Array,
+  contentType: string,
+): Promise<boolean> {
+  const url = bunnyStorageFileUrl(cfg, relativePath);
+  try {
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: {
+        AccessKey: cfg.accessKey,
+        "Content-Type": contentType,
+      },
+      body,
+    });
+    return res.ok || res.status === 201;
+  } catch {
+    return false;
+  }
+}
+
 async function listBunnyPath(cfg: BunnyVideoConfig, relativeDir: string): Promise<BunnyListItem[]> {
   const full = joinStoragePath(cfg.prefix, relativeDir);
   const cacheKey = `${cfg.storageZone}:${full}`;

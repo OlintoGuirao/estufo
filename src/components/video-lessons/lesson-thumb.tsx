@@ -23,18 +23,19 @@ export function LessonThumb({ thumbPath, order, className }: Props) {
   }, [thumbPath]);
 
   useEffect(() => {
-    if (!failed || !thumbPath || attempt >= 40) return;
+    // Poucas tentativas: no Vercel a API já devolve placeholder 200 (não fica em fila).
+    if (!failed || !thumbPath || attempt >= 2) return;
     const t = window.setTimeout(() => {
       setFailed(false);
       setSrc(`${thumbPath}${thumbPath.includes("?") ? "&" : "?"}r=${attempt + 1}`);
       setAttempt((a) => a + 1);
-    }, 2500);
+    }, 1500);
     return () => window.clearTimeout(t);
   }, [failed, thumbPath, attempt]);
 
   const label = String(order).padStart(2, "0");
 
-  if (!src || (failed && attempt >= 40)) {
+  if (!src || (failed && attempt >= 2)) {
     return (
       <div
         className={cn(
