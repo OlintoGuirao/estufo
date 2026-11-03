@@ -152,6 +152,10 @@ export type MockExam = {
   questionSource?: "tjsp-banco" | "tjsp-oficial" | "mock";
   /** Id da prova oficial (ex.: tjsp-oficial-2018). */
   officialProvaId?: string;
+  /** Criado a partir do material estudado na Trilha. */
+  fromTrail?: boolean;
+  /** Semana da trilha usada no recorte (se houver). */
+  trailWeekNumber?: number | null;
 };
 
 export type MockExamResult = {

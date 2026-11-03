@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,16 +10,19 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { EmptyState, ErrorState, ListSkeleton, PageHeader, formatDate } from "@/components/common";
 import { Field, NativeSelect } from "@/components/forms";
 import { useMe } from "@/hooks/use-auth";
+import { getTrailStudySnapshotForSimulado } from "@/lib/approval-trail/studied-for-simulado";
 import { examsService } from "@/services";
+import { approvalTrailService } from "@/services/approval-trail.service";
+import { trailProgressService } from "@/services/trail-progress.service";
 import type { MockExam } from "@/types";
 
 export const Route = createFileRoute("/_area/simulados/")({
   head: () => ({
     meta: [
       { title: "Simulados — Estufoo" },
-      { name: "description", content: "Provas oficiais TJSP e simulados cronometrados." },
+      { name: "description", content: "Provas oficiais TJSP e simulados da trilha." },
       { property: "og:title", content: "Simulados — Estufoo" },
-      { property: "og:description", content: "Provas oficiais TJSP e simulados cronometrados." },
+      { property: "og:description", content: "Provas oficiais TJSP e simulados da trilha." },
     ],
   }),
   component: Exams,
@@ -43,7 +46,8 @@ function Exams() {
       qc.invalidateQueries({ queryKey: ["exams"] });
       nav({ to: "/simulados/$id", params: { id: e.id } });
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Não foi possível iniciar a prova."),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Não foi possível iniciar a prova."),
   });
 
   return (
@@ -61,8 +65,8 @@ function Exams() {
       <section className="mb-8">
         <h2 className="mb-1 text-lg font-semibold">Provas oficiais TJSP</h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Cadernos reais de Escrevente Técnico Judiciário (Vunesp), com gabarito quando o PDF
-          permite. Cronômetro de 5 horas — como no dia da prova.
+          Cadernos reais de Escrevente Técnico Judiciário (Vunesp). Cronômetro de 5 horas — como no
+          dia da prova.
         </p>
         {officialQ.isLoading ? (
           <ListSkeleton />
@@ -103,7 +107,7 @@ function Exams() {
       <section>
         <h2 className="mb-1 text-lg font-semibold">Meus simulados</h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Simulados que você criou ou provas oficiais já iniciadas.
+          Simulados da trilha ou provas oficiais já iniciadas.
         </p>
         {q.isLoading ? (
           <ListSkeleton />
@@ -112,9 +116,7 @@ function Exams() {
         ) : !q.data!.length ? (
           <EmptyState
             title="Nenhum simulado ainda"
-            action={
-              <Button onClick={() => setOpen(true)}>Criar o primeiro</Button>
-            }
+            action={<Button onClick={() => setOpen(true)}>Criar o primeiro</Button>}
           />
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
@@ -161,36 +163,142 @@ function NewExam({ onClose }: { onClose: () => void }) {
   const me = useMe();
   const qc = useQueryClient();
   const nav = useNavigate();
+
+  const trailQ = useQuery({
+    queryKey: ["approval-trail"],
+    queryFn: () => approvalTrailService.hydrate(),
+  });
+
+  const progressQ = useQuery({
+    queryKey: ["trail-progress-all", trailQ.data?.id],
+    queryFn: () => trailProgressService.hydrateAll(trailQ.data!.id),
+    enabled: !!trailQ.data?.id,
+  });
+
+  const snapshot = useMemo(
+    () => getTrailStudySnapshotForSimulado(trailQ.data, progressQ.data ?? []),
+    [trailQ.data, progressQ.data],
+  );
+
+  const [selected, setSelected] = useState<string[] | null>(null);
+  const subjects = selected ?? snapshot?.subjects ?? [];
+
   const [f, setF] = useState({
-    title: "Simulado geral",
-    questionCount: 10,
-    timeLimitMin: 30,
+    title: "",
+    questionCount: 20,
+    timeLimitMin: 60,
     correctionMode: "ao-final" as MockExam["correctionMode"],
   });
+
+  const title =
+    f.title.trim() ||
+    (snapshot
+      ? `Simulado trilha · ${snapshot.label}`
+      : "Simulado da trilha");
+
   const m = useMutation({
     mutationFn: () =>
-      examsService.create({ ...f, contestId: me.data?.activeContestId ?? "", subjects: [] }),
+      examsService.create({
+        title,
+        contestId: me.data?.activeContestId ?? "",
+        subjects,
+        questionCount: f.questionCount,
+        timeLimitMin: f.timeLimitMin,
+        correctionMode: f.correctionMode,
+        fromTrail: true,
+        trailWeekNumber: snapshot?.weekNumber ?? null,
+      }),
     onSuccess: (e) => {
       qc.invalidateQueries({ queryKey: ["exams"] });
+      toast.success("Simulado criado com o material da trilha.");
       nav({ to: "/simulados/$id", params: { id: e.id } });
     },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Não foi possível criar o simulado."),
   });
+
+  const toggleSubject = (name: string) => {
+    const base = selected ?? snapshot?.subjects ?? [];
+    const next = base.includes(name) ? base.filter((s) => s !== name) : [...base, name];
+    setSelected(next);
+  };
+
+  const loadingTrail = trailQ.isLoading || (!!trailQ.data?.id && progressQ.isLoading);
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Novo simulado</DialogTitle>
+          <DialogTitle>Novo simulado da trilha</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
+          {loadingTrail ? (
+            <p className="text-sm text-muted-foreground">Carregando o que você estudou…</p>
+          ) : !snapshot ? (
+            <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+              Ainda não há dias concluídos na <strong>Trilha de aprovação</strong>. Estude a semana
+              (ex.: seg–sex) e volte aqui — montamos a prova com essas matérias.
+            </div>
+          ) : (
+            <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+              <p className="font-medium text-foreground">{snapshot.label}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {snapshot.dayCount
+                  ? `${snapshot.dayCount} dia(s) de estudo nesta semana`
+                  : "Etapas concluídas no material"}
+              </p>
+              {snapshot.days.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {snapshot.days.map((d) => (
+                    <li key={d.week}>
+                      {d.dayLabel || `Dia ${d.week}`}: {d.focus}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {snapshot && (
+            <div>
+              <p className="mb-2 text-sm font-medium">Matérias da prova</p>
+              <div className="flex flex-wrap gap-2">
+                {snapshot.subjects.map((name) => {
+                  const on = subjects.includes(name);
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => toggleSubject(name)}
+                      className={
+                        on
+                          ? "rounded-full border border-primary bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                          : "rounded-full border px-3 py-1 text-xs text-muted-foreground"
+                      }
+                    >
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <Field label="Título" htmlFor="t">
-            <Input id="t" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
+            <Input
+              id="t"
+              placeholder={title}
+              value={f.title}
+              onChange={(e) => setF({ ...f, title: e.target.value })}
+            />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Questões" htmlFor="n">
               <Input
                 id="n"
                 type="number"
-                min={1}
+                min={5}
+                max={80}
                 value={f.questionCount}
                 onChange={(e) => setF({ ...f, questionCount: Number(e.target.value) })}
               />
@@ -199,7 +307,7 @@ function NewExam({ onClose }: { onClose: () => void }) {
               <Input
                 id="m"
                 type="number"
-                min={1}
+                min={10}
                 value={f.timeLimitMin}
                 onChange={(e) => setF({ ...f, timeLimitMin: Number(e.target.value) })}
               />
@@ -218,12 +326,18 @@ function NewExam({ onClose }: { onClose: () => void }) {
             </NativeSelect>
           </Field>
           <p className="text-xs text-muted-foreground">
-            As questões vêm do <strong>banco TJSP</strong>. Para a prova oficial completa, use os
-            cards acima (2018 / 2025).
+            As questões vêm do banco TJSP e das provas oficiais, filtradas pelas matérias que você
+            estudou na trilha.
           </p>
         </div>
         <DialogFooter>
-          <Button disabled={m.isPending} onClick={() => m.mutate()}>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            disabled={m.isPending || !subjects.length}
+            onClick={() => m.mutate()}
+          >
             Criar e iniciar
           </Button>
         </DialogFooter>

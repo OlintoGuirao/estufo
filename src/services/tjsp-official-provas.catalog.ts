@@ -72,6 +72,23 @@ export function isOfficialProvaQuestionId(id: string): boolean {
   return id.startsWith("tjsp-oficial-");
 }
 
+function norm(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
+}
+
 export const tjspOfficialProvasCatalog = {
   list(): OfficialProvaSummary[] {
     return provas.map((p) => ({
@@ -101,5 +118,35 @@ export const tjspOfficialProvasCatalog = {
 
   getRaw(id: string): RawQ | undefined {
     return byId.get(id);
+  },
+
+  /**
+   * Sorteia questões das provas oficiais (com gabarito) filtradas por matéria.
+   * Cobre Direito etc., que o banco 400 não tem.
+   */
+  pickForSimulado(opts: {
+    count: number;
+    subjects?: string[];
+    excludeIds?: Set<string>;
+  }): Question[] {
+    const count = Math.max(1, Math.min(80, opts.count));
+    const labels = (opts.subjects ?? []).map(norm).filter(Boolean);
+    const exclude = opts.excludeIds ?? new Set<string>();
+    let pool = [...byId.values()].filter((q) => q.correctKey && !exclude.has(q.id));
+    if (labels.length) {
+      const filtered = pool.filter((q) => {
+        const subj = norm(q.subject);
+        return labels.some((l) => subj.includes(l) || l.includes(subj));
+      });
+      if (filtered.length >= Math.min(count, 3)) pool = filtered;
+    }
+    return shuffle(pool)
+      .slice(0, count)
+      .map((q) => ({
+        ...toQuestion(q),
+        answered: null,
+        favorite: false,
+        markedForReview: false,
+      }));
   },
 };

@@ -70,8 +70,12 @@ export type OfficialProvaCard = {
 export const examsService = {
   list: () => request<MockExam[]>("GET", "/mock-exams"),
   listOfficialProvas: () => request<OfficialProvaCard[]>("GET", "/official-provas"),
-  create: (d: Omit<MockExam, "id" | "createdAt" | "status" | "score">) =>
-    request<MockExam>("POST", "/mock-exams", d),
+  create: (
+    d: Omit<MockExam, "id" | "createdAt" | "status" | "score"> & {
+      fromTrail?: boolean;
+      trailWeekNumber?: number | null;
+    },
+  ) => request<MockExam>("POST", "/mock-exams", d),
   startOfficial: (officialProvaId: string, contestId?: string) =>
     request<MockExam>("POST", "/mock-exams", {
       officialProvaId,
