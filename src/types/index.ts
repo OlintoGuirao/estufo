@@ -146,10 +146,12 @@ export type MockExam = {
   createdAt: string;
   status: "pendente" | "concluido";
   score?: number;
-  /** IDs do banco de provas (TJSP 400) — simulado não usa IA. */
+  /** IDs do banco de provas (TJSP 400) ou prova oficial. */
   questionIds?: string[];
   /** Origem das questões. */
-  questionSource?: "tjsp-banco" | "mock";
+  questionSource?: "tjsp-banco" | "tjsp-oficial" | "mock";
+  /** Id da prova oficial (ex.: tjsp-oficial-2018). */
+  officialProvaId?: string;
 };
 
 export type MockExamResult = {

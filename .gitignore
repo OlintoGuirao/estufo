@@ -6,6 +6,9 @@
 # PDFs de importação (privado no servidor)
 .data/
 
+# Extração local de provas TJSP (OCR / dumps)
+tmp-tjsp-provas/
+
 # Logs
 logs
 *.log

@@ -56,9 +56,28 @@ export const errorNotesService = {
     request<{ note: ErrorNote; review: Review }>("POST", `/error-notes/${id}/schedule-review`),
 };
 
+export type OfficialProvaCard = {
+  id: string;
+  year: number;
+  title: string;
+  questionCount: number;
+  timeLimitMin: number;
+  hasFullAnswerKey: boolean;
+  answerKeyCount: number;
+  subjects: string[];
+};
+
 export const examsService = {
   list: () => request<MockExam[]>("GET", "/mock-exams"),
-  create: (d: Omit<MockExam, "id" | "createdAt" | "status" | "score">) => request<MockExam>("POST", "/mock-exams", d),
+  listOfficialProvas: () => request<OfficialProvaCard[]>("GET", "/official-provas"),
+  create: (d: Omit<MockExam, "id" | "createdAt" | "status" | "score">) =>
+    request<MockExam>("POST", "/mock-exams", d),
+  startOfficial: (officialProvaId: string, contestId?: string) =>
+    request<MockExam>("POST", "/mock-exams", {
+      officialProvaId,
+      contestId: contestId ?? "",
+      correctionMode: "ao-final",
+    }),
   get: (id: string) => request<MockExam & { questions: Question[] }>("GET", `/mock-exams/${id}`),
   submit: (id: string, d: { answers: Record<string, string>; timeUsedSec: number }) =>
     request<MockExamResult>("POST", `/mock-exams/${id}/submit`, d),

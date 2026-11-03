@@ -24,6 +24,10 @@ import {
   syncStudyMockSlice,
 } from "@/services/study-user-data-db";
 import { tjspBancoCatalog } from "@/services/tjsp-banco.catalog";
+import {
+  isOfficialProvaQuestionId,
+  tjspOfficialProvasCatalog,
+} from "@/services/tjsp-official-provas.catalog";
 import { DEMO_AUTH } from "./demo-auth";
 
 const STORAGE = "estufoo.mockdb";
@@ -443,9 +447,33 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
     return list.sort((x, y) => y.createdAt.localeCompare(x.createdAt));
   }
 
+  if (a === "official-provas") {
+    if (!b && method === "GET") return tjspOfficialProvasCatalog.list();
+  }
+
   if (a === "mock-exams") {
     if (!b && method === "GET") return [...db.exams].sort((x, y) => y.createdAt.localeCompare(x.createdAt));
     if (!b && method === "POST") {
+      // Prova oficial completa (2018 / 2021 / 2025).
+      if (body.officialProvaId) {
+        const prova = tjspOfficialProvasCatalog.get(String(body.officialProvaId));
+        const e = {
+          id: uid(),
+          title: prova.title,
+          contestId: String(body.contestId ?? ""),
+          subjects: [...new Set(prova.questions.map((q) => q.subject))],
+          questionCount: prova.questions.length,
+          timeLimitMin: prova.timeLimitMin,
+          correctionMode: (body.correctionMode as "ao-final" | "imediata") || "ao-final",
+          createdAt: new Date().toISOString(),
+          status: "pendente" as const,
+          questionIds: prova.raw.map((q) => q.id),
+          questionSource: "tjsp-oficial" as const,
+          officialProvaId: prova.id,
+        };
+        db.exams.push(e);
+        return e;
+      }
       const count = Math.max(1, Math.min(80, Number(body.questionCount) || 10));
       const subjects = Array.isArray(body.subjects) ? body.subjects.map(String) : [];
       const picked = tjspBancoCatalog.pickForSimulado({ count, subjects });
@@ -470,6 +498,25 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
         return exam.questionIds
           .map((id) => {
             try {
+              if (isOfficialProvaQuestionId(id)) {
+                const raw = tjspOfficialProvasCatalog.getRaw(id);
+                if (!raw) return null;
+                return {
+                  id: raw.id,
+                  statement: raw.statement,
+                  alternatives: raw.alternatives,
+                  board: raw.board,
+                  year: raw.year,
+                  contest: raw.contest,
+                  subject: raw.subject,
+                  topic: raw.topic,
+                  difficulty: raw.difficulty,
+                  source: raw.source,
+                  favorite: false,
+                  markedForReview: false,
+                  answered: null,
+                };
+              }
               return tjspBancoCatalog.getQuestion(id);
             } catch {
               return null;
@@ -502,7 +549,11 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
       questions.forEach((x) => {
         let correctKey = "";
         let explanation = "";
-        if (tjspBancoCatalog.isBancoId(x.id)) {
+        if (isOfficialProvaQuestionId(x.id)) {
+          const raw = tjspOfficialProvasCatalog.getRaw(x.id);
+          correctKey = (raw?.correctKey ?? "").toUpperCase();
+          explanation = "";
+        } else if (tjspBancoCatalog.isBancoId(x.id)) {
           const raw = tjspBancoCatalog.getRaw(x.id);
           correctKey = (raw?.correctKey ?? "").toUpperCase();
           explanation = raw?.explanation ?? "";
