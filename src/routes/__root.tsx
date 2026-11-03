@@ -132,11 +132,32 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function CloudAuthBootstrap() {
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { authService } = await import("@/services/auth.service");
+        if (!authService.isCloud()) return;
+        const { tokenStore } = await import("@/services/api");
+        const restored = await authService.restoreCloudSession();
+        if (!restored) return;
+        if (!tokenStore.get()) tokenStore.set(restored.token, { remember: true });
+        const { syncCloudUserIntoMock } = await import("@/services/mock/handlers");
+        syncCloudUserIntoMock(restored.user);
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, []);
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
+      <CloudAuthBootstrap />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster richColors position="top-right" />

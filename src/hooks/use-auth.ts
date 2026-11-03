@@ -19,6 +19,11 @@ export function useAuthActions() {
   const onAuth = (r: AuthResponse, remember = true) => {
     tokenStore.set(r.token, { remember });
     qc.setQueryData(["me"], r.user);
+    if (authService.isCloud()) {
+      void import("@/services/mock/handlers").then(({ syncCloudUserIntoMock }) => {
+        syncCloudUserIntoMock(r.user);
+      });
+    }
   };
   const login = useMutation({
     mutationFn: async ({ email, password, remember }: LoginInput) => {
@@ -38,9 +43,16 @@ export function useAuthActions() {
     },
   });
   const logout = () => {
-    tokenStore.clear();
-    qc.clear();
-    window.location.assign("/login");
+    void authService.logoutCloud().finally(() => {
+      tokenStore.clear();
+      try {
+        localStorage.removeItem("estufoo.cloud-user");
+      } catch {
+        /* ignore */
+      }
+      qc.clear();
+      window.location.assign("/login");
+    });
   };
   return { login, register, logout };
 }

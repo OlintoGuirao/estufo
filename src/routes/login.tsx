@@ -9,6 +9,7 @@ import { AuthCard } from "@/components/brand";
 import { Field, errMsg } from "@/components/forms";
 import { useAuthActions } from "@/hooks/use-auth";
 import { USE_MOCK } from "@/services/api";
+import { authService } from "@/services/auth.service";
 import { DEMO_AUTH } from "@/services/mock/demo-auth";
 
 export const Route = createFileRoute("/login")({
@@ -45,33 +46,39 @@ function Login() {
   return (
     <AuthCard title="Entrar" subtitle="Bem-vindo de volta. Continue de onde parou.">
       {expirado && <p className="mb-4 rounded-md bg-accent p-3 text-sm">Sua sessão expirou. Entre novamente.</p>}
-      {USE_MOCK && (
-        <div className="mb-4 space-y-2 rounded-md border border-dashed bg-muted/40 p-3 text-sm">
-          <div>
-            <p className="font-medium">Acesso demo</p>
-            <p className="mt-1 text-muted-foreground">
-              E-mail: <code className="text-xs">{DEMO_AUTH.email}</code>
-              <br />
-              Senha: <code className="text-xs">{DEMO_AUTH.password}</code>
+      {authService.isCloud() ? (
+        <p className="mb-4 rounded-md border border-dashed bg-muted/40 p-3 text-xs text-muted-foreground">
+          Conta no servidor (Supabase): o mesmo e-mail/senha funciona no PC, no celular e no APK.
+          Se ainda não tem conta na nuvem, use <strong>Criar conta</strong> uma vez.
+        </p>
+      ) : (
+        USE_MOCK && (
+          <div className="mb-4 space-y-2 rounded-md border border-dashed bg-muted/40 p-3 text-sm">
+            <div>
+              <p className="font-medium">Acesso demo</p>
+              <p className="mt-1 text-muted-foreground">
+                E-mail: <code className="text-xs">{DEMO_AUTH.email}</code>
+                <br />
+                Senha: <code className="text-xs">{DEMO_AUTH.password}</code>
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => {
+                  setForm({ email: DEMO_AUTH.email, password: DEMO_AUTH.password });
+                  setErrors({});
+                }}
+              >
+                Preencher demo
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Sem Supabase configurado, as contas ficam só neste navegador.
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={() => {
-                setForm({ email: DEMO_AUTH.email, password: DEMO_AUTH.password });
-                setErrors({});
-              }}
-            >
-              Preencher demo
-            </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Contas antigas do AprovaMind só voltam neste mesmo navegador (dados locais). Em outro
-            site/dispositivo, use <strong>Criar conta</strong> de novo com o mesmo e-mail.
-          </p>
-        </div>
+        )
       )}
       <form onSubmit={submit} className="space-y-4" noValidate>
         <Field label="E-mail" htmlFor="email" error={errors.email}>

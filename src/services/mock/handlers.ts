@@ -163,10 +163,61 @@ async function ensureRemoteHydrated() {
   await remoteHydratePromise;
 }
 
+const CLOUD_USER_KEY = "estufoo.cloud-user";
+
+/** Espelha o usuário Supabase no mock local (progresso / simulados no browser). */
+export function syncCloudUserIntoMock(user: User): void {
+  load();
+  if (!Array.isArray(db.users)) db.users = [];
+  const existing = db.users.find((x) => x.id === user.id || x.email.toLowerCase() === user.email.toLowerCase());
+  if (existing) {
+    existing.id = user.id;
+    existing.name = user.name;
+    existing.email = user.email;
+    existing.onboarded = user.onboarded;
+    existing.activeContestId = user.activeContestId ?? null;
+    if (!(existing as { password?: string }).password) {
+      (existing as { password: string }).password = "";
+    }
+  } else {
+    db.users.push({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      password: "",
+      onboarded: user.onboarded,
+      activeContestId: user.activeContestId ?? null,
+    });
+  }
+  try {
+    localStorage.setItem(CLOUD_USER_KEY, JSON.stringify(user));
+  } catch {
+    /* ignore */
+  }
+  persistLocal();
+}
+
 function currentUser(token: string | null) {
-  const u = db.users.find((x) => `mock-${x.id}` === token);
-  if (!u) throw new ApiError("Sessão expirada. Entre novamente.", 401);
-  return u;
+  if (!token) throw new ApiError("Sessão expirada. Entre novamente.", 401);
+  const mockHit = db.users.find((x) => `mock-${x.id}` === token);
+  if (mockHit) return mockHit;
+
+  // Token JWT do Supabase: resolve pelo espelho local.
+  try {
+    const raw = localStorage.getItem(CLOUD_USER_KEY);
+    if (raw) {
+      const cloud = JSON.parse(raw) as User;
+      let u = db.users.find((x) => x.id === cloud.id);
+      if (!u) {
+        syncCloudUserIntoMock(cloud);
+        u = db.users.find((x) => x.id === cloud.id);
+      }
+      if (u) return u;
+    }
+  } catch {
+    /* ignore */
+  }
+  throw new ApiError("Sessão expirada. Entre novamente.", 401);
 }
 const publicUser = ({ password: _p, ...u }: User & { password: string }): User => u;
 
