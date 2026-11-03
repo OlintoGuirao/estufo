@@ -5,6 +5,7 @@ import { Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ErrorState, ListSkeleton, PageHeader, Panel } from "@/components/common";
+import { ScratchPad } from "@/components/scratch-pad";
 import { examsService } from "@/services";
 import { cn } from "@/lib/utils";
 
@@ -174,6 +175,10 @@ function TakeExam() {
           </div>
         </Panel>
       )}
+      <div className="mt-6 border-t border-[#ebe7df] pt-6">
+        {/* Um rascunho por simulado — não limpa ao trocar de questão. */}
+        <ScratchPad resetKey={id} />
+      </div>
     </>
   );
 }
