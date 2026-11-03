@@ -31,7 +31,8 @@ function cleanPdfNoise(text) {
     .replace(/pcimarkpci\s+\S+/gi, " ")
     .replace(/www\.pciconcursos\.com\.br/gi, " ")
     .replace(/Confidencial até o momento da aplicação\.?/gi, " ")
-    .replace(/tjsp\d+\/\S+/gi, " ")
+    .replace(/\d*tjsp\d+\s*\/\s*\S+/gi, " ")
+    .replace(/\/?\s*001-escrevente[^\n]*/gi, " ")
     .replace(/\u0000/g, " ");
 }
 
@@ -88,6 +89,9 @@ function fixPdfText(s) {
   return String(s ?? "")
     .replace(/(\p{L})-\r?\n(\p{L})/gu, "$1$2")
     .replace(/(\p{L})-\s+(\p{L})/gu, "$1$2")
+    .replace(/\d*tjsp\d+\s*\/\s*\S+/gi, " ")
+    .replace(/\/?\s*001-escrevente\S*/gi, " ")
+    .replace(/\s*\/\s*$/g, "")
     .replace(/\r?\n+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -171,7 +175,29 @@ function extractStimuli(plain, questionStarts) {
   return byQ;
 }
 
-function splitStatementAndAlts(body) {
+/** Corta lixo depois da última alternativa (próximo texto / matéria / rascunho / redação). */
+const NEXT_BLOCK_RE =
+  /\n\s*Leia o texto para responder|\n\s*L[IÍ]Ng?UA\s+PORTUg?UESA|\n\s*DIREITO\s+(?:PENAL|PROCESSUAL|CONSTITUCIONAL|ADMINISTRATIVO)|\n\s*ATUALIDADES|\n\s*MATEM[AÁ]TICA|\n\s*INFORM[AÁ]TICA|\n\s*RACI[OÓ]C[IÍ]NIO|\n\s*LEGISLA|\n\s*R\s*A\s*S\s*C\s*U\s*N\s*H\s*O|\n\s*REDA[CÇ][AÃ]O\b/i;
+
+function trimBodyToQuestion(body, currentNumber) {
+  let cut = body.length;
+  const m = NEXT_BLOCK_RE.exec(body);
+  if (m) cut = Math.min(cut, m.index);
+  // Próxima questão numerada (caso a detecção de starts tenha pulado alguma).
+  const nextQ = new RegExp(`(?:^|\\n)\\s*0?(${currentNumber + 1}|\\d{2,3})\\.\\s+`, "g");
+  let qm;
+  while ((qm = nextQ.exec(body))) {
+    const n = Number(qm[1]);
+    if (n > currentNumber && n <= currentNumber + 5) {
+      cut = Math.min(cut, qm.index + (qm[0].startsWith("\n") ? 1 : 0));
+      break;
+    }
+  }
+  return body.slice(0, cut);
+}
+
+function splitStatementAndAlts(rawBody, currentNumber = 0) {
+  const body = trimBodyToQuestion(rawBody, currentNumber);
   const altRe = /(?:^|\n)\s*\(([A-Ea-e])\)\s*/g;
   const matches = [...body.matchAll(altRe)];
   const use = matches.length >= 2 ? matches : [...body.matchAll(/(?:^|\n)\s*([A-Ea-e])\s*[\)\.\-\–\:]\s+/g)];
@@ -183,7 +209,9 @@ function splitStatementAndAlts(body) {
     const key = use[i][1].toUpperCase();
     if (!"ABCDE".includes(key) || alternatives.some((a) => a.key === key)) continue;
     const start = use[i].index + use[i][0].length;
-    const end = i + 1 < use.length ? use[i + 1].index : body.length;
+    let end = i + 1 < use.length ? use[i + 1].index : body.length;
+    // Só as 5 primeiras alternativas A–E.
+    if (alternatives.length >= 5) break;
     alternatives.push({ key, text: fixPdfText(body.slice(start, end)) });
   }
   return { statement, alternatives };
@@ -226,10 +254,14 @@ function parseQuestions(pages, year, gabarito) {
     const cur = filtered[i];
     const next = filtered[i + 1];
     const bodyStart = cur.index + cur.matchLen;
-    const bodyEnd = next ? next.index : plain.length;
+    let bodyEnd = next ? next.index : plain.length;
+    // Se o próximo "Leia o texto…" vem antes da próxima questão, corta ali.
+    const tail = plain.slice(bodyStart, bodyEnd);
+    const nextBlock = NEXT_BLOCK_RE.exec(tail);
+    if (nextBlock) bodyEnd = bodyStart + nextBlock.index;
     const subject = subjectAt(subjectRanges, cur.index);
     const body = plain.slice(bodyStart, bodyEnd);
-    const { statement: stem, alternatives } = splitStatementAndAlts(body);
+    const { statement: stem, alternatives } = splitStatementAndAlts(body, cur.number);
     if (alternatives.length < 4) {
       warnings.push(`Q${cur.number} ignorada: ${alternatives.length} alts`);
       continue;
