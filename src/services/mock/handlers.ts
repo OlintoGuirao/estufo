@@ -24,6 +24,7 @@ import {
   syncStudyMockSlice,
 } from "@/services/study-user-data-db";
 import { tjspBancoCatalog } from "@/services/tjsp-banco.catalog";
+import { DEMO_AUTH } from "./demo-auth";
 
 const STORAGE = "estufoo.mockdb";
 const delay = () => new Promise((r) => setTimeout(r, 250 + Math.random() * 250));
@@ -32,6 +33,20 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 let loaded = false;
 let remoteHydrated = false;
 let remoteHydratePromise: Promise<void> | null = null;
+
+function ensureDemoUser() {
+  if (!Array.isArray(db.users)) db.users = [];
+  const exists = db.users.some((u) => u.email === DEMO_AUTH.email);
+  if (exists) return;
+  db.users.push({
+    id: "demo",
+    name: DEMO_AUTH.name,
+    email: DEMO_AUTH.email,
+    password: DEMO_AUTH.password,
+    onboarded: true,
+    activeContestId: null,
+  });
+}
 
 function load() {
   if (loaded || typeof window === "undefined") return;
@@ -50,6 +65,7 @@ function load() {
         }
       }
     }
+    if (!Array.isArray(db.users)) db.users = [];
     if (!Array.isArray(db.errorNotes)) db.errorNotes = [];
     if (!Array.isArray(db.reviews)) db.reviews = [];
     if (!Array.isArray(db.sessions)) db.sessions = [];
@@ -66,6 +82,7 @@ function load() {
   } catch {
     /* ignore */
   }
+  ensureDemoUser();
 }
 
 function persistLocal() {
@@ -126,9 +143,27 @@ function currentUser(token: string | null) {
 }
 const publicUser = ({ password: _p, ...u }: User & { password: string }): User => u;
 
+function isPublicAuthPath(method: string, fullPath: string): boolean {
+  if (method !== "POST") return false;
+  const path = fullPath.split("?")[0] ?? "";
+  return (
+    path === "/auth/login" ||
+    path === "/auth/register" ||
+    path === "/auth/forgot-password"
+  );
+}
+
 export async function mockRequest(method: string, fullPath: string, body: any, token: string | null): Promise<unknown> {
   load();
-  await ensureRemoteHydrated();
+  // Login/cadastro não podem depender do hydrate do Supabase (senão trava o "Entrar").
+  if (isPublicAuthPath(method, fullPath)) {
+    void ensureRemoteHydrated();
+  } else {
+    await Promise.race([
+      ensureRemoteHydrated(),
+      new Promise<void>((resolve) => setTimeout(resolve, 2500)),
+    ]);
+  }
   await delay();
   const [path, query = ""] = fullPath.split("?");
   const q = Object.fromEntries(new URLSearchParams(query));
