@@ -46,25 +46,31 @@ function Login() {
     <AuthCard title="Entrar" subtitle="Bem-vindo de volta. Continue de onde parou.">
       {expirado && <p className="mb-4 rounded-md bg-accent p-3 text-sm">Sua sessão expirou. Entre novamente.</p>}
       {USE_MOCK && (
-        <div className="mb-4 rounded-md border border-dashed bg-muted/40 p-3 text-sm">
-          <p className="font-medium">Acesso demo</p>
-          <p className="mt-1 text-muted-foreground">
-            E-mail: <code className="text-xs">{DEMO_AUTH.email}</code>
-            <br />
-            Senha: <code className="text-xs">{DEMO_AUTH.password}</code>
+        <div className="mb-4 space-y-2 rounded-md border border-dashed bg-muted/40 p-3 text-sm">
+          <div>
+            <p className="font-medium">Acesso demo</p>
+            <p className="mt-1 text-muted-foreground">
+              E-mail: <code className="text-xs">{DEMO_AUTH.email}</code>
+              <br />
+              Senha: <code className="text-xs">{DEMO_AUTH.password}</code>
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => {
+                setForm({ email: DEMO_AUTH.email, password: DEMO_AUTH.password });
+                setErrors({});
+              }}
+            >
+              Preencher demo
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Contas antigas do AprovaMind só voltam neste mesmo navegador (dados locais). Em outro
+            site/dispositivo, use <strong>Criar conta</strong> de novo com o mesmo e-mail.
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-2"
-            onClick={() => {
-              setForm({ email: DEMO_AUTH.email, password: DEMO_AUTH.password });
-              setErrors({});
-            }}
-          >
-            Preencher demo
-          </Button>
         </div>
       )}
       <form onSubmit={submit} className="space-y-4" noValidate>

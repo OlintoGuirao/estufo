@@ -26,16 +26,22 @@ export const generateSubjectStudyMaterialFn = createServerFn({ method: "POST" })
       parseSubjectMaterialJson,
     } = await import("@/lib/approval-trail/study-material-ai");
     const { tutorChat } = await import("@/server/tutor-llm");
-    const { enrichNotesWithSources } = await import(
-      "@/lib/approval-trail/fetch-edital-source"
-    );
+
+    const needsSources =
+      /legisla|resolu|regimento|corregedoria/i.test(data.subjectName) ||
+      data.items.some((it) => /https?:\/\//i.test(it.notes ?? ""));
+    const enrichNotesWithSources = needsSources
+      ? (await import("@/lib/approval-trail/fetch-edital-source")).enrichNotesWithSources
+      : null;
 
     // Busca textos oficiais (TJSP/eSAJ) quando o edital traz link.
     const items = [];
     for (const it of data.items) {
       const rawNotes = it.notes ?? "";
       const notes =
-        /https?:\/\//i.test(rawNotes) || /legisla|resolu|regimento|corregedoria/i.test(data.subjectName)
+        enrichNotesWithSources &&
+        (/https?:\/\//i.test(rawNotes) ||
+          /legisla|resolu|regimento|corregedoria/i.test(data.subjectName))
           ? await enrichNotesWithSources(rawNotes)
           : rawNotes;
       items.push({

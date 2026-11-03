@@ -1,9 +1,9 @@
 /**
  * Busca texto público de fontes oficiais citadas no edital (TJSP / eSAJ).
  * Usado ao Gerar material de Legislação Interna.
+ *
+ * Sem jsdom: no SSR Vite/ESM o jsdom quebra com `__dirname is not defined`.
  */
-
-import { JSDOM } from "jsdom";
 
 const ALLOWED_HOSTS = [
   /(^|\.)tjsp\.jus\.br$/i,
@@ -17,16 +17,30 @@ function hostAllowed(hostname: string): boolean {
   return ALLOWED_HOSTS.some((re) => re.test(hostname));
 }
 
-function htmlToPlain(html: string, baseUrl: string): string {
-  const dom = new JSDOM(html, { url: baseUrl });
-  const doc = dom.window.document;
-  doc.querySelectorAll("script, style, nav, footer, header, iframe, noscript").forEach((el) => {
-    el.remove();
-  });
-  const main =
-    doc.querySelector("article, main, .content, #content, .materia, .texto") ??
-    doc.body;
-  const text = (main?.textContent ?? "")
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
+/** Extrai texto legível de HTML sem DOM (compatível com ESM/SSR). */
+export function htmlToPlain(html: string): string {
+  const text = decodeEntities(
+    html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+      .replace(/<(nav|footer|header|iframe|svg)[\s\S]*?<\/\1>/gi, " ")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|h[1-6]|li|tr|section|article)>/gi, "\n")
+      .replace(/<[^>]+>/g, " "),
+  )
     .replace(/\u00a0/g, " ")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -74,7 +88,7 @@ export async function fetchPublicLawText(
     }
 
     const html = await res.text();
-    const text = htmlToPlain(html, res.url);
+    const text = htmlToPlain(html);
     if (text.length < 80) return null;
     return { url: res.url, text };
   } catch (err) {

@@ -48,6 +48,26 @@ function ensureDemoUser() {
   });
 }
 
+function mergeLegacyUsersIntoDb() {
+  try {
+    const legacy = JSON.parse(localStorage.getItem("aprovamind.mockdb") || "null") as {
+      users?: Array<User & { password: string }>;
+    } | null;
+    const legacyUsers = Array.isArray(legacy?.users) ? legacy!.users! : [];
+    if (!legacyUsers.length) return;
+    if (!Array.isArray(db.users)) db.users = [];
+    const emails = new Set(db.users.map((u) => u.email.toLowerCase()));
+    for (const u of legacyUsers) {
+      const email = String(u.email ?? "").toLowerCase();
+      if (!email || emails.has(email)) continue;
+      db.users.push(u);
+      emails.add(email);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 function load() {
   if (loaded || typeof window === "undefined") return;
   loaded = true;
@@ -82,7 +102,10 @@ function load() {
   } catch {
     /* ignore */
   }
+  // Contas criadas no AprovaMind (mesmo browser) voltam a funcionar.
+  mergeLegacyUsersIntoDb();
   ensureDemoUser();
+  persistLocal();
 }
 
 function persistLocal() {
