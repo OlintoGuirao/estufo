@@ -10,16 +10,58 @@ export function userStudyOwnerKey(userId: string): string {
 
 let cachedUserId: string | null = null;
 
+function readUserIdFromJwt(token: string | null | undefined): string | null {
+  if (!token || token.split(".").length < 2) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]!)) as { sub?: unknown };
+    return typeof payload.sub === "string" && payload.sub.trim() ? payload.sub.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 function readCachedCloudUserId(): string | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem("estufoo.cloud-user");
-    if (!raw) return null;
-    const u = JSON.parse(raw) as { id?: unknown };
-    return typeof u?.id === "string" && u.id.trim() ? u.id.trim() : null;
+    if (raw) {
+      const u = JSON.parse(raw) as { id?: unknown };
+      if (typeof u?.id === "string" && u.id.trim()) return u.id.trim();
+    }
   } catch {
-    return null;
+    /* ignore */
   }
+  try {
+    const tok =
+      localStorage.getItem("estufoo.token") ?? sessionStorage.getItem("estufoo.token");
+    const fromApp = readUserIdFromJwt(tok);
+    if (fromApp) return fromApp;
+  } catch {
+    /* ignore */
+  }
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith("sb-") || !k.endsWith("-auth-token")) continue;
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as {
+        user?: { id?: unknown };
+        currentSession?: { user?: { id?: unknown }; access_token?: string };
+        access_token?: string;
+      };
+      const id =
+        (typeof parsed.user?.id === "string" && parsed.user.id) ||
+        (typeof parsed.currentSession?.user?.id === "string" &&
+          parsed.currentSession.user.id) ||
+        readUserIdFromJwt(parsed.access_token) ||
+        readUserIdFromJwt(parsed.currentSession?.access_token);
+      if (id) return id;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 /** Define o usuário autenticado para sync multi-dispositivo (chamar no login / restore). */

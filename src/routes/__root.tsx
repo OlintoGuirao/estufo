@@ -144,12 +144,27 @@ function CloudAuthBootstrap() {
         if (!tokenStore.get()) tokenStore.set(restored.token, { remember: true });
         const { syncCloudUserIntoMock } = await import("@/services/mock/handlers");
         syncCloudUserIntoMock(restored.user);
+        const { setStudyOwnerUserId } = await import("@/lib/study-owner");
+        setStudyOwnerUserId(restored.user.id);
         const { syncAccountStudyData } = await import("@/lib/study-account-sync");
         try {
           await syncAccountStudyData(restored.user.id);
         } catch (err) {
           console.warn("[auth] sync estudo → conta falhou", err);
         }
+
+        const { supabase } = await import("@/lib/supabase");
+        supabase?.auth.onAuthStateChange((_event, session) => {
+          const uid = session?.user?.id ?? null;
+          void import("@/lib/study-owner").then(({ setStudyOwnerUserId: setOwner }) => {
+            setOwner(uid);
+          });
+          if (uid) {
+            void import("@/lib/study-account-sync").then(({ syncAccountStudyData: sync }) => {
+              void sync(uid);
+            });
+          }
+        });
       } catch {
         /* ignore */
       }
