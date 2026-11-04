@@ -133,7 +133,7 @@ const CLAIM_TABLES: ClaimTable[] = [
   { name: "user_reviews" },
   { name: "user_study_sessions" },
   { name: "user_quest_phase_ai" },
-  { name: "user_study_plan", devicePrimary: true },
+  // user_study_plan não existe neste projeto (404) — não reivindicar.
   { name: "user_quest_state", devicePrimary: true },
   { name: "user_question_local_state", devicePrimary: true },
   { name: "user_video_lesson_progress", devicePrimary: true },

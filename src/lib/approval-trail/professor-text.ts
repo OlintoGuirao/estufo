@@ -1,8 +1,3 @@
-import DOMPurify from "isomorphic-dompurify";
-
-const ALLOWED_TAGS = ["p", "br", "strong", "em", "ul", "ol", "li"];
-const ALLOWED_ATTR: string[] = [];
-
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -66,9 +61,7 @@ export function formatProfessorHtml(raw: string): string {
     })
     .join("");
 
-  return DOMPurify.sanitize(blocks, {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-    ALLOW_DATA_ATTR: false,
-  });
+  // Já passou por escapeHtml; só injetamos tags nossas — sem isomorphic-dompurify
+  // (jsdom quebra SSR/ESM com `__dirname is not defined`).
+  return blocks;
 }

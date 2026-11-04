@@ -63,20 +63,31 @@ function trailToRow(trail: ApprovalTrail): TrailRow {
   };
 }
 
-function progressToRow(p: TrailWeekProgress): ProgressRow & { topic_ids: string[] } {
-  return {
+/** false até a migration 012 rodar no projeto Supabase. */
+let progressSupportsActiveModuleIndex: boolean | null = null;
+
+function progressToRow(
+  p: TrailWeekProgress,
+  opts?: { includeActiveModuleIndex?: boolean },
+): ProgressRow & { topic_ids: string[] } {
+  const includeIndex =
+    opts?.includeActiveModuleIndex ?? progressSupportsActiveModuleIndex !== false;
+  const row: ProgressRow & { topic_ids: string[] } = {
     trail_id: p.trailId,
     week: p.week,
     device_id: getStudyOwnerId(),
     status: p.status,
     active_module_id: p.activeModuleId,
-    active_module_index: p.activeModuleIndex ?? null,
     completed_module_ids: p.completedModuleIds,
     practice_answers: p.practiceAnswers,
     chat: p.chat,
     topic_ids: p.topicIds ?? [],
     updated_at: p.updatedAt,
   };
+  if (includeIndex) {
+    row.active_module_index = p.activeModuleIndex ?? null;
+  }
+  return row;
 }
 
 function progressFromRow(row: ProgressRow & { topic_ids?: string[] | null }): TrailWeekProgress {
@@ -187,9 +198,21 @@ export const approvalTrailDb = {
   async upsertProgress(progress: TrailWeekProgress): Promise<void> {
     if (!isSupabaseConfigured) return;
     const sb = requireSupabase();
-    const { error } = await sb.from("trail_week_progress").upsert(progressToRow(progress), {
-      onConflict: "trail_id,week,device_id",
-    });
+    const tryUpsert = async (includeIndex: boolean) =>
+      sb.from("trail_week_progress").upsert(progressToRow(progress, { includeActiveModuleIndex: includeIndex }), {
+        onConflict: "trail_id,week,device_id",
+      });
+
+    let { error } = await tryUpsert(progressSupportsActiveModuleIndex !== false);
+    if (
+      error &&
+      (error.code === "PGRST204" || /active_module_index/i.test(error.message ?? ""))
+    ) {
+      progressSupportsActiveModuleIndex = false;
+      ({ error } = await tryUpsert(false));
+    } else if (!error && progressSupportsActiveModuleIndex == null) {
+      progressSupportsActiveModuleIndex = true;
+    }
     if (error) throw error;
   },
 
