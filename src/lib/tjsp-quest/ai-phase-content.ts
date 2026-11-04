@@ -20,8 +20,26 @@ const BLOCK_KINDS = new Set<QuestLessonBlockKind>([
   "mini-revisao",
 ]);
 
-/** Bump para invalidar cache antigo (aula/edital em vez de questões). */
-export const QUEST_PHASE_AI_CONTENT_VERSION = 2;
+/** Bump para invalidar cache antigo (banco ampliado de português). */
+export const QUEST_PHASE_AI_CONTENT_VERSION = 6;
+
+/** Português: ~50/fase × 6 fases ≈ 300 questões. Demais matérias: pacote padrão. */
+export function getQuestQuestionTargets(subjectId: string): {
+  desafio: number;
+  boss: number;
+} {
+  if (subjectId === "port" || subjectId.startsWith("port")) {
+    // 10 trilhas × 5 questões + 1 chefe por trilha ≈ 60 (meta ~300 na matéria).
+    return { desafio: 50, boss: 10 };
+  }
+  return { desafio: 6, boss: 4 };
+}
+
+/** Tamanho de cada lote na geração (cabe no JSON da IA). */
+export const QUEST_AI_BATCH = { desafio: 8, boss: 2 } as const;
+
+/** Quantas questões caem por sessão de jogo (amostra do banco). */
+export const QUEST_SESSION_SIZE = { desafio: 12, boss: 6 } as const;
 
 export type QuestPhaseAiPayload = {
   lessonBlocks: QuestLessonBlock[];
@@ -39,6 +57,13 @@ export type QuestPhaseAiMeta = {
   sources: { label: string; url?: string }[];
 };
 
+export type QuestPhaseAiBatchOpts = {
+  desafioCount: number;
+  bossCount: number;
+  batchIndex: number;
+  batchTotal: number;
+};
+
 function isPortugueseSubject(subjectId: string, subjectName: string): boolean {
   const id = subjectId.toLowerCase();
   const name = subjectName.toLowerCase();
@@ -50,8 +75,23 @@ function isPortugueseSubject(subjectId: string, subjectName: string): boolean {
   );
 }
 
+export function sampleQuestions<T>(items: T[], n: number): T[] {
+  if (items.length <= n) return items;
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = copy[i]!;
+    copy[i] = copy[j]!;
+    copy[j] = tmp;
+  }
+  return copy.slice(0, n);
+}
+
 /** Prompt: QUESTÕES de prova em 1º plano (não aula/edital). */
-export function buildQuestPhaseAiMessages(meta: QuestPhaseAiMeta): {
+export function buildQuestPhaseAiMessages(
+  meta: QuestPhaseAiMeta,
+  batch?: QuestPhaseAiBatchOpts,
+): {
   role: "system" | "user";
   content: string;
 }[] {
@@ -59,6 +99,12 @@ export function buildQuestPhaseAiMessages(meta: QuestPhaseAiMeta): {
     .map((s) => (s.url ? `- ${s.label} (${s.url})` : `- ${s.label}`))
     .join("\n");
   const isPort = isPortugueseSubject(meta.subjectId, meta.subjectName);
+  const desafioCount = batch?.desafioCount ?? 6;
+  const bossCount = batch?.bossCount ?? 4;
+  const batchLabel =
+    batch && batch.batchTotal > 1
+      ? `Lote ${batch.batchIndex}/${batch.batchTotal}. `
+      : "";
 
   const subjectRules = isPort
     ? [
@@ -66,9 +112,10 @@ export function buildQuestPhaseAiMessages(meta: QuestPhaseAiMeta): {
         "PROIBIDO: perguntar o que o edital lista, quantos itens tem o programa, ou 'conforme o edital'.",
         "OBRIGATORIO nas questoes:",
         "- Interpretacao: texto de apoio curto (3–8 linhas) + pergunta sobre sentido, inferencia, coesao, ponto de vista.",
-        "- Gramatica/ortografia/concordancia/regencia/crase/pontuacao/classes de palavras: enunciado com frase ou trecho concreto.",
+        "- Gramatica/ortografia/concordancia/regencia/colocacao pronominal/crase/pontuacao/classes de palavras: enunciado com frase ou trecho concreto.",
         "- Alternativas testam CONTEUDO de portugues, nao o roteiro do edital.",
-        "Pelo menos 4 das 6 questoes de desafio devem ter texto de apoio no enunciado.",
+        "Varie os temas e os textos de apoio — NAO repita enunciados.",
+        `Pelo menos ${Math.min(4, desafioCount)} questoes de desafio devem ter texto de apoio no enunciado.`,
       ]
     : [
         "MATERIA DE DIREITO / CONHECIMENTOS GERAIS DO CONCURSO.",
@@ -99,7 +146,7 @@ export function buildQuestPhaseAiMessages(meta: QuestPhaseAiMeta): {
         "lessonBlocks: no maximo 3 blocos CURTOS (dica de prova / pegadinha). Todos required=false.",
         "kinds permitidos: prova, memorizar, mini-revisao. NAO gere aula completa (sem contexto/explicacao/base-legal longos).",
         "",
-        "Questoes: 6 desafio (mix facil/media/dificil) + 4 chefao (mais dificeis).",
+        `Questoes neste lote: ${desafioCount} desafio (mix facil/media/dificil) + ${bossCount} chefao (mais dificeis).`,
         "legalBasis = fundamento da resposta (regra gramatical OU artigo/lei), NUNCA 'Edital item X'.",
         "",
         "Responda SOMENTE JSON:",
@@ -117,9 +164,12 @@ export function buildQuestPhaseAiMessages(meta: QuestPhaseAiMeta): {
         "Referencias (contexto interno; nao citar como enunciado):",
         fontes || "(programa TJSP Escrevente — VUNESP)",
         "",
-        isPort
-          ? "Gere 6+4 QUESTOES de PORTUGUES (texto/gramatica). lessonBlocks so 1–3 dicas curtas."
-          : "Gere 6+4 QUESTOES de APLICACAO do tema. lessonBlocks so 1–3 dicas curtas de prova.",
+        `${batchLabel}${
+          isPort
+            ? `Gere EXATAMENTE ${desafioCount} questoes de desafio + ${bossCount} de chefao de PORTUGUES (texto/gramatica), todas distintas.`
+            : `Gere EXATAMENTE ${desafioCount} questoes de desafio + ${bossCount} de chefao de APLICACAO do tema.`
+        }`,
+        "lessonBlocks: 1–3 dicas curtas (so no primeiro lote, se houver varios).",
       ].join("\n"),
     },
   ];
@@ -228,7 +278,7 @@ export function parseQuestPhaseAiJson(raw: string, phaseId: string): QuestPhaseA
   const questions = (Array.isArray(data.questions) ? data.questions : [])
     .map((item, i) => parseQuestion(item, `${phaseId}-q`, i))
     .filter((x): x is QuestQuestion => !!x)
-    .slice(0, 8);
+    .slice(0, 50);
   if (questions.length < 3) {
     throw new Error("Questões VUNESP insuficientes (mínimo 3 com A–E).");
   }
@@ -236,7 +286,7 @@ export function parseQuestPhaseAiJson(raw: string, phaseId: string): QuestPhaseA
   const bossQuestions = (Array.isArray(data.bossQuestions) ? data.bossQuestions : [])
     .map((item, i) => parseQuestion(item, `${phaseId}-boss`, i))
     .filter((x): x is QuestQuestion => !!x)
-    .slice(0, 6);
+    .slice(0, 20);
 
   return {
     lessonBlocks,
@@ -303,60 +353,29 @@ export function mockQuestPhaseAiContent(phase: QuestPhase): QuestPhaseAiPayload 
       boardStyle: "VUNESP",
     });
 
-  const questions = isPort
-    ? [
-        mk(
-          `${phase.id}-ai-q1`,
-          `Leia: "Embora chovesse, a equipe concluiu o serviço."\nO conectivo "Embora" estabelece relação de:`,
-          "A",
-          "facil",
-        ),
-        mk(
-          `${phase.id}-ai-q2`,
-          `No trecho "O projeto atrasou, porém ninguém desistiu", o sentido de "porém" é de:`,
-          "A",
-          "media",
-        ),
-        mk(
-          `${phase.id}-ai-q3`,
-          `Assinale a opção em que a concordância verbal está adequada ao padrão culto:`,
-          "A",
-          "media",
-        ),
-        mk(
-          `${phase.id}-ai-q4`,
-          `Com base no período "Ele se referiu à proposta ontem", o emprego da crase ocorre porque:`,
-          "A",
-          "dificil",
-        ),
-        mk(
-          `${phase.id}-ai-q5`,
-          `Em interpretação, informação literal é aquela que:`,
-          "A",
-          "media",
-        ),
-        mk(
-          `${phase.id}-ai-q6`,
-          `Assinale a alternativa em que a regência do verbo "assistir" (sentido de ver) está correta:`,
-          "A",
-          "facil",
-        ),
-      ]
-    : [
-        mk(`${phase.id}-ai-q1`, `Na aplicação prática de ${topic}, é correto afirmar`, "A", "facil"),
-        mk(`${phase.id}-ai-q2`, `Em hipótese típica envolvendo ${topic}`, "A", "media"),
-        mk(`${phase.id}-ai-q3`, `Assinale a opção correta relativa a ${topic}`, "A", "media"),
-        mk(`${phase.id}-ai-q4`, `Quanto aos efeitos jurídicos de ${topic}`, "A", "dificil"),
-        mk(`${phase.id}-ai-q5`, `Sobre as distinções relevantes em ${topic}`, "A", "media"),
-        mk(`${phase.id}-ai-q6`, `Para fins de prova objetiva VUNESP sobre ${topic}`, "A", "facil"),
-      ];
+  const targets = getQuestQuestionTargets(phase.subjectId);
+  const diffs: QuestQuestion["difficulty"][] = ["facil", "media", "dificil"];
+  const keys: QuestAltKey[] = ["A", "B", "C", "D", "E"];
 
-  const bossQuestions = [
-    mk(`${phase.id}-ai-boss1`, `Chefão — análise avançada de ${topic}`, "A", "dificil"),
-    mk(`${phase.id}-ai-boss2`, `Chefão — pegadinha clássica VUNESP em ${topic}`, "A", "dificil"),
-    mk(`${phase.id}-ai-boss3`, `Chefão — aplicação conjunta em ${topic}`, "A", "dificil"),
-    mk(`${phase.id}-ai-boss4`, `Chefão — distinção fina em ${topic}`, "A", "dificil"),
-  ];
+  const questions: QuestQuestion[] = [];
+  for (let i = 0; i < targets.desafio; i++) {
+    const stem = isPort
+      ? `Trecho ${i + 1} sobre ${topic}: "A equipe concluiu o serviço, embora chovesse." Assinale a leitura correta do período (${i + 1}/${targets.desafio})`
+      : `Na aplicação prática de ${topic} (item ${i + 1}/${targets.desafio}), é correto afirmar`;
+    questions.push(mk(`${phase.id}-ai-q${i + 1}`, stem, keys[i % 5]!, diffs[i % 3]!));
+  }
+
+  const bossQuestions: QuestQuestion[] = [];
+  for (let i = 0; i < targets.boss; i++) {
+    bossQuestions.push(
+      mk(
+        `${phase.id}-ai-boss${i + 1}`,
+        `Chefão ${i + 1} — análise avançada de ${topic}`,
+        keys[(i + 2) % 5]!,
+        "dificil",
+      ),
+    );
+  }
 
   return {
     lessonBlocks,

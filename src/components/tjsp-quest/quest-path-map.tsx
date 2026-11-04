@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Flame, Lock, Sparkles, Star } from "lucide-react";
+import { ChevronRight, Flame, Lock, ShoppingBag, Sparkles, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Deslocamento horizontal do nó na trilha (zigue-zague). */
@@ -19,7 +19,7 @@ export function QuestPathStats({
   xp: number;
 }) {
   return (
-    <div className="mb-4 flex items-center justify-center gap-6 text-sm font-black">
+    <div className="mb-4 flex items-center justify-center gap-5 text-sm font-black">
       <span className="inline-flex items-center gap-1.5 text-[#ff6b35]">
         <Flame className="h-5 w-5 fill-current" aria-hidden />
         {streak}
@@ -28,10 +28,21 @@ export function QuestPathStats({
         <Sparkles className="h-5 w-5" aria-hidden />
         Nv.{level}
       </span>
-      <span className="inline-flex items-center gap-1.5 text-[#4cc9f0]">
+      <Link
+        to="/quest/loja"
+        className="inline-flex items-center gap-1.5 text-[#4cc9f0] transition hover:scale-105"
+        title="Abrir loja"
+      >
         <Star className="h-5 w-5 fill-current" aria-hidden />
         {xp}
-      </span>
+      </Link>
+      <Link
+        to="/quest/loja"
+        className="inline-flex items-center gap-1 text-white/80 transition hover:text-white"
+        aria-label="Loja"
+      >
+        <ShoppingBag className="h-5 w-5" />
+      </Link>
     </div>
   );
 }

@@ -136,35 +136,8 @@ function CloudAuthBootstrap() {
   useEffect(() => {
     void (async () => {
       try {
-        const { authService } = await import("@/services/auth.service");
-        if (!authService.isCloud()) return;
-        const { tokenStore } = await import("@/services/api");
-        const restored = await authService.restoreCloudSession();
-        if (!restored) return;
-        if (!tokenStore.get()) tokenStore.set(restored.token, { remember: true });
-        const { syncCloudUserIntoMock } = await import("@/services/mock/handlers");
-        syncCloudUserIntoMock(restored.user);
-        const { setStudyOwnerUserId } = await import("@/lib/study-owner");
-        setStudyOwnerUserId(restored.user.id);
-        const { syncAccountStudyData } = await import("@/lib/study-account-sync");
-        try {
-          await syncAccountStudyData(restored.user.id);
-        } catch (err) {
-          console.warn("[auth] sync estudo → conta falhou", err);
-        }
-
-        const { supabase } = await import("@/lib/supabase");
-        supabase?.auth.onAuthStateChange((_event, session) => {
-          const uid = session?.user?.id ?? null;
-          void import("@/lib/study-owner").then(({ setStudyOwnerUserId: setOwner }) => {
-            setOwner(uid);
-          });
-          if (uid) {
-            void import("@/lib/study-account-sync").then(({ syncAccountStudyData: sync }) => {
-              void sync(uid);
-            });
-          }
-        });
+        const { ensureAuthReady } = await import("@/lib/auth-session");
+        await ensureAuthReady();
       } catch {
         /* ignore */
       }

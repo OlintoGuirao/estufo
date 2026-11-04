@@ -1,6 +1,7 @@
 import type { ApprovalTrail, TrailWeek } from "@/types/approval-trail";
 import type { StudySchedule, StudyWeekday } from "@/types/study-schedule";
 import type { TrailWeekProgress, TrailWeekStudyStatus } from "@/types/trail-progress";
+import { STUDY_WEEKDAYS } from "@/lib/study-schedule/weekdays";
 
 export type DayTone = "overdue" | "today" | "done" | "upcoming" | "idle";
 
@@ -25,6 +26,11 @@ export type TodayTask = {
   params?: { week: string };
 };
 
+const WEEKDAY_LABELS = [
+  "Domingo",
+  ...STUDY_WEEKDAYS.map((d) => d.label),
+] as const;
+
 function startOfDay(d: Date): Date {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
@@ -37,6 +43,11 @@ export function dateKey(d: Date): string {
   const m = String(x.getMonth() + 1).padStart(2, "0");
   const day = String(x.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+/** Nome do dia civil (Segunda, Terça…) a partir da data real. */
+export function weekdayLabelFromDate(date: Date): string {
+  return WEEKDAY_LABELS[date.getDay()] ?? "Estudo";
 }
 
 /** Primeiro dia de estudo na/após a criação da trilha. */
@@ -52,19 +63,18 @@ export function planStartDate(trail: ApprovalTrail, studyDays: StudyWeekday[]): 
   return d;
 }
 
-function dateForSession(
-  session: TrailWeek,
+/**
+ * N-ésimo dia de estudo a partir do início do plano (0 = planStart).
+ * Usa a ordem real das sessões — não o dayLabel “Segunda/Terça” do edital.
+ */
+export function dateForStudyDayIndex(
+  index: number,
   planStart: Date,
   studyDays: StudyWeekday[],
-): Date | null {
-  if (session.weekday == null) return null;
-  const dayIdx = studyDays.indexOf(session.weekday as StudyWeekday);
-  if (dayIdx < 0) return null;
-  const weekNum = Math.max(1, session.weekNumber ?? 1);
-  const steps = (weekNum - 1) * studyDays.length + dayIdx;
+): Date {
   const d = new Date(planStart);
   let seen = 0;
-  while (seen < steps) {
+  while (seen < index) {
     d.setDate(d.getDate() + 1);
     if (studyDays.includes(d.getDay() as StudyWeekday)) seen += 1;
   }
@@ -80,11 +90,12 @@ export function buildSessionDateMap(
   );
   const start = planStartDate(trail, days);
   const map = new Map<string, TrailWeek>();
-  for (const session of trail.weeks) {
-    const d = dateForSession(session, start, days);
-    if (!d) continue;
+  // Ordem do array = sequência de dias de estudo (evita “Terça” cair na quarta).
+  const ordered = [...trail.weeks].sort((a, b) => a.week - b.week);
+  ordered.forEach((session, index) => {
+    const d = dateForStudyDayIndex(index, start, days);
     map.set(dateKey(d), session);
-  }
+  });
   return map;
 }
 
@@ -209,7 +220,7 @@ export function buildTodayTasks(input: {
 
   if (input.trail?.weeks.length) {
     const sessionMap = buildSessionDateMap(input.trail, input.schedule.studyDays);
-    const overdue: TrailWeek[] = [];
+    const overdue: { session: TrailWeek; date: Date }[] = [];
     let todaySession: TrailWeek | null = null;
 
     for (const [key, session] of sessionMap) {
@@ -217,16 +228,16 @@ export function buildTodayTasks(input: {
       const date = startOfDay(new Date(y!, m! - 1, d!));
       const status = input.progressByWeek.get(session.week)?.status ?? "pendente";
       if (status === "concluida") continue;
-      if (date.getTime() < today.getTime()) overdue.push(session);
+      if (date.getTime() < today.getTime()) overdue.push({ session, date });
       if (date.getTime() === today.getTime()) todaySession = session;
     }
 
-    overdue.sort((a, b) => a.week - b.week);
-    for (const s of overdue) {
+    overdue.sort((a, b) => a.session.week - b.session.week);
+    for (const { session: s, date } of overdue) {
       tasks.push({
         kind: "trail",
         id: `overdue-${s.week}`,
-        title: `Em atraso · ${s.dayLabel ?? `Dia ${s.week}`}`,
+        title: `Em atraso · ${weekdayLabelFromDate(date)}`,
         detail: s.focus,
         tone: "overdue",
         to: "/trilha/semana/$week",
@@ -236,13 +247,14 @@ export function buildTodayTasks(input: {
 
     if (todaySession) {
       const status = input.progressByWeek.get(todaySession.week)?.status ?? "pendente";
+      const todayLabel = weekdayLabelFromDate(today);
       tasks.push({
         kind: "trail",
         id: `today-${todaySession.week}`,
         title:
           status === "concluida"
-            ? `Hoje · ${todaySession.dayLabel ?? "Estudo"} (concluído)`
-            : `Hoje · ${todaySession.dayLabel ?? "Estudo"}`,
+            ? `Hoje · ${todayLabel} (concluído)`
+            : `Hoje · ${todayLabel}`,
         detail: todaySession.focus,
         tone: status === "concluida" ? "done" : "today",
         to: "/trilha/semana/$week",

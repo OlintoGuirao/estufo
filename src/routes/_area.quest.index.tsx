@@ -9,7 +9,9 @@ import {
   Monitor,
   PenLine,
   Scale,
+  ShoppingBag,
   Sparkles,
+  Star,
   Swords,
   Trophy,
 } from "lucide-react";
@@ -63,6 +65,25 @@ function QuestHome() {
         <QuestStatPill label="XP" value={player.xp} accent="#00b4d8" />
         <QuestStatPill label="Streak" value={`${player.streakDays}d`} accent="#ef476f" />
         <QuestStatPill label="Revisões" value={pending.length} accent="#06d6a0" />
+      </div>
+
+      <div className="mb-5">
+        <Button
+          asChild
+          className="h-12 w-full rounded-2xl bg-gradient-to-r from-[#4cc9f0] to-[#0077b6] text-base font-black text-white hover:opacity-95"
+        >
+          <Link to="/quest/loja">
+            <ShoppingBag className="h-5 w-5" />
+            Loja
+            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-black/20 px-2.5 py-0.5 text-sm">
+              <Star className="h-3.5 w-3.5 fill-current" />
+              {player.xp}
+            </span>
+          </Link>
+        </Button>
+        <p className="mt-1.5 text-center text-[11px] text-white/65">
+          Personagens, skins, ajudas e vidas com o XP das fases
+        </p>
       </div>
 
       <QuestCard className="mb-5 overflow-hidden bg-gradient-to-br from-[#ff9f1c] to-[#e85d04] text-white">

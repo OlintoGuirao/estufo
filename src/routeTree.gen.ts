@@ -34,6 +34,7 @@ import { Route as AreaImportacaoIdRouteImport } from './routes/_area.importacao.
 import { Route as AreaMapasIndexRouteImport } from './routes/_area.mapas.index'
 import { Route as AreaMapasIdRouteImport } from './routes/_area.mapas.$id'
 import { Route as AreaQuestIndexRouteImport } from './routes/_area.quest.index'
+import { Route as AreaQuestLojaRouteImport } from './routes/_area.quest.loja'
 import { Route as AreaQuestRevisaoRouteImport } from './routes/_area.quest.revisao'
 import { Route as AreaRedacaoIndexRouteImport } from './routes/_area.redacao.index'
 import { Route as AreaRedacaoEssayIdRouteImport } from './routes/_area.redacao.$essayId'
@@ -51,6 +52,7 @@ import { Route as AreaQuestFasePhaseIdAulaRouteImport } from './routes/_area.que
 import { Route as AreaQuestFasePhaseIdChefaoRouteImport } from './routes/_area.quest.fase.$phaseId.chefao'
 import { Route as AreaQuestFasePhaseIdDesafioRouteImport } from './routes/_area.quest.fase.$phaseId.desafio'
 import { Route as AreaQuestFasePhaseIdResultadoRouteImport } from './routes/_area.quest.fase.$phaseId.resultado'
+import { Route as AreaQuestFasePhaseIdTrilhaStageRouteImport } from './routes/_area.quest.fase.$phaseId.trilha.$stage'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -176,6 +178,11 @@ const AreaQuestIndexRoute = AreaQuestIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AreaQuestRoute,
 } as any)
+const AreaQuestLojaRoute = AreaQuestLojaRouteImport.update({
+  id: '/loja',
+  path: '/loja',
+  getParentRoute: () => AreaQuestRoute,
+} as any)
 const AreaQuestRevisaoRoute = AreaQuestRevisaoRouteImport.update({
   id: '/revisao',
   path: '/revisao',
@@ -268,6 +275,12 @@ const AreaQuestFasePhaseIdResultadoRoute =
     path: '/resultado',
     getParentRoute: () => AreaQuestFasePhaseIdRoute,
   } as any)
+const AreaQuestFasePhaseIdTrilhaStageRoute =
+  AreaQuestFasePhaseIdTrilhaStageRouteImport.update({
+    id: '/trilha/$stage',
+    path: '/trilha/$stage',
+    getParentRoute: () => AreaQuestFasePhaseIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -291,6 +304,7 @@ export interface FileRoutesByFullPath {
   '/video-aulas': typeof AreaVideoAulasRouteWithChildren
   '/importacao/$id': typeof AreaImportacaoIdRoute
   '/mapas/$id': typeof AreaMapasIdRoute
+  '/quest/loja': typeof AreaQuestLojaRoute
   '/quest/revisao': typeof AreaQuestRevisaoRoute
   '/redacao/$essayId': typeof AreaRedacaoEssayIdRoute
   '/video-aulas/$subjectId': typeof AreaVideoAulasSubjectIdRoute
@@ -311,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/quest/fase/$phaseId/desafio': typeof AreaQuestFasePhaseIdDesafioRoute
   '/quest/fase/$phaseId/resultado': typeof AreaQuestFasePhaseIdResultadoRoute
   '/quest/fase/$phaseId/': typeof AreaQuestFasePhaseIdIndexRoute
+  '/quest/fase/$phaseId/trilha/$stage': typeof AreaQuestFasePhaseIdTrilhaStageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -330,6 +345,7 @@ export interface FileRoutesByTo {
   '/tutor': typeof AreaTutorRoute
   '/importacao/$id': typeof AreaImportacaoIdRoute
   '/mapas/$id': typeof AreaMapasIdRoute
+  '/quest/loja': typeof AreaQuestLojaRoute
   '/quest/revisao': typeof AreaQuestRevisaoRoute
   '/redacao/$essayId': typeof AreaRedacaoEssayIdRoute
   '/video-aulas/$subjectId': typeof AreaVideoAulasSubjectIdRoute
@@ -349,6 +365,7 @@ export interface FileRoutesByTo {
   '/quest/fase/$phaseId/desafio': typeof AreaQuestFasePhaseIdDesafioRoute
   '/quest/fase/$phaseId/resultado': typeof AreaQuestFasePhaseIdResultadoRoute
   '/quest/fase/$phaseId': typeof AreaQuestFasePhaseIdIndexRoute
+  '/quest/fase/$phaseId/trilha/$stage': typeof AreaQuestFasePhaseIdTrilhaStageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -374,6 +391,7 @@ export interface FileRoutesById {
   '/_area/video-aulas': typeof AreaVideoAulasRouteWithChildren
   '/_area/importacao/$id': typeof AreaImportacaoIdRoute
   '/_area/mapas/$id': typeof AreaMapasIdRoute
+  '/_area/quest/loja': typeof AreaQuestLojaRoute
   '/_area/quest/revisao': typeof AreaQuestRevisaoRoute
   '/_area/redacao/$essayId': typeof AreaRedacaoEssayIdRoute
   '/_area/video-aulas/$subjectId': typeof AreaVideoAulasSubjectIdRoute
@@ -394,6 +412,7 @@ export interface FileRoutesById {
   '/_area/quest/fase/$phaseId/desafio': typeof AreaQuestFasePhaseIdDesafioRoute
   '/_area/quest/fase/$phaseId/resultado': typeof AreaQuestFasePhaseIdResultadoRoute
   '/_area/quest/fase/$phaseId/': typeof AreaQuestFasePhaseIdIndexRoute
+  '/_area/quest/fase/$phaseId/trilha/$stage': typeof AreaQuestFasePhaseIdTrilhaStageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -419,6 +438,7 @@ export interface FileRouteTypes {
     | '/video-aulas'
     | '/importacao/$id'
     | '/mapas/$id'
+    | '/quest/loja'
     | '/quest/revisao'
     | '/redacao/$essayId'
     | '/video-aulas/$subjectId'
@@ -439,6 +459,7 @@ export interface FileRouteTypes {
     | '/quest/fase/$phaseId/desafio'
     | '/quest/fase/$phaseId/resultado'
     | '/quest/fase/$phaseId/'
+    | '/quest/fase/$phaseId/trilha/$stage'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -458,6 +479,7 @@ export interface FileRouteTypes {
     | '/tutor'
     | '/importacao/$id'
     | '/mapas/$id'
+    | '/quest/loja'
     | '/quest/revisao'
     | '/redacao/$essayId'
     | '/video-aulas/$subjectId'
@@ -477,6 +499,7 @@ export interface FileRouteTypes {
     | '/quest/fase/$phaseId/desafio'
     | '/quest/fase/$phaseId/resultado'
     | '/quest/fase/$phaseId'
+    | '/quest/fase/$phaseId/trilha/$stage'
   id:
     | '__root__'
     | '/'
@@ -501,6 +524,7 @@ export interface FileRouteTypes {
     | '/_area/video-aulas'
     | '/_area/importacao/$id'
     | '/_area/mapas/$id'
+    | '/_area/quest/loja'
     | '/_area/quest/revisao'
     | '/_area/redacao/$essayId'
     | '/_area/video-aulas/$subjectId'
@@ -521,6 +545,7 @@ export interface FileRouteTypes {
     | '/_area/quest/fase/$phaseId/desafio'
     | '/_area/quest/fase/$phaseId/resultado'
     | '/_area/quest/fase/$phaseId/'
+    | '/_area/quest/fase/$phaseId/trilha/$stage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -709,6 +734,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AreaQuestIndexRouteImport
       parentRoute: typeof AreaQuestRoute
     }
+    '/_area/quest/loja': {
+      id: '/_area/quest/loja'
+      path: '/loja'
+      fullPath: '/quest/loja'
+      preLoaderRoute: typeof AreaQuestLojaRouteImport
+      parentRoute: typeof AreaQuestRoute
+    }
     '/_area/quest/revisao': {
       id: '/_area/quest/revisao'
       path: '/revisao'
@@ -828,6 +860,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AreaQuestFasePhaseIdResultadoRouteImport
       parentRoute: typeof AreaQuestFasePhaseIdRoute
     }
+    '/_area/quest/fase/$phaseId/trilha/$stage': {
+      id: '/_area/quest/fase/$phaseId/trilha/$stage'
+      path: '/trilha/$stage'
+      fullPath: '/quest/fase/$phaseId/trilha/$stage'
+      preLoaderRoute: typeof AreaQuestFasePhaseIdTrilhaStageRouteImport
+      parentRoute: typeof AreaQuestFasePhaseIdRoute
+    }
   }
 }
 
@@ -837,6 +876,7 @@ interface AreaQuestFasePhaseIdRouteChildren {
   AreaQuestFasePhaseIdDesafioRoute: typeof AreaQuestFasePhaseIdDesafioRoute
   AreaQuestFasePhaseIdResultadoRoute: typeof AreaQuestFasePhaseIdResultadoRoute
   AreaQuestFasePhaseIdIndexRoute: typeof AreaQuestFasePhaseIdIndexRoute
+  AreaQuestFasePhaseIdTrilhaStageRoute: typeof AreaQuestFasePhaseIdTrilhaStageRoute
 }
 
 const AreaQuestFasePhaseIdRouteChildren: AreaQuestFasePhaseIdRouteChildren = {
@@ -845,12 +885,14 @@ const AreaQuestFasePhaseIdRouteChildren: AreaQuestFasePhaseIdRouteChildren = {
   AreaQuestFasePhaseIdDesafioRoute: AreaQuestFasePhaseIdDesafioRoute,
   AreaQuestFasePhaseIdResultadoRoute: AreaQuestFasePhaseIdResultadoRoute,
   AreaQuestFasePhaseIdIndexRoute: AreaQuestFasePhaseIdIndexRoute,
+  AreaQuestFasePhaseIdTrilhaStageRoute: AreaQuestFasePhaseIdTrilhaStageRoute,
 }
 
 const AreaQuestFasePhaseIdRouteWithChildren =
   AreaQuestFasePhaseIdRoute._addFileChildren(AreaQuestFasePhaseIdRouteChildren)
 
 interface AreaQuestRouteChildren {
+  AreaQuestLojaRoute: typeof AreaQuestLojaRoute
   AreaQuestRevisaoRoute: typeof AreaQuestRevisaoRoute
   AreaQuestIndexRoute: typeof AreaQuestIndexRoute
   AreaQuestFasePhaseIdRoute: typeof AreaQuestFasePhaseIdRouteWithChildren
@@ -858,6 +900,7 @@ interface AreaQuestRouteChildren {
 }
 
 const AreaQuestRouteChildren: AreaQuestRouteChildren = {
+  AreaQuestLojaRoute: AreaQuestLojaRoute,
   AreaQuestRevisaoRoute: AreaQuestRevisaoRoute,
   AreaQuestIndexRoute: AreaQuestIndexRoute,
   AreaQuestFasePhaseIdRoute: AreaQuestFasePhaseIdRouteWithChildren,

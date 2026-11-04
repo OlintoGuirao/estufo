@@ -100,6 +100,21 @@ export type QuestPhaseProgress = {
   unlocked: boolean;
   completed: boolean;
   lastPlayedAt?: string;
+  /** Quantas etapas da trilha interna (0–10) já foram concluídas. */
+  trailCompletedCount?: number;
+  /** Melhor % por índice de etapa (0–9). */
+  trailStageBestPct?: number[];
+};
+
+export type QuestShopHelpKind = "eliminate" | "tip" | "fifty";
+
+export type QuestShopInventory = {
+  ownedCharacterIds: string[];
+  ownedSkinIds: string[];
+  equippedCharacterId: string;
+  equippedSkinId: string;
+  helps: Record<QuestShopHelpKind, number>;
+  lives: number;
 };
 
 export type QuestPlayerState = {
@@ -113,6 +128,7 @@ export type QuestPlayerState = {
   attempts: QuestAttempt[];
   reviews: QuestReviewItem[];
   achievements: string[];
+  shop: QuestShopInventory;
   updatedAt: string;
 };
 

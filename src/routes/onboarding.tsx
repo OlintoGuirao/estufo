@@ -14,8 +14,10 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
-  beforeLoad: () => {
-    if (!tokenStore.get()) throw redirect({ to: "/login" });
+  beforeLoad: async () => {
+    const { ensureAuthReady } = await import("@/lib/auth-session");
+    const ok = await ensureAuthReady();
+    if (!ok && !tokenStore.get()) throw redirect({ to: "/login" });
   },
   head: () => ({
     meta: [

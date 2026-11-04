@@ -43,11 +43,19 @@ export const questPhaseAiService = {
     const base = getQuestPhase(phaseId);
     if (!base) throw new ApiError("Fase não encontrada.", 404);
 
-    if (!opts?.force) {
-      const hit = this.peekCached(phaseId);
-      if (hit) return hit;
+    if (opts?.force) {
+      await questPhaseAiStore.clear(phaseId);
     } else {
-      questPhaseAiStore.clear(phaseId);
+      const fromDb = await questPhaseAiStore.loadPhase(phaseId);
+      if (fromDb) {
+        return {
+          phase: mergePhaseWithAi(base, fromDb.content),
+          content: fromDb.content,
+          model: fromDb.model,
+          mocked: fromDb.mocked,
+          fromCache: true,
+        };
+      }
     }
 
     const subject = getQuestSubject(base.subjectId);
@@ -65,13 +73,20 @@ export const questPhaseAiService = {
         },
       });
 
-      questPhaseAiStore.set({
+      const entry = {
         phaseId: base.id,
         content: r.content,
         model: r.model,
         mocked: r.mocked,
         savedAt: new Date().toISOString(),
-      });
+      };
+
+      try {
+        await questPhaseAiStore.set(entry);
+      } catch (saveErr) {
+        console.warn("[quest-phase-ai] gerou mas não gravou no banco", saveErr);
+        // Ainda devolve o conteúdo nesta sessão; próximo device regenera se o save falhar.
+      }
 
       return {
         phase: mergePhaseWithAi(base, r.content),

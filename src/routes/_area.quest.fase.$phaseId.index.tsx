@@ -1,13 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import {
-  BookOpen,
-  Check,
-  Crown,
-  Loader2,
-  Sparkles,
-  Swords,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Check, Crown, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { QuestCard, QuestShell } from "@/components/tjsp-quest/quest-shell";
@@ -19,8 +11,19 @@ import {
   pathOffsetX,
   type PathNodeStatus,
 } from "@/components/tjsp-quest/quest-path-map";
-import { getQuestPhase, getQuestSubject } from "@/data/tjsp-quest-catalog";
+import {
+  getQuestPhase,
+  getQuestSubject,
+} from "@/data/tjsp-quest-catalog";
 import { canStartChallenge, levelProgress } from "@/lib/tjsp-quest/progress";
+import {
+  isTrailStageCompleted,
+  isTrailStageUnlocked,
+  normalizeTrailProgress,
+  PHASE_TRAIL,
+  phaseUsesInnerTrail,
+  trailStageCount,
+} from "@/lib/tjsp-quest/phase-trail";
 import { useQuestPhaseContent } from "@/hooks/use-quest-phase-content";
 import { useTjspQuest } from "@/hooks/use-tjsp-quest";
 
@@ -28,16 +31,9 @@ export const Route = createFileRoute("/_area/quest/fase/$phaseId/")({
   component: PhaseHub,
 });
 
-type PathStep = {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  status: PathNodeStatus;
-  to?: string;
-};
-
 function PhaseHub() {
   const { phaseId } = Route.useParams();
+  const nav = useNavigate();
   const catalogPhase = getQuestPhase(phaseId);
   const {
     phase: aiPhase,
@@ -51,6 +47,10 @@ function PhaseHub() {
   const prog = phase ? player.phases[phase.id] : undefined;
   const challengeOk = phase ? canStartChallenge(player, phase) : false;
   const lp = levelProgress(player.xp);
+  const usesTrail = phase ? phaseUsesInnerTrail(phase) : false;
+  const stages = phase && usesTrail ? trailStageCount(phase) : 0;
+  const trailProg = normalizeTrailProgress(prog);
+  const continueStage = Math.min(trailProg.completedCount, Math.max(0, stages - 1));
 
   if (!phase || !subject) {
     return (
@@ -73,34 +73,6 @@ function PhaseHub() {
     );
   }
 
-  const lessonDone = prog.lessonDone;
-  const desafioDone = prog.desafioBestPct > 0;
-  const chefaoDone = prog.completed;
-
-  const nodes: PathStep[] = [
-    {
-      id: "desafio",
-      label: "Questões",
-      icon: Swords,
-      status: !challengeOk ? "locked" : desafioDone ? "done" : "available",
-      ...(challengeOk ? { to: "/quest/fase/$phaseId/desafio" } : {}),
-    },
-    {
-      id: "chefao",
-      label: "Chefão",
-      icon: Crown,
-      status: !challengeOk ? "locked" : chefaoDone ? "boss-done" : "boss",
-      ...(challengeOk ? { to: "/quest/fase/$phaseId/chefao" } : {}),
-    },
-    {
-      id: "dicas",
-      label: "Dicas (opcional)",
-      icon: BookOpen,
-      status: lessonDone ? "done" : "available",
-      to: "/quest/fase/$phaseId/aula",
-    },
-  ];
-
   return (
     <QuestShell backTo={`/quest/materia/${subject.id}`} className="!pb-4">
       <QuestPathStats streak={player.streakDays} level={lp.level} xp={player.xp} />
@@ -109,14 +81,42 @@ function PhaseHub() {
         <QuestModuleHeader
           eyebrow={subject.name}
           title={`${phase.number}. ${phase.title}`}
-          to="/quest/fase/$phaseId/desafio"
-          params={{ phaseId }}
+          {...(challengeOk && usesTrail
+            ? {
+                to: "/quest/fase/$phaseId/trilha/$stage",
+                params: { phaseId, stage: String(continueStage) },
+              }
+            : challengeOk
+              ? { to: "/quest/fase/$phaseId/desafio", params: { phaseId } }
+              : {})}
           accent={subject.color}
         />
+        <p className="mt-2 text-center text-[11px] font-semibold text-white/70">
+          {usesTrail
+            ? `${stages} trilhas · ${PHASE_TRAIL.questionsPerStage} questões + chefe cada · banco ${phase.questions.length + phase.bossQuestions.length}`
+            : `Banco: ${phase.questions.length + phase.bossQuestions.length} questões`}
+        </p>
         <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-          <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold text-[#ff9f1c]">
-            Questões VUNESP (A–E) · aula opcional
-          </span>
+          {challengeOk && (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 rounded-full bg-[#e85d04] text-xs font-bold text-white hover:bg-[#d00000]"
+              disabled={loading}
+              onClick={() => {
+                if (usesTrail) {
+                  void nav({
+                    to: "/quest/fase/$phaseId/trilha/$stage",
+                    params: { phaseId, stage: String(continueStage) },
+                  });
+                } else {
+                  void nav({ to: "/quest/fase/$phaseId/desafio", params: { phaseId } });
+                }
+              }}
+            >
+              {usesTrail ? `Continuar trilha ${continueStage + 1}` : "Começar fase"}
+            </Button>
+          )}
           {mocked && (
             <span className="rounded-full bg-amber-500/20 px-2.5 py-1 text-[11px] font-bold text-amber-200">
               Mock
@@ -138,27 +138,86 @@ function PhaseHub() {
             ) : (
               <Sparkles className="h-3.5 w-3.5" />
             )}
-            Regenerar questões
+            Regenerar
           </Button>
         </div>
+        {loading && (
+          <p className="mt-2 text-center text-xs text-white/60">Montando banco da fase…</p>
+        )}
       </div>
 
-      <QuestPathTrail>
-        {nodes.map((n, i) => {
-          const Icon = n.icon;
-          const showCheck = n.status === "done";
-          return (
-            <QuestPathNode
-              key={n.id}
-              icon={showCheck ? <Check strokeWidth={3} /> : <Icon />}
-              label={n.label}
-              status={n.status}
-              {...(n.to ? { to: n.to, params: { phaseId } } : {})}
-              offsetX={pathOffsetX(i)}
-            />
-          );
-        })}
-      </QuestPathTrail>
+      {usesTrail ? (
+        <QuestPathTrail>
+          {Array.from({ length: stages }, (_, i) => {
+            const unlocked = isTrailStageUnlocked(prog, i);
+            const completed = isTrailStageCompleted(prog, i);
+            const isLast = i === stages - 1;
+            const isCurrent = unlocked && !completed && i === trailProg.completedCount;
+
+            let status: PathNodeStatus = "locked";
+            if (isLast) {
+              status = completed ? "boss-done" : unlocked ? "boss" : "locked";
+            } else if (completed) {
+              status = "done";
+            } else if (unlocked) {
+              status = "available";
+            }
+
+            return (
+              <QuestPathNode
+                key={`trail-${i}`}
+                icon={
+                  completed && !isLast ? (
+                    <Check strokeWidth={3} />
+                  ) : isLast ? (
+                    <Crown strokeWidth={2.5} />
+                  ) : (
+                    <span className="text-2xl font-black tabular-nums leading-none">{i + 1}</span>
+                  )
+                }
+                label={isLast ? "Chefão" : String(i + 1)}
+                status={status}
+                {...(unlocked
+                  ? {
+                      to: "/quest/fase/$phaseId/trilha/$stage",
+                      params: { phaseId, stage: String(i) },
+                    }
+                  : {})}
+                offsetX={pathOffsetX(i)}
+                className={
+                  isCurrent
+                    ? "ring-2 ring-[#ffd60a] ring-offset-2 ring-offset-[#0b1020] rounded-3xl"
+                    : undefined
+                }
+              />
+            );
+          })}
+        </QuestPathTrail>
+      ) : (
+        <QuestCard className="bg-white/95 text-sm text-muted-foreground">
+          Esta fase ainda usa o modo clássico (desafio + chefão). Gere o banco ou abra uma fase de
+          Português para a trilha de 10 etapas.
+          <div className="mt-3 flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="rounded-full"
+              onClick={() => void nav({ to: "/quest/fase/$phaseId/desafio", params: { phaseId } })}
+            >
+              Desafio
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="rounded-full"
+              onClick={() => void nav({ to: "/quest/fase/$phaseId/chefao", params: { phaseId } })}
+            >
+              Chefão
+            </Button>
+          </div>
+        </QuestCard>
+      )}
     </QuestShell>
   );
 }

@@ -8,6 +8,18 @@ async function throwTutorError(err: unknown): Promise<never> {
   throw new OllamaError("upstream", msg, 503);
 }
 
+function dedupeQuestions<T extends { id: string; statement: string }>(list: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const q of list) {
+    const key = q.statement.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 160);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(q);
+  }
+  return out;
+}
+
 /** Gera aula + questões padrão VUNESP (A–E) para uma fase do /quest. */
 export const generateQuestPhaseContent = createServerFn({ method: "POST" })
   .validator(
@@ -25,20 +37,27 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
+      const ai = await import("@/lib/tjsp-quest/ai-phase-content");
       const {
         buildQuestPhaseAiMessages,
+        getQuestQuestionTargets,
         mockQuestPhaseAiContent,
         parseQuestPhaseAiJson,
-      } = await import("@/lib/tjsp-quest/ai-phase-content");
+        QUEST_AI_BATCH,
+      } = ai;
+      type QuestPhaseAiPayload = ai.QuestPhaseAiPayload;
       const { getQuestPhase } = await import("@/data/tjsp-quest-catalog");
       const { tutorChat } = await import("@/server/tutor-llm");
 
       const base = getQuestPhase(data.phaseId);
+      const subjectId = base?.subjectId ?? data.phaseId.split("-")[0] ?? "geral";
+      const targets = getQuestQuestionTargets(subjectId);
+
       const mockPayload = base
         ? mockQuestPhaseAiContent(base)
         : mockQuestPhaseAiContent({
             id: data.phaseId,
-            subjectId: "x",
+            subjectId,
             number: 1,
             title: data.title,
             objective: data.objective,
@@ -53,29 +72,111 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
             bossPassPct: 80,
           });
 
-      const result = await tutorChat(
-        buildQuestPhaseAiMessages({
-          phaseId: data.phaseId,
-          subjectId: base?.subjectId ?? data.phaseId.split("-")[0] ?? "geral",
-          subjectName: data.subjectName,
-          title: data.title,
-          objective: data.objective,
-          sources: data.sources,
-        }),
-        { mockText: JSON.stringify(mockPayload) },
+      const meta = {
+        phaseId: data.phaseId,
+        subjectId,
+        subjectName: data.subjectName,
+        title: data.title,
+        objective: data.objective,
+        sources: data.sources,
+      };
+
+      const batchTotal = Math.max(
+        1,
+        Math.ceil(targets.desafio / QUEST_AI_BATCH.desafio),
+        Math.ceil(targets.boss / QUEST_AI_BATCH.boss),
       );
 
-      let payload;
-      try {
-        payload = parseQuestPhaseAiJson(result.text, data.phaseId);
-      } catch {
-        payload = mockPayload;
+      let merged: QuestPhaseAiPayload = {
+        lessonBlocks: [],
+        questions: [],
+        bossQuestions: [],
+      };
+      let model = "mock";
+      let mocked = true;
+
+      for (let i = 0; i < batchTotal; i++) {
+        const needDesafio = Math.min(
+          QUEST_AI_BATCH.desafio,
+          Math.max(0, targets.desafio - merged.questions.length),
+        );
+        const needBoss = Math.min(
+          QUEST_AI_BATCH.boss,
+          Math.max(0, targets.boss - merged.bossQuestions.length),
+        );
+        if (needDesafio <= 0 && needBoss <= 0) break;
+
+        const result = await tutorChat(
+          buildQuestPhaseAiMessages(meta, {
+            desafioCount: needDesafio > 0 ? needDesafio : needBoss > 0 ? 0 : 3,
+            bossCount: needBoss,
+            batchIndex: i + 1,
+            batchTotal,
+          }),
+          {
+            mockText: JSON.stringify({
+              lessonBlocks: i === 0 ? mockPayload.lessonBlocks : [],
+              questions: mockPayload.questions.slice(
+                i * QUEST_AI_BATCH.desafio,
+                i * QUEST_AI_BATCH.desafio + needDesafio,
+              ),
+              bossQuestions: mockPayload.bossQuestions.slice(
+                i * QUEST_AI_BATCH.boss,
+                i * QUEST_AI_BATCH.boss + needBoss,
+              ),
+            }),
+          },
+        );
+
+        model = result.model;
+        mocked = !!result.mocked;
+
+        let payload: QuestPhaseAiPayload;
+        try {
+          payload = parseQuestPhaseAiJson(result.text, `${data.phaseId}-b${i + 1}`);
+        } catch {
+          payload = {
+            lessonBlocks: i === 0 ? mockPayload.lessonBlocks : [],
+            questions: mockPayload.questions.slice(
+              i * QUEST_AI_BATCH.desafio,
+              i * QUEST_AI_BATCH.desafio + Math.max(needDesafio, 3),
+            ),
+            bossQuestions: mockPayload.bossQuestions.slice(
+              i * QUEST_AI_BATCH.boss,
+              i * QUEST_AI_BATCH.boss + Math.max(needBoss, 2),
+            ),
+            contentVersion: mockPayload.contentVersion,
+          };
+        }
+
+        if (i === 0 && payload.lessonBlocks.length) {
+          merged.lessonBlocks = payload.lessonBlocks;
+        }
+        merged.questions = dedupeQuestions([...merged.questions, ...payload.questions]);
+        merged.bossQuestions = dedupeQuestions([
+          ...merged.bossQuestions,
+          ...payload.bossQuestions,
+        ]);
+      }
+
+      if (merged.questions.length < 3) {
+        merged = mockPayload;
+      } else {
+        merged.questions = merged.questions.slice(0, targets.desafio);
+        merged.bossQuestions = (
+          merged.bossQuestions.length >= 2
+            ? merged.bossQuestions
+            : merged.questions.slice(0, targets.boss)
+        ).slice(0, targets.boss);
+        if (!merged.lessonBlocks.length) {
+          merged.lessonBlocks = mockPayload.lessonBlocks;
+        }
       }
 
       return {
-        content: payload,
-        model: result.model,
-        mocked: !!result.mocked,
+        content: merged,
+        model,
+        mocked,
       };
     } catch (err) {
       return await throwTutorError(err);

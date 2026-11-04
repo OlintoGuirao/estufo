@@ -5,6 +5,7 @@ import type {
   TrailWeekLesson,
 } from "@/types/trail-week-lesson";
 import { normalizeProfessorPlainText } from "./professor-text";
+import { polishPracticeStatement } from "./question-quality";
 
 function uid(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -68,16 +69,22 @@ function parseQuestions(
   if (!Array.isArray(raw)) return [];
   const out: TrailLessonPracticeQuestion[] = [];
   for (const q of raw) {
-    const statement = String(q.statement ?? "").trim();
+    let statement = normalizeProfessorPlainText(String(q.statement ?? ""));
     if (!statement) continue;
     const alts = (q.alternatives ?? [])
       .map((a) => ({
         key: String(a.key ?? "").toUpperCase(),
-        text: String(a.text ?? "").trim(),
+        text: normalizeProfessorPlainText(String(a.text ?? "")),
       }))
       .filter((a) => KEYS.has(a.key) && a.text)
       .slice(0, 4) as { key: "A" | "B" | "C" | "D"; text: string }[];
     if (alts.length < 2) continue;
+    const explanation =
+      normalizeProfessorPlainText(String(q.explanation ?? "")) ||
+      "Revise com o professor a base indicada.";
+    const polished = polishPracticeStatement(statement, alts, explanation);
+    if (!polished.accept) continue;
+    statement = polished.statement;
     let correctKey = String(q.correctKey ?? "").toUpperCase();
     if (!KEYS.has(correctKey) || !alts.some((a) => a.key === correctKey)) {
       correctKey = alts[0]!.key;
@@ -88,9 +95,7 @@ function parseQuestions(
       statement,
       alternatives: shuffled.alternatives,
       correctKey: shuffled.correctKey,
-      explanation:
-        normalizeProfessorPlainText(String(q.explanation ?? "")) ||
-        "Revise com o professor a base indicada.",
+      explanation,
       legalBasis:
         normalizeProfessorPlainText(String(q.legalBasis ?? "")) ||
         "Conforme edital / legislação da aula.",
@@ -314,9 +319,19 @@ ANTI-VÍCIO NAS QUESTÕES (obrigatório):
 - Todas as alternativas A–D devem ter tamanho parecido (variação máxima ~20 caracteres).
 - Distratores plausíveis, no nível da banca.
 
+QUALIDADE DO ENUNCIADO (Português / interpretação — obrigatório):
+- NUNCA diga "termo destacado", "palavra destacada" ou "trecho destacado" sem marcar o alvo com «assim» dentro do trecho.
+  Certo: No trecho 'O réu confessou o crime, «contudo» manteve dúvidas', o termo destacado…
+  Errado: citar o trecho sem «marcar» o termo.
+- Se o comando for "Assinale a alternativa em que…", as alternativas DEVEM ser períodos/contextos completos (frases), nunca rótulos meta ("Muda para concessão", "Altera para causa").
+- Se quiser cobrar o EFEITO da troca (ex.: Portanto → Porquanto), o comando deve ser direto:
+  "A substituição de «portanto» por «porquanto» no período altera o sentido para:" e aí sim alternativas curtas de relação semântica.
+- Não misture os dois formatos. Não peça "mantém o sentido original" se a troca muda o sentido.
+- Conectivos: cada alternativa deve ser um exemplo claro e distinto (causa ≠ condição ≠ concessão ≠ consequência).
+
 ESTILO:
 - Português claro, 1ª pessoa, frases curtas.
-- PROIBIDO markdown (*, **, _, #, backticks).
+- PROIBIDO markdown (*, **, _, #, backticks). Para destaque use «termo».
 - Não invente artigos/leis.
 
 Responda APENAS JSON:

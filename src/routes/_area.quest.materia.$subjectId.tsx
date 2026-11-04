@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BookOpen, Check, Crown, Scale, Swords } from "lucide-react";
+import { Check, Crown } from "lucide-react";
 import { QuestCard, QuestShell } from "@/components/tjsp-quest/quest-shell";
 import {
   QuestModuleHeader,
@@ -16,8 +16,6 @@ import { useTjspQuest } from "@/hooks/use-tjsp-quest";
 export const Route = createFileRoute("/_area/quest/materia/$subjectId")({
   component: SubjectMap,
 });
-
-const PHASE_ICONS = [BookOpen, Scale, Swords, BookOpen, Scale] as const;
 
 function SubjectMap() {
   const { subjectId } = Route.useParams();
@@ -67,7 +65,6 @@ function SubjectMap() {
           const unlocked = prog?.unlocked ?? false;
           const completed = prog?.completed ?? false;
           const isLast = i === phases.length - 1;
-          const Icon = isLast ? Crown : PHASE_ICONS[i % PHASE_ICONS.length]!;
 
           let status: PathNodeStatus = "locked";
           if (isLast) {
@@ -81,8 +78,16 @@ function SubjectMap() {
           return (
             <QuestPathNode
               key={p.id}
-              icon={completed && !isLast ? <Check strokeWidth={3} /> : <Icon />}
-              label={`Fase ${p.number}`}
+              icon={
+                completed && !isLast ? (
+                  <Check strokeWidth={3} />
+                ) : isLast ? (
+                  <Crown strokeWidth={2.5} />
+                ) : (
+                  <span className="text-2xl font-black tabular-nums leading-none">{p.number}</span>
+                )
+              }
+              label={isLast ? "Chefão" : String(p.number)}
               status={status}
               {...(unlocked
                 ? { to: "/quest/fase/$phaseId", params: { phaseId: p.id } }

@@ -54,7 +54,7 @@ Só se quiser `npm run db:migrate` via `pg` direto. **Não é necessário** para
 | Caderno de erros | `localStorage` + sync Supabase (`user_error_notes`) por `device_id` |
 | Simulados + resultados | `localStorage` + sync Supabase (`user_mock_exams`) por `device_id` |
 | Revisões SRS / sessões do plano | `localStorage` + sync Supabase (`user_reviews`, `user_study_sessions`) |
-| TJSP Quest (progresso + cache IA) | `localStorage` + sync Supabase (`user_quest_state`, `user_quest_phase_ai`) |
+| TJSP Quest (progresso + questões IA) | progresso: sync `user_quest_state`; questões por fase: **Supabase** `user_quest_phase_ai` (fonte da verdade; memória só na sessão) |
 | Favoritos / respostas do banco | `localStorage` + sync Supabase (`user_question_local_state`) |
 | Video aulas | arquivos locais (`VIDEO_LESSONS_ROOT`) + sync progresso/anotações/quiz (`009`) |
 | Auth | Mock/`localStorage` (ainda sem Auth Supabase) |

@@ -17,8 +17,12 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_area")({
   ssr: false,
-  beforeLoad: () => {
-    if (!tokenStore.get()) throw redirect({ to: "/login" });
+  beforeLoad: async () => {
+    const { ensureAuthReady } = await import("@/lib/auth-session");
+    const ok = await ensureAuthReady();
+    if (!ok && !tokenStore.get()) {
+      throw redirect({ to: "/login" });
+    }
   },
   component: AppShell,
 });

@@ -13,7 +13,21 @@ import { authService } from "@/services/auth.service";
 import { DEMO_AUTH } from "@/services/mock/demo-auth";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (s: Record<string, unknown>): { expirado?: string | undefined } => ({ expirado: s["expirado"] ? String(s["expirado"]) : undefined }),
+  validateSearch: (s: Record<string, unknown>): { expirado?: string | undefined } => ({
+    expirado: s["expirado"] ? String(s["expirado"]) : undefined,
+  }),
+  ssr: false,
+  beforeLoad: async ({ search }) => {
+    // Já tem sessão válida? Não pede login de novo.
+    if (search.expirado) return;
+    const { ensureAuthReady } = await import("@/lib/auth-session");
+    const { tokenStore } = await import("@/services/api");
+    const ok = await ensureAuthReady();
+    if (ok || tokenStore.get()) {
+      const { redirect } = await import("@tanstack/react-router");
+      throw redirect({ to: "/painel" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Entrar — Estufoo" },

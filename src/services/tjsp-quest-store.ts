@@ -1,4 +1,4 @@
-import type { QuestAttempt, QuestPhase, QuestPlayerState } from "@/types/tjsp-quest";
+import type { QuestAttempt, QuestPhase, QuestPlayerState, QuestShopHelpKind } from "@/types/tjsp-quest";
 import {
   applyXp,
   clearReviewOnSuccess,
@@ -6,9 +6,17 @@ import {
   markLessonBlock,
   recordChefaoResult,
   recordDesafioResult,
+  recordTrailStageResult,
   scheduleReview,
   xpForQuestion,
 } from "@/lib/tjsp-quest/progress";
+import {
+  consumeHelp,
+  consumeLife,
+  equipShopCosmetic,
+  normalizeShop,
+  purchaseShopItem,
+} from "@/lib/tjsp-quest/shop";
 import { getQuestPhase } from "@/data/tjsp-quest-catalog";
 import { questPhaseAiService } from "@/services/quest-phase-ai.service";
 import { studyUserDataDb, syncQuestState } from "@/services/study-user-data-db";
@@ -38,6 +46,7 @@ function read(): QuestPlayerState {
       attempts: parsed.attempts ?? [],
       reviews: parsed.reviews ?? [],
       achievements: parsed.achievements ?? [],
+      shop: normalizeShop(parsed.shop),
     };
   } catch {
     return createInitialPlayerState();
@@ -64,22 +73,27 @@ export const tjspQuestStore = {
     const local = read();
     if (questHydrated) return local;
     questHydrated = true;
-    const hasProgress =
-      (local.attempts?.length ?? 0) > 0 ||
-      Object.keys(local.phases ?? {}).length > 0 ||
-      (local.xp ?? 0) > 0;
-    if (hasProgress) {
-      syncQuestState(local);
-      return local;
-    }
     try {
       const remote = await studyUserDataDb.loadQuestState();
       if (remote) {
-        return write({ ...createInitialPlayerState(), ...remote });
+        const localTs = Date.parse(local.updatedAt || "") || 0;
+        const remoteTs = Date.parse(remote.updatedAt || "") || 0;
+        // Conta logada: banco manda se estiver igual/mais novo; senão sobe o local.
+        if (remoteTs >= localTs) {
+          const base = createInitialPlayerState();
+          return write({
+            ...base,
+            ...remote,
+            phases: { ...base.phases, ...(remote.phases ?? {}) },
+            shop: normalizeShop(remote.shop),
+            updatedAt: remote.updatedAt || new Date().toISOString(),
+          });
+        }
       }
     } catch (err) {
       console.warn("[tjsp-quest] hydrate falhou", err);
     }
+    syncQuestState(local);
     return local;
   },
 
@@ -153,5 +167,42 @@ export const tjspQuestStore = {
     const phase = resolvePhase(phaseId);
     if (!phase) return read();
     return write(recordChefaoResult(read(), phase, pct, bonusXp));
+  },
+
+  finishTrailStage(
+    phaseId: string,
+    stageIndex: number,
+    pct: number,
+    stageCount: number,
+    stagePassPct: number,
+    bonusXp = 0,
+  ): QuestPlayerState {
+    const phase = resolvePhase(phaseId);
+    if (!phase) return read();
+    return write(
+      recordTrailStageResult(read(), phase, stageIndex, pct, stageCount, bonusXp, stagePassPct),
+    );
+  },
+
+  purchase(itemId: string): { state: QuestPlayerState; ok: boolean; reason?: string } {
+    const result = purchaseShopItem(read(), itemId);
+    if (!result.ok) return { state: read(), ok: false, reason: result.reason };
+    return { state: write(result.state), ok: true };
+  },
+
+  equip(kind: "personagem" | "skin", itemId: string): QuestPlayerState {
+    return write(equipShopCosmetic(read(), kind, itemId));
+  },
+
+  useHelp(kind: QuestShopHelpKind): { state: QuestPlayerState; ok: boolean } {
+    const result = consumeHelp(read(), kind);
+    if (!result.ok) return { state: read(), ok: false };
+    return { state: write(result.state), ok: true };
+  },
+
+  useLife(): { state: QuestPlayerState; ok: boolean } {
+    const result = consumeLife(read());
+    if (!result.ok) return { state: read(), ok: false };
+    return { state: write(result.state), ok: true };
   },
 };

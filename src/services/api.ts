@@ -85,10 +85,31 @@ export async function request<T>(method: Method, path: string, body?: unknown): 
 }
 
 function handleUnauthorized(e: unknown) {
-  if (e instanceof ApiError && e.status === 401 && tokenStore.get()) {
+  if (!(e instanceof ApiError) || e.status !== 401) return;
+  // Tenta renovar sessão Supabase antes de expulsar (evita “desloga sozinho”).
+  void (async () => {
+    try {
+      const { authService } = await import("@/services/auth.service");
+      if (authService.isCloud()) {
+        const { requireSupabase } = await import("@/lib/supabase");
+        const { getAuthRememberPreference } = await import("@/lib/auth-session");
+        const sb = requireSupabase();
+        const { data } = await sb.auth.refreshSession();
+        if (data.session?.access_token) {
+          tokenStore.set(data.session.access_token, {
+            remember: getAuthRememberPreference(),
+          });
+          return;
+        }
+      }
+    } catch {
+      /* cai no logout abaixo */
+    }
     tokenStore.clear();
-    window.location.href = "/login?expirado=1";
-  }
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login?expirado=1";
+    }
+  })();
 }
 
 export async function upload<T>(path: string, file: File, onProgress: (pct: number) => void): Promise<T> {

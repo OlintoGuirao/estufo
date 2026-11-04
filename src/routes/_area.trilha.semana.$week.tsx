@@ -435,7 +435,10 @@ function WeekLessonPage() {
                     return (
                       <div key={q.id} className="rounded-lg border p-4">
                         <p className="text-sm font-medium">Questão {idx + 1}</p>
-                        <p className="mt-2 text-sm leading-relaxed">{q.statement}</p>
+                        <ProfessorText
+                          text={q.statement}
+                          className="mt-2 text-sm leading-relaxed [&_p]:mb-0 [&_strong]:rounded-sm [&_strong]:bg-amber-200/80 [&_strong]:px-0.5 [&_strong]:font-semibold [&_strong]:text-foreground"
+                        />
                         <ul className="mt-3 space-y-2">
                           {q.alternatives.map((a) => (
                             <li key={a.key}>

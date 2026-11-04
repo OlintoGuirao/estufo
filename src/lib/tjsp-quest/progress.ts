@@ -1,5 +1,9 @@
 import { QUEST_SRS_INTERVALS, QUEST_XP, type QuestPlayerState, type QuestPhase, type QuestPhaseProgress, type QuestQuestion } from "@/types/tjsp-quest";
 import { tjspQuestCatalog } from "@/data/tjsp-quest-catalog";
+import {
+  QUEST_SHOP_STARTER_CHARACTER,
+  QUEST_SHOP_STARTER_SKIN,
+} from "@/data/tjsp-quest/shop-catalog";
 
 export function xpToLevel(xp: number): number {
   return Math.max(1, Math.floor(xp / 500) + 1);
@@ -22,6 +26,8 @@ export function emptyPhaseProgress(phaseId: string, unlocked: boolean): QuestPha
     chefaoBestPct: 0,
     unlocked,
     completed: false,
+    trailCompletedCount: 0,
+    trailStageBestPct: [],
   };
 }
 
@@ -42,6 +48,14 @@ export function createInitialPlayerState(): QuestPlayerState {
     attempts: [],
     reviews: [],
     achievements: [],
+    shop: {
+      ownedCharacterIds: [QUEST_SHOP_STARTER_CHARACTER],
+      ownedSkinIds: [QUEST_SHOP_STARTER_SKIN],
+      equippedCharacterId: QUEST_SHOP_STARTER_CHARACTER,
+      equippedSkinId: QUEST_SHOP_STARTER_SKIN,
+      helps: { eliminate: 0, tip: 0, fifty: 0 },
+      lives: 0,
+    },
     updatedAt: new Date().toISOString(),
   };
 }
@@ -172,6 +186,65 @@ export function recordChefaoResult(
       next = { ...next, achievements: [...next.achievements, `phase:${phase.id}`] };
     }
   }
+  return next;
+}
+
+/**
+ * Resultado de uma etapa da trilha interna (5 questões + chefe).
+ * `pct` = acerto no chefe da etapa (ou média da sessão se preferir o caller).
+ * `stageCount` = total de etapas da fase (ex.: 10).
+ */
+export function recordTrailStageResult(
+  state: QuestPlayerState,
+  phase: QuestPhase,
+  stageIndex: number,
+  pct: number,
+  stageCount: number,
+  xpGained: number,
+  stagePassPct: number,
+): QuestPlayerState {
+  let next = applyXp(state, xpGained);
+  const prev = next.phases[phase.id] ?? emptyPhaseProgress(phase.id, true);
+  const bestPct = [...(prev.trailStageBestPct ?? [])];
+  while (bestPct.length < stageCount) bestPct.push(0);
+  bestPct[stageIndex] = Math.max(bestPct[stageIndex] ?? 0, pct);
+
+  let trailCompletedCount = prev.trailCompletedCount ?? 0;
+  const passed = pct >= stagePassPct;
+  if (passed && trailCompletedCount === stageIndex) {
+    trailCompletedCount = stageIndex + 1;
+  }
+
+  const isLastStage = stageIndex >= stageCount - 1;
+  const completed =
+    prev.completed || (passed && isLastStage && trailCompletedCount >= stageCount);
+
+  next = {
+    ...next,
+    phases: {
+      ...next.phases,
+      [phase.id]: {
+        ...prev,
+        trailStageBestPct: bestPct,
+        trailCompletedCount,
+        desafioBestPct: Math.max(prev.desafioBestPct, pct),
+        chefaoBestPct: isLastStage ? Math.max(prev.chefaoBestPct, pct) : prev.chefaoBestPct,
+        completed,
+        lastPlayedAt: new Date().toISOString(),
+      },
+    },
+  };
+
+  if (completed && !prev.completed) {
+    next = applyXp(next, QUEST_XP.bossClear + QUEST_XP.phaseClear);
+    next = unlockDependents(next, phase.id);
+    if (!next.achievements.includes(`phase:${phase.id}`)) {
+      next = { ...next, achievements: [...next.achievements, `phase:${phase.id}`] };
+    }
+  } else if (passed && !isLastStage) {
+    next = applyXp(next, Math.round(QUEST_XP.phaseClear / 4));
+  }
+
   return next;
 }
 

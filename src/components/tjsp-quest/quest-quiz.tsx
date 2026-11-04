@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, Heart, Lightbulb, Scissors, Target, XCircle } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { QuestCard } from "@/components/tjsp-quest/quest-shell";
+import { normalizeShop } from "@/lib/tjsp-quest/shop";
 import { tjspQuestStore } from "@/services/tjsp-quest-store";
 import type { QuestAltKey, QuestQuestion } from "@/types/tjsp-quest";
 import { cn } from "@/lib/utils";
@@ -22,6 +24,9 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish }: Props) {
   const [xpTotal, setXpTotal] = useState(0);
   const [streak, setStreak] = useState(0);
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null);
+  const [hiddenKeys, setHiddenKeys] = useState<QuestAltKey[]>([]);
+  const [tipOpen, setTipOpen] = useState(false);
+  const [shop, setShop] = useState(() => normalizeShop(tjspQuestStore.get().shop));
 
   const q = list[idx];
   const total = list.length;
@@ -34,6 +39,54 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish }: Props) {
       </QuestCard>
     );
   }
+
+  const visibleAlts = q.alternatives.filter((a) => !hiddenKeys.includes(a.key));
+
+  const bumpShop = () => setShop(normalizeShop(tjspQuestStore.get().shop));
+
+  const useEliminate = () => {
+    if (locked) return;
+    const res = tjspQuestStore.useHelp("eliminate");
+    bumpShop();
+    if (!res.ok) {
+      toast.error("Sem ajudas de eliminar — compre na Loja.");
+      return;
+    }
+    const wrong = q.alternatives.filter((a) => a.key !== q.correctKey).map((a) => a.key);
+    const pick = wrong.sort(() => Math.random() - 0.5).slice(0, 2);
+    setHiddenKeys((prev) => Array.from(new Set([...prev, ...pick])));
+    toast.message("2 alternativas incorretas removidas.");
+  };
+
+  const useFifty = () => {
+    if (locked) return;
+    const res = tjspQuestStore.useHelp("fifty");
+    bumpShop();
+    if (!res.ok) {
+      toast.error("Sem 50/50 — compre na Loja.");
+      return;
+    }
+    const wrong = q.alternatives.filter((a) => a.key !== q.correctKey).map((a) => a.key);
+    const keepWrong = wrong.sort(() => Math.random() - 0.5)[0];
+    const hide = q.alternatives
+      .map((a) => a.key)
+      .filter((k) => k !== q.correctKey && k !== keepWrong);
+    setHiddenKeys(hide);
+    if (draft && hide.includes(draft as QuestAltKey)) setDraft(null);
+    toast.message("50/50 ativado.");
+  };
+
+  const useTip = () => {
+    if (locked) return;
+    const res = tjspQuestStore.useHelp("tip");
+    bumpShop();
+    if (!res.ok) {
+      toast.error("Sem dicas — compre na Loja.");
+      return;
+    }
+    setTipOpen(true);
+    toast.message("Dica revelada.");
+  };
 
   const confirm = () => {
     if (!draft || locked) return;
@@ -52,7 +105,6 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish }: Props) {
       setStreak((s) => s + 1);
     } else {
       setStreak(0);
-      // Liga ao caderno de erros (snapshot)
       void import("@/services")
         .then(({ errorNotesService }) =>
           errorNotesService.save({
@@ -73,11 +125,26 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish }: Props) {
     }
   };
 
+  const retryWithLife = () => {
+    const res = tjspQuestStore.useLife();
+    bumpShop();
+    if (!res.ok) {
+      toast.error("Sem vidas — compre na Loja.");
+      return;
+    }
+    setLocked(false);
+    setLastCorrect(null);
+    setDraft(null);
+    toast.message("Vida usada — tente de novo!");
+  };
+
   const goNext = () => {
     setIdx((i) => i + 1);
     setDraft(null);
     setLocked(false);
     setLastCorrect(null);
+    setHiddenKeys([]);
+    setTipOpen(false);
   };
 
   const finishFromLast = () => {
@@ -87,8 +154,8 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 text-white">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/15">
+      <div className="flex flex-wrap items-center gap-2 text-white">
+        <div className="h-2 min-w-[6rem] flex-1 overflow-hidden rounded-full bg-white/15">
           <div
             className="h-full rounded-full bg-[#ff9f1c] transition-all"
             style={{ width: `${Math.max(6, progressPct)}%` }}
@@ -100,7 +167,49 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish }: Props) {
         <span className="rounded-full bg-white/15 px-2 py-1 text-xs font-bold text-[#ff9f1c]">
           +{xpTotal} XP
         </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/25 px-2 py-1 text-xs font-bold text-rose-100">
+          <Heart className="h-3.5 w-3.5 fill-current" />
+          {shop.lives}
+        </span>
       </div>
+
+      {!locked && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 rounded-full border-white/30 bg-white/10 text-xs text-white hover:bg-white/20"
+            disabled={shop.helps.eliminate <= 0}
+            onClick={useEliminate}
+          >
+            <Scissors className="h-3.5 w-3.5" />
+            Eliminar ({shop.helps.eliminate})
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 rounded-full border-white/30 bg-white/10 text-xs text-white hover:bg-white/20"
+            disabled={shop.helps.fifty <= 0}
+            onClick={useFifty}
+          >
+            <Target className="h-3.5 w-3.5" />
+            50/50 ({shop.helps.fifty})
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 rounded-full border-white/30 bg-white/10 text-xs text-white hover:bg-white/20"
+            disabled={shop.helps.tip <= 0}
+            onClick={useTip}
+          >
+            <Lightbulb className="h-3.5 w-3.5" />
+            Dica ({shop.helps.tip})
+          </Button>
+        </div>
+      )}
 
       <QuestCard>
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#e85d04]">
@@ -112,8 +221,14 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish }: Props) {
           {q.statement}
         </p>
 
+        {tipOpen && (
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-950">
+            💡 {q.memoryTip || q.legalBasis || "Leia o enunciado com calma e elimine extremos."}
+          </p>
+        )}
+
         <div className="mt-5 space-y-2.5">
-          {q.alternatives.map((alt) => {
+          {visibleAlts.map((alt) => {
             const selected = draft === alt.key;
             const isCorrect = locked && alt.key === q.correctKey;
             const isWrong = locked && selected && alt.key !== q.correctKey;
@@ -180,6 +295,17 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish }: Props) {
                 )}
               </div>
             </div>
+            {!lastCorrect && shop.lives > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-2xl border-rose-300 text-rose-700 hover:bg-rose-50"
+                onClick={retryWithLife}
+              >
+                <Heart className="h-4 w-4 fill-current" />
+                Usar vida e tentar de novo ({shop.lives})
+              </Button>
+            )}
             <Button
               className="h-12 w-full rounded-2xl bg-[#0b132b] text-base font-bold text-white hover:bg-[#1c2541]"
               onClick={() => {

@@ -11,15 +11,15 @@ export const constExtraPhases: QuestPhase[] = [
     id: "const-3",
     subjectId: "const",
     number: 3,
-    title: "Direitos e garantias fundamentais",
+    title: "Administração Pública",
     objective:
-      "Dominar o núcleo do art. 5º da CF: igualdade, legalidade, due process e garantias processuais básicas.",
+      "Dominar Título III, Cap. VII, Seções I e II da CF (princípios e servidores da Administração Pública).",
     estimatedMinutes: 14,
     conceptsCount: 6,
     unlockRequiresPhaseIds: ["const-2"],
     sources: [
       {
-        label: "CF/1988 — Título II, Cap. I (art. 5º) — Planalto",
+        label: "CF/1988 — Título III, Cap. VII, Seções I e II — Planalto",
         url: "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
       },
     ],
@@ -172,9 +172,9 @@ export const constExtraPhases: QuestPhase[] = [
     id: "const-4",
     subjectId: "const",
     number: 4,
-    title: "Administração Pública e Judiciário",
+    title: "Chefão — Constitucional integrado",
     objective:
-      "Compreender princípios da Administração (art. 37), servidores e a estrutura do Poder Judiciário (art. 92).",
+      "Integrar Título II Caps. I–III, Administração Pública (Título III Cap. VII Seções I–II) e art. 92.",
     estimatedMinutes: 12,
     conceptsCount: 5,
     unlockRequiresPhaseIds: ["const-3"],

@@ -107,7 +107,7 @@ describe("parseQuestPhaseAiJson", () => {
     const parsed = parseQuestPhaseAiJson(raw, "penal-1");
     expect(parsed.lessonBlocks.length).toBeLessThanOrEqual(3);
     expect(parsed.questions).toHaveLength(3);
-    expect(parsed.contentVersion).toBe(2);
+    expect(parsed.contentVersion).toBe(6);
     expect(parsed.questions[0]!.alternatives).toHaveLength(5);
     expect(parsed.questions[0]!.boardStyle).toBe("VUNESP");
     expect(parsed.bossQuestions[0]!.correctKey).toBe("B");
@@ -162,5 +162,13 @@ describe("mockQuestPhaseAiContent", () => {
       "E",
     ]);
     expect(mock.questions.every((q) => q.boardStyle === "VUNESP")).toBe(true);
+  });
+
+  it("monta 50+10 questões por fase de português (10 trilhas × 5 + chefes)", () => {
+    const phase = getQuestPhase("port-1");
+    expect(phase).toBeTruthy();
+    const mock = mockQuestPhaseAiContent(phase!);
+    expect(mock.questions).toHaveLength(50);
+    expect(mock.bossQuestions).toHaveLength(10);
   });
 });

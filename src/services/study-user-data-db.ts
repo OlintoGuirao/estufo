@@ -234,6 +234,33 @@ export const studyUserDataDb = {
     if (error) throw error;
   },
 
+  async getQuestPhaseAi(phaseId: string): Promise<{
+    phaseId: string;
+    content: QuestPhaseAiPayload;
+    model: string;
+    mocked: boolean;
+    savedAt: string;
+  } | null> {
+    if (!isSupabaseConfigured) return null;
+    const sb = requireSupabase();
+    const { data, error } = await sb
+      .from("user_quest_phase_ai")
+      .select("payload, updated_at")
+      .in("device_id", studyOwnerQueryIds())
+      .eq("phase_id", phaseId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    const row = data?.[0];
+    if (!row?.payload) return null;
+    const p = row.payload as StudyUserSnapshot["questPhaseAi"][number];
+    if (!p?.phaseId || !p?.content) return null;
+    return {
+      ...p,
+      savedAt: p.savedAt || (row as { updated_at?: string }).updated_at || nowIso(),
+    };
+  },
+
   async listQuestPhaseAi(): Promise<
     Array<{
       phaseId: string;
@@ -247,12 +274,21 @@ export const studyUserDataDb = {
     const sb = requireSupabase();
     const { data, error } = await sb
       .from("user_quest_phase_ai")
-      .select("payload")
-      .in("device_id", studyOwnerQueryIds());
+      .select("payload, updated_at")
+      .in("device_id", studyOwnerQueryIds())
+      .order("updated_at", { ascending: false });
     if (error) throw error;
-    return (data ?? [])
-      .map((r) => r.payload as StudyUserSnapshot["questPhaseAi"][number])
-      .filter((p) => p?.phaseId && p?.content);
+    const byPhase = new Map<string, StudyUserSnapshot["questPhaseAi"][number]>();
+    for (const r of data ?? []) {
+      const p = r.payload as StudyUserSnapshot["questPhaseAi"][number];
+      if (!p?.phaseId || !p?.content) continue;
+      if (byPhase.has(p.phaseId)) continue;
+      byPhase.set(p.phaseId, {
+        ...p,
+        savedAt: p.savedAt || (r as { updated_at?: string }).updated_at || nowIso(),
+      });
+    }
+    return Array.from(byPhase.values());
   },
 
   async upsertQuestionLocalState(payload: Record<string, LocalQuestionUserState>): Promise<void> {
@@ -345,6 +381,7 @@ export function syncQuestState(state: QuestPlayerState | null): void {
   });
 }
 
+/** Preferir `questPhaseAiStore.set` (await). Mantido para compat. */
 export function syncQuestPhaseAi(entry: {
   phaseId: string;
   content: QuestPhaseAiPayload;
@@ -356,6 +393,17 @@ export function syncQuestPhaseAi(entry: {
   void studyUserDataDb.upsertQuestPhaseAi(entry).catch((err) => {
     console.warn("[study-user-data-db] sync quest phase ai falhou", err);
   });
+}
+
+export async function persistQuestPhaseAi(entry: {
+  phaseId: string;
+  content: QuestPhaseAiPayload;
+  model: string;
+  mocked: boolean;
+  savedAt: string;
+}): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  await studyUserDataDb.upsertQuestPhaseAi(entry);
 }
 
 export function syncQuestionLocalState(payload: Record<string, LocalQuestionUserState>): void {

@@ -178,6 +178,7 @@ OBRIGATÓRIO:
 - Para CADA etapa: módulos separados com titles "Definição — …", "Macete — …", "Exemplo — …", "5 questões — …"
 - Prática final com ≥${topicCount * 5} questions
 - correctKey equilibrado A/B/C/D; alternativas com tamanho parecido (não deixe a correta ser a mais longa)
+- Em questões: se falar em "termo destacado", marque com «termo» no trecho. Não misture "Assinale a opção em que…" com alternativas do tipo "Muda para concessão".
 Gere professorIntro + modules completos.`;
 
     const result = await tutorChat(

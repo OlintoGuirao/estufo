@@ -16,6 +16,8 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        // Mantém sessão no localStorage (PC, celular e WebView do APK).
+        storage: typeof window !== "undefined" ? window.localStorage : undefined,
       },
     })
   : null;

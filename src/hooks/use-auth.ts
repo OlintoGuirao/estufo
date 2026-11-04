@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authService } from "@/services";
 import { tokenStore } from "@/services/api";
+import {
+  markAuthReady,
+  resetAuthReadyGate,
+  setAuthRememberPreference,
+} from "@/lib/auth-session";
 import type { AuthResponse } from "@/types";
 
 export type LoginInput = {
@@ -11,17 +16,26 @@ export type LoginInput = {
 };
 
 export function useMe() {
-  return useQuery({ queryKey: ["me"], queryFn: authService.me, enabled: !!tokenStore.get(), retry: false });
+  return useQuery({
+    queryKey: ["me"],
+    queryFn: authService.me,
+    enabled: !!tokenStore.get(),
+    retry: false,
+  });
 }
 
 export function useAuthActions() {
   const qc = useQueryClient();
   const onAuth = async (r: AuthResponse, remember = true) => {
+    setAuthRememberPreference(remember);
     tokenStore.set(r.token, { remember });
+    markAuthReady();
     qc.setQueryData(["me"], r.user);
     if (authService.isCloud()) {
       const { syncCloudUserIntoMock } = await import("@/services/mock/handlers");
       syncCloudUserIntoMock(r.user);
+      const { setStudyOwnerUserId } = await import("@/lib/study-owner");
+      setStudyOwnerUserId(r.user.id);
       const { syncAccountStudyData } = await import("@/lib/study-account-sync");
       try {
         await syncAccountStudyData(r.user.id);
@@ -52,6 +66,7 @@ export function useAuthActions() {
   const logout = () => {
     void authService.logoutCloud().finally(() => {
       tokenStore.clear();
+      resetAuthReadyGate();
       try {
         localStorage.removeItem("estufoo.cloud-user");
       } catch {

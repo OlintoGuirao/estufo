@@ -4,11 +4,13 @@ import { portPhases } from "@/data/tjsp-quest/phases-port";
 import { constExtraPhases } from "@/data/tjsp-quest/phases-const-extra";
 import { direitoPhases } from "@/data/tjsp-quest/phases-direito";
 import { geraisPhases } from "@/data/tjsp-quest/phases-gerais";
+import { editalExpandPhases } from "@/data/tjsp-quest/phases-edital-expand";
 
 /**
  * Catálogo TJSP Quest — metadados das fases (título, objetivo, fontes, unlock).
  * Material da aula + questões são gerados por IA no padrão VUNESP (A–E) na primeira
  * visita à fase (cache local). O conteúdo estático abaixo serve de fallback/mock.
+ * Trilhas alinhadas ao edital TJSP Escrevente (Blocos I–III).
  */
 
 const subjects: QuestSubject[] = [
@@ -18,7 +20,7 @@ const subjects: QuestSubject[] = [
     shortName: "Português",
     color: "#9b2226",
     icon: "pen",
-    description: "Bloco I — 5 fases + chefão (interpretação, gramática, crase e semântica).",
+    description: "Bloco I — interpretação, classes, sintaxe, semântica e pontuação (16 q).",
     phaseIds: ["port-1", "port-2", "port-3", "port-4", "port-5", "port-6"],
   },
   {
@@ -27,7 +29,7 @@ const subjects: QuestSubject[] = [
     shortName: "Constitucional",
     color: "#e85d04",
     icon: "scale",
-    description: "Título II (Caps. I–III), Administração Pública e art. 92.",
+    description: "Título II Caps. I–III; Título III Cap. VII Seções I–II; art. 92.",
     phaseIds: ["const-1", "const-2", "const-3", "const-4"],
   },
   {
@@ -36,8 +38,8 @@ const subjects: QuestSubject[] = [
     shortName: "Penal",
     color: "#6a040f",
     icon: "gavel",
-    description: "Crimes contra a fé pública e a Administração (CP).",
-    phaseIds: ["penal-1"],
+    description: "CP — fé pública, Administração Pública e Administração da Justiça.",
+    phaseIds: ["penal-1", "penal-2", "penal-3", "penal-4"],
   },
   {
     id: "procpen",
@@ -45,8 +47,8 @@ const subjects: QuestSubject[] = [
     shortName: "Proc. Penal",
     color: "#370617",
     icon: "gavel",
-    description: "CPP e Juizado Criminal (Lei 9.099/95).",
-    phaseIds: ["procpen-1"],
+    description: "CPP (sujeitos, rito, recursos) e Juizado Criminal (Lei 9.099/95).",
+    phaseIds: ["procpen-1", "procpen-2", "procpen-3", "procpen-4"],
   },
   {
     id: "procciv",
@@ -54,8 +56,8 @@ const subjects: QuestSubject[] = [
     shortName: "Proc. Civil",
     color: "#03045e",
     icon: "landmark",
-    description: "CPC, Juizados Cíveis e da Fazenda Pública.",
-    phaseIds: ["procciv-1"],
+    description: "CPC, Lei 9.099/95 (cível) e Lei 12.153/2009.",
+    phaseIds: ["procciv-1", "procciv-2", "procciv-3", "procciv-4"],
   },
   {
     id: "admin",
@@ -63,8 +65,8 @@ const subjects: QuestSubject[] = [
     shortName: "Administrativo",
     color: "#7b2cbf",
     icon: "landmark",
-    description: "Estatuto estadual (10.261/68) e improbidade (8.429/92).",
-    phaseIds: ["admin-1"],
+    description: "Lei 10.261/68 (Estatuto) e Lei 8.429/92 (improbidade).",
+    phaseIds: ["admin-1", "admin-2", "admin-3"],
   },
   {
     id: "legis",
@@ -72,8 +74,8 @@ const subjects: QuestSubject[] = [
     shortName: "Legislação",
     color: "#5a189a",
     icon: "book",
-    description: "Teletrabalho, eproc, carreira, Regimento e CGJ.",
-    phaseIds: ["legis-1"],
+    description: "Res. 850 e 963, LC 1.111/2010, Regimento e Normas da CGJ.",
+    phaseIds: ["legis-1", "legis-2", "legis-3", "legis-4"],
   },
   {
     id: "atual",
@@ -81,8 +83,8 @@ const subjects: QuestSubject[] = [
     shortName: "Atualidades",
     color: "#2d6a4f",
     icon: "globe",
-    description: "Fatos do 1º semestre/2026 e Lei 13.146/2015.",
-    phaseIds: ["atual-1"],
+    description: "Lei 13.146/2015 e atualidades do 1º semestre/2026.",
+    phaseIds: ["atual-1", "atual-2", "atual-3"],
   },
   {
     id: "mat",
@@ -90,8 +92,8 @@ const subjects: QuestSubject[] = [
     shortName: "Matemática",
     color: "#0077b6",
     icon: "calculator",
-    description: "Porcentagem, juros, equações e geometria.",
-    phaseIds: ["mat-1", "mat-2"],
+    description: "Operações, %, juros, equações, geometria e situações-problema.",
+    phaseIds: ["mat-1", "mat-2", "mat-3", "mat-4"],
   },
   {
     id: "info",
@@ -99,8 +101,17 @@ const subjects: QuestSubject[] = [
     shortName: "Informática",
     color: "#00b4d8",
     icon: "monitor",
-    description: "Windows, Word, Excel, Teams, OneDrive e Internet.",
-    phaseIds: ["info-1", "info-2"],
+    description: "Windows, Word, Excel, e-mail, Internet, Teams e OneDrive (9 q).",
+    phaseIds: [
+      "info-1",
+      "info-2",
+      "info-3",
+      "info-4",
+      "info-5",
+      "info-6",
+      "info-7",
+      "info-8",
+    ],
   },
   {
     id: "rlm",
@@ -108,8 +119,8 @@ const subjects: QuestSubject[] = [
     shortName: "Lógica",
     color: "#2a9d8f",
     icon: "calculator",
-    description: "Sequências, argumentação e diagramas lógicos.",
-    phaseIds: ["rlm-1", "rlm-2"],
+    description: "Estruturas, argumentação, diagramas e sequências (7 q).",
+    phaseIds: ["rlm-1", "rlm-2", "rlm-3", "rlm-4", "rlm-5"],
   },
 ];
 
@@ -117,9 +128,9 @@ const const1: QuestPhase = phase({
   id: "const-1",
   subjectId: "const",
   number: 1,
-  title: "Fundamentos da República",
+  title: "Direitos individuais e coletivos",
   objective:
-    "Compreender os fundamentos da República Federativa do Brasil (art. 1º da CF) e o sentido de soberania, cidadania e dignidade da pessoa humana.",
+    "Dominar o Título II, Cap. I da CF (direitos e deveres individuais e coletivos) — núcleo cobrado no edital do TJSP.",
   estimatedMinutes: 12,
   conceptsCount: 5,
   unlockRequiresPhaseIds: [],
@@ -307,8 +318,9 @@ const const2: QuestPhase = phase({
   id: "const-2",
   subjectId: "const",
   number: 2,
-  title: "Separação dos Poderes",
-  objective: "Entender o art. 2º da CF: independência e harmonia entre Legislativo, Executivo e Judiciário.",
+  title: "Direitos sociais e nacionalidade",
+  objective:
+    "Aplicar Título II, Caps. II e III da CF: direitos sociais e nacionalidade (edital TJSP).",
   estimatedMinutes: 10,
   conceptsCount: 3,
   unlockRequiresPhaseIds: ["const-1"],
@@ -439,220 +451,8 @@ const const2: QuestPhase = phase({
   ],
 });
 
-const info1: QuestPhase = phase({
-  id: "info-1",
-  subjectId: "info",
-  number: 1,
-  title: "Excel — referências e gráficos",
-  objective: "Dominar referência absoluta/relativa e a ideia básica de criar gráficos.",
-  estimatedMinutes: 10,
-  conceptsCount: 4,
-  unlockRequiresPhaseIds: [],
-  sources: [{ label: "Edital TJSP — Informática (MS-Excel)" }],
-  lessonBlocks: buildLessonBlocks({
-    prefix: "i1",
-    contexto: "Concursos cobram Excel no básico: referências de célula e gráficos.",
-    explicacao:
-      "A1 relativa; $A$1 absoluta; A$1 trava linha; $A1 trava coluna. Selecione os dados antes de inserir gráfico.",
-    baseLegal: "Edital — MS-Excel: células, fórmulas, gráficos.",
-    traducao: "Se a alíquota deve ficar fixa ao copiar a fórmula, use $.",
-    exemplo: "Taxa única em F1 → use $F$1 nas linhas de cálculo.",
-    prova: "A$1 trava linha. Série temporal → gráfico de linhas.",
-    memorizar: "$ trava. Dois $ = célula travada. Tempo → linhas.",
-    miniRevisao:
-      "1) $A$1? (Absoluta) 2) A$1 trava? (Linha) 3) Evolução no tempo? (Linhas)",
-  }),
-  questions: [
-    q({
-      id: "i1-q1",
-      difficulty: "facil",
-      statement: "Na referência A$1 do Excel, o cifrão antes do número indica que:",
-      alternatives: [
-        { key: "A", text: "A coluna fica absoluta" },
-        { key: "B", text: "A linha fica absoluta" },
-        { key: "C", text: "A planilha inteira fica protegida" },
-        { key: "D", text: "A fórmula é convertida em valor" },
-      ],
-      correctKey: "B",
-      legalBasis: "Referência mista no Excel",
-      whyCorrect: "O $ antes do número trava a linha.",
-      whyWrong: {
-        A: "Para coluna seria $A1.",
-        C: "Proteção é outro recurso.",
-        D: "Não é o efeito do $.",
-      },
-    }),
-    q({
-      id: "i1-q2",
-      difficulty: "facil",
-      statement: "Para criar um gráfico no Excel a partir de uma tabela, é recomendável primeiro:",
-      alternatives: [
-        { key: "A", text: "Fechar o arquivo" },
-        { key: "B", text: "Apagar os cabeçalhos" },
-        { key: "C", text: "Selecionar o intervalo de dados" },
-        { key: "D", text: "Desativar a Autosalvamento" },
-      ],
-      correctKey: "C",
-      legalBasis: "Fluxo básico de gráfico",
-      whyCorrect: "O Excel usa a seleção atual como base.",
-      whyWrong: {
-        A: "Não é passo para criar gráfico.",
-        B: "Cabeçalhos ajudam legendas.",
-        D: "Irrelevante.",
-      },
-    }),
-    q({
-      id: "i1-q3",
-      difficulty: "media",
-      statement: "Para visualizar a evolução de uma série ao longo do tempo, um gráfico frequentemente adequado é o de:",
-      alternatives: [
-        { key: "A", text: "Linhas" },
-        { key: "B", text: "Pizza" },
-        { key: "C", text: "Rosca apenas" },
-        { key: "D", text: "Mapa 3D obrigatório" },
-      ],
-      correctKey: "A",
-      legalBasis: "Tipos de gráfico",
-      whyCorrect: "Linhas destacam tendência temporal.",
-      whyWrong: {
-        B: "Pizza = composição.",
-        C: "Rosca = composição.",
-        D: "Não é o mais usual.",
-      },
-    }),
-  ],
-  bossQuestions: [
-    q({
-      id: "i1-b-q1",
-      difficulty: "media",
-      statement: "A referência $B$2 é:",
-      alternatives: [
-        { key: "A", text: "Relativa" },
-        { key: "B", text: "Absoluta" },
-        { key: "C", text: "Apenas de linha" },
-        { key: "D", text: "Inválida no Excel" },
-      ],
-      correctKey: "B",
-      legalBasis: "Referência absoluta",
-      whyCorrect: "Dois cifrões travam coluna e linha.",
-      whyWrong: {
-        A: "Relativa não usa $.",
-        C: "Trava coluna e linha.",
-        D: "É válida.",
-      },
-    }),
-    q({
-      id: "i1-b-q2",
-      difficulty: "facil",
-      statement: "Copiar uma fórmula com referência relativa A1 uma linha abaixo tende a virar:",
-      alternatives: [
-        { key: "A", text: "A2" },
-        { key: "B", text: "$A$1" },
-        { key: "C", text: "B1 obrigatoriamente" },
-        { key: "D", text: "Z99" },
-      ],
-      correctKey: "A",
-      legalBasis: "Referência relativa",
-      whyCorrect: "Ao copiar para baixo, a linha aumenta.",
-      whyWrong: {
-        B: "Só se fosse absoluta.",
-        C: "Para o lado mudaria a coluna.",
-        D: "Sem fundamento.",
-      },
-    }),
-  ],
-});
-
-const rlm1: QuestPhase = phase({
-  id: "rlm-1",
-  subjectId: "rlm",
-  number: 1,
-  title: "Sequências numéricas",
-  objective: "Identificar o padrão de sequências simples cobradas em provas.",
-  estimatedMinutes: 8,
-  conceptsCount: 2,
-  unlockRequiresPhaseIds: [],
-  sources: [{ label: "Edital TJSP — Raciocínio Lógico (sequências)" }],
-  lessonBlocks: buildLessonBlocks({
-    prefix: "r1",
-    contexto: "Sequências treinam reconhecer padrão — soma, multiplicação ou Fibonacci.",
-    explicacao:
-      "Olhe a diferença entre termos. Diferença constante → PA. Razão constante → PG. Soma dos anteriores → Fibonacci.",
-    baseLegal: "Edital — identificação de regularidades em sequências.",
-    traducao: "Confirme o padrão em pelo menos dois passos antes de marcar.",
-    exemplo: "2, 3, 5, 8, 13… → próximo = 21.",
-    prova: "Evite chutar só porque “parece crescente”.",
-    memorizar: "PA = diferença. PG = razão. Fibonacci = soma dos anteriores.",
-    miniRevisao: "1) 2,3,5,8,13 →? (21) 2) PA? (Diferença) 3) PG? (Razão)",
-  }),
-  questions: [
-    q({
-      id: "r1-q1",
-      difficulty: "facil",
-      statement: "O próximo termo de 2, 3, 5, 8, 13, … é:",
-      alternatives: [
-        { key: "A", text: "18" },
-        { key: "B", text: "20" },
-        { key: "C", text: "21" },
-        { key: "D", text: "24" },
-      ],
-      correctKey: "C",
-      legalBasis: "Padrão de Fibonacci",
-      whyCorrect: "8+13=21.",
-      whyWrong: { A: "Não segue o padrão.", B: "Idem.", D: "Idem." },
-    }),
-    q({
-      id: "r1-q2",
-      difficulty: "facil",
-      statement: "Na sequência 5, 10, 20, 40, … o próximo termo é:",
-      alternatives: [
-        { key: "A", text: "45" },
-        { key: "B", text: "60" },
-        { key: "C", text: "80" },
-        { key: "D", text: "100" },
-      ],
-      correctKey: "C",
-      legalBasis: "PG de razão 2",
-      whyCorrect: "40×2=80.",
-      whyWrong: { A: "Não.", B: "Não.", D: "Não." },
-    }),
-    q({
-      id: "r1-q3",
-      difficulty: "media",
-      statement: "Em uma PA de razão 4, se o 1º termo é 3, o 4º termo é:",
-      alternatives: [
-        { key: "A", text: "7" },
-        { key: "B", text: "11" },
-        { key: "C", text: "15" },
-        { key: "D", text: "19" },
-      ],
-      correctKey: "C",
-      legalBasis: "PA: a_n = a1+(n-1)r",
-      whyCorrect: "3+12=15.",
-      whyWrong: { A: "2º termo.", B: "3º termo.", D: "Passou." },
-    }),
-  ],
-  bossQuestions: [
-    q({
-      id: "r1-b-q1",
-      difficulty: "media",
-      statement: "Sequência: 1, 4, 9, 16, 25, … Próximo:",
-      alternatives: [
-        { key: "A", text: "30" },
-        { key: "B", text: "35" },
-        { key: "C", text: "36" },
-        { key: "D", text: "49" },
-      ],
-      correctKey: "C",
-      legalBasis: "Quadrados perfeitos",
-      whyCorrect: "6²=36.",
-      whyWrong: { A: "Não.", B: "Não.", D: "7²." },
-    }),
-  ],
-});
-
 export const tjspQuestCatalog: QuestCatalog = {
-  version: 2,
+  version: 4,
   subjects,
   phases: [
     ...portPhases,
@@ -661,8 +461,7 @@ export const tjspQuestCatalog: QuestCatalog = {
     ...constExtraPhases,
     ...direitoPhases,
     ...geraisPhases,
-    info1,
-    rlm1,
+    ...editalExpandPhases,
   ],
 };
 

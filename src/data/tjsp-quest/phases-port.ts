@@ -445,9 +445,9 @@ export const portPhases: QuestPhase[] = [
     id: "port-4",
     subjectId: "port",
     number: 4,
-    title: "Concordância, regência e crase",
+    title: "Concordância, regência, colocação e crase",
     objective:
-      "Aplicar concordância verbal/nominal, regência e regras de crase em frases de prova.",
+      "Aplicar concordância verbal/nominal, regência, colocação pronominal e crase em frases de prova.",
     estimatedMinutes: 14,
     conceptsCount: 6,
     unlockRequiresPhaseIds: ["port-3"],
