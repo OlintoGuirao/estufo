@@ -18,8 +18,8 @@ const subjects: QuestSubject[] = [
     shortName: "Português",
     color: "#9b2226",
     icon: "pen",
-    description: "Bloco I — interpretação, gramática, crase e coesão.",
-    phaseIds: ["port-1", "port-2"],
+    description: "Bloco I — 5 fases + chefão (interpretação, gramática, crase e semântica).",
+    phaseIds: ["port-1", "port-2", "port-3", "port-4", "port-5", "port-6"],
   },
   {
     id: "const",

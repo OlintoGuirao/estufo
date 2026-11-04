@@ -1,7 +1,7 @@
 import type { QuestPhase } from "@/types/tjsp-quest";
 import { buildLessonBlocks, phase, q } from "./lesson";
 
-/** Bloco I — Língua Portuguesa (edital TJSP). */
+/** Bloco I — Língua Portuguesa: 5 fases + chefão final. */
 export const portPhases: QuestPhase[] = [
   phase({
     id: "port-1",
@@ -13,30 +13,30 @@ export const portPhases: QuestPhase[] = [
     estimatedMinutes: 12,
     conceptsCount: 5,
     unlockRequiresPhaseIds: [],
-    sources: [{ label: "Edital TJSP — Bloco I: Língua Portuguesa, itens 1 a 5" }],
+    sources: [{ label: "Edital TJSP — Bloco I: interpretação, coesão, ponto de vista" }],
     lessonBlocks: buildLessonBlocks({
       prefix: "p1",
       contexto:
         "Em prova de português do TJSP, a maioria das questões exige leitura atenta: o que o texto diz, o que se pode inferir e como as ideias se ligam.",
       explicacao:
         "Literal = está escrito. Inferência = conclusão razoável a partir do texto. Coesão = conectivos, pronomes e substituições que amarram as frases. Ponto de vista = opinião ou postura do autor.",
-      baseLegal: "Conteúdo programático — análise, compreensão, interpretação; literal vs. inferência; ponto de vista; relações entre ideias e coesão; significação contextual.",
+      baseLegal:
+        "Conteúdo programático — análise, compreensão, interpretação; literal vs. inferência; ponto de vista; relações entre ideias e coesão.",
       traducao:
         "Leia a pergunta antes de caçar “pegadinha”. Se pedir o que o texto afirma, não invente. Se pedir o que se depreende, use só pistas do texto.",
       exemplo:
-        "Texto: “O projeto atrasou, porém a equipe não desistiu.” O “porém” marca oposição (coesão). Inferência possível: houve dificuldade, mas houve perseverança.",
+        "Texto: “O projeto atrasou, porém a equipe não desistiu.” O “porém” marca oposição (coesão).",
       prova:
-        "Não confunda opinião do autor com fato narrado. Cuidado com alternativas que generalizam demais (“sempre”, “nunca”) sem apoio no texto.",
-      memorizar: "Literal × inferência × coesão × ponto de vista. Conectivo = cola do texto.",
+        "Não confunda opinião do autor com fato narrado. Cuidado com alternativas que generalizam demais.",
+      memorizar: "Literal × inferência × coesão × ponto de vista.",
       miniRevisao:
-        "1) Literal está onde? (No texto.) 2) Inferência exige o quê? (Pista + conclusão.) 3) “Porém” indica o quê? (Oposição.)",
+        "1) Literal está onde? (No texto.) 2) Inferência exige o quê? (Pista + conclusão.)",
     }),
     questions: [
       q({
         id: "p1-q1",
         difficulty: "facil",
-        statement:
-          "Em prova de interpretação, informação literal é aquela que:",
+        statement: "Em prova de interpretação, informação literal é aquela que:",
         alternatives: [
           { key: "A", text: "O leitor inventa com base na experiência pessoal" },
           { key: "B", text: "Está expressa ou diretamente sustentada pelo texto" },
@@ -44,11 +44,11 @@ export const portPhases: QuestPhase[] = [
           { key: "D", text: "Depende exclusivamente do dicionário jurídico" },
         ],
         correctKey: "B",
-        legalBasis: "Edital — informações literais e inferências",
+        legalBasis: "Interpretação textual",
         whyCorrect: "Literal é o que o texto diz de forma expressa ou inequívoca.",
         whyWrong: {
           A: "Isso extrapola o texto.",
-          C: "O título da prova não define a literalidade do trecho.",
+          C: "O título da prova não define a literalidade.",
           D: "Não é critério de literalidade textual.",
         },
       }),
@@ -64,20 +64,18 @@ export const portPhases: QuestPhase[] = [
           { key: "D", text: "Comparação" },
         ],
         correctKey: "B",
-        legalBasis: "Edital — recursos de coesão; relações entre ideias",
+        legalBasis: "Coesão — relações entre ideias",
         whyCorrect: "“Portanto” introduz conclusão a partir do que foi dito.",
         whyWrong: {
-          A: "Oposição seria “mas”, “porém”, “contudo”.",
+          A: "Oposição seria “mas”, “porém”.",
           C: "Há nexo lógico de conclusão.",
-          D: "Comparação usaria “como”, “tal qual”, etc.",
+          D: "Comparação usaria “como”, “tal qual”.",
         },
-        memoryTip: "Portanto/logo/pois (conclusivo) = conclusão.",
       }),
       q({
         id: "p1-q3",
         difficulty: "media",
-        statement:
-          "Inferência textual válida é aquela que:",
+        statement: "Inferência textual válida é aquela que:",
         alternatives: [
           { key: "A", text: "Contradiz o texto, mas parece “mais moderna”" },
           { key: "B", text: "Decorre de pistas do texto, sem extrapolar o sentido" },
@@ -85,7 +83,7 @@ export const portPhases: QuestPhase[] = [
           { key: "D", text: "Só existe se houver crase na frase" },
         ],
         correctKey: "B",
-        legalBasis: "Edital — inferências possíveis",
+        legalBasis: "Inferências",
         whyCorrect: "Inferência = conclusão autorizada pelo que o texto sugere.",
         whyWrong: {
           A: "Contradizer o texto invalida a inferência.",
@@ -96,8 +94,7 @@ export const portPhases: QuestPhase[] = [
       q({
         id: "p1-q4",
         difficulty: "facil",
-        statement:
-          "Identificar o ponto de vista do autor significa, em regra:",
+        statement: "Identificar o ponto de vista do autor significa, em regra:",
         alternatives: [
           { key: "A", text: "Localizar a opinião, postura ou intenção revelada no texto" },
           { key: "B", text: "Contar quantas linhas o texto tem" },
@@ -105,7 +102,7 @@ export const portPhases: QuestPhase[] = [
           { key: "D", text: "Ignorar conectivos e pronomes" },
         ],
         correctKey: "A",
-        legalBasis: "Edital — ponto de vista do autor",
+        legalBasis: "Ponto de vista do autor",
         whyCorrect: "Ponto de vista = como o autor se posiciona diante do tema.",
         whyWrong: {
           B: "Extensão não é ponto de vista.",
@@ -119,43 +116,39 @@ export const portPhases: QuestPhase[] = [
         id: "p1-b-q1",
         difficulty: "dificil",
         statement:
-          "Assinale a afirmativa CORRETA sobre coesão textual:",
+          'No período “Embora chovesse, a equipe concluiu o serviço”, o conectivo “embora” expressa:',
         alternatives: [
-          {
-            key: "A",
-            text: "Pronomes e conectivos podem retomar ou relacionar ideias, garantindo continuidade",
-          },
-          { key: "B", text: "Coesão só existe em textos literários" },
-          { key: "C", text: "Coesão proíbe o uso de sinônimos" },
-          { key: "D", text: "Coesão elimina a necessidade de interpretação" },
+          { key: "A", text: "Concessão" },
+          { key: "B", text: "Causa" },
+          { key: "C", text: "Finalidade" },
+          { key: "D", text: "Comparação" },
         ],
         correctKey: "A",
-        legalBasis: "Edital — estruturação do texto; recursos de coesão",
-        whyCorrect: "Coesão amarra partes do texto por mecanismos linguísticos.",
+        legalBasis: "Coesão — concessivas",
+        whyCorrect: "“Embora” introduz ideia concessiva (obstáculo que não impede).",
         whyWrong: {
-          B: "Há coesão em textos não literários também.",
-          C: "Sinônimos podem ser recurso de coesão lexical.",
-          D: "Coesão e interpretação caminham juntas.",
+          B: "Causa seria “porque”, “pois”.",
+          C: "Finalidade seria “para que”.",
+          D: "Comparação seria “como”, “tal qual”.",
         },
       }),
       q({
         id: "p1-b-q2",
         difficulty: "media",
-        statement:
-          "Significação contextual de uma palavra é determinada principalmente:",
+        statement: "Assinale a opção que melhor define coesão textual:",
         alternatives: [
-          { key: "A", text: "Pelo uso no trecho em que aparece" },
-          { key: "B", text: "Pelo número de sílabas" },
-          { key: "C", text: "Pela tipografia do edital" },
-          { key: "D", text: "Pela cor do enunciado" },
+          { key: "A", text: "Mecanismos que ligam partes do texto (conectivos, pronomes, reiterações)" },
+          { key: "B", text: "A quantidade de parágrafos do enunciado" },
+          { key: "C", text: "A presença obrigatória de crase" },
+          { key: "D", text: "O tamanho das palavras difíceis" },
         ],
         correctKey: "A",
-        legalBasis: "Edital — significação contextual",
-        whyCorrect: "O contexto fixa o sentido empregado no texto.",
+        legalBasis: "Coesão",
+        whyCorrect: "Coesão = amarras linguísticas entre as partes do texto.",
         whyWrong: {
-          B: "Sílabas não definem sentido contextual.",
-          C: "Irrelevante.",
-          D: "Irrelevante.",
+          B: "Extensão não é coesão.",
+          C: "Crase é tópico gramatical distinto.",
+          D: "Vocabulário difícil não define coesão.",
         },
       }),
     ],
@@ -165,34 +158,315 @@ export const portPhases: QuestPhase[] = [
     id: "port-2",
     subjectId: "port",
     number: 2,
-    title: "Classes, concordância e crase",
+    title: "Ortografia, acentuação e pontuação",
     objective:
-      "Dominar emprego das classes de palavras, concordância, regência, colocação pronominal, crase e pontuação.",
-    estimatedMinutes: 14,
-    conceptsCount: 6,
+      "Empregar corretamente ortografia, acentuação gráfica e sinais de pontuação no padrão culto.",
+    estimatedMinutes: 12,
+    conceptsCount: 5,
     unlockRequiresPhaseIds: ["port-1"],
-    sources: [{ label: "Edital TJSP — Bloco I: Língua Portuguesa, itens 6 a 13" }],
+    sources: [{ label: "Edital TJSP — ortografia, acentuação, pontuação" }],
     lessonBlocks: buildLessonBlocks({
       prefix: "p2",
       contexto:
-        "A banca mistura gramática “seca” com sentido no texto: crase, concordância e regência caem o tempo todo.",
+        "A VUNESP cobra grafia correta, acento e pontuação que mudam o sentido da frase.",
       explicacao:
-        "Concordância: verbo com sujeito; adjetivo/artigo com substantivo. Regência: verbo/nome pede preposição. Crase: a + a (artigo/pronome). Colocação: próclise, ênclise, mesóclise.",
-      baseLegal: "Edital — classes de palavras; concordância; regência; colocação pronominal; crase; pontuação; sinônimos/antônimos; sentido próprio e figurado.",
-      traducao:
-        "Antes de marcar crase: pergunte se há “a” preposição + “a” artigo/pronome feminino. Em verbos, ache o sujeito antes de concordar.",
-      exemplo:
-        "“Refiro-me à lei.” → crase (a + a). “Fazem dois anos…” → erro clássico: o verbo fazer (tempo decorrido) fica no singular: “Faz dois anos”.",
-      prova:
-        "Pegadinhas: crase antes de verbo (“a partir”); concordância com sujeito posposto; regência de “assistir” (TV = a).",
-      memorizar:
-        "Crase = a+a. Fazer (tempo) singular. Assisti ao filme. Sujeito manda no verbo.",
-      miniRevisao:
-        "1) Crase é fusão de quê? (a+a) 2) “Faz dois anos” ou “Fazem”? (Faz) 3) Quem manda na concordância verbal? (Sujeito)",
+        "Ortografia: hífen, porquê/porque, mal/mau. Acentuação: regras das oxítonas, paroxítonas e proparoxítonas. Pontuação: vírgula não separa sujeito do verbo.",
+      baseLegal: "Norma culta da língua portuguesa — grafia, acento e pontuação.",
+      traducao: "Leia em voz baixa: se a vírgula “corta” o sujeito do verbo, costuma estar errada.",
+      exemplo: "“Os servidores, elaboraram o ofício.” → vírgula indevida entre sujeito e verbo.",
+      prova: "Pegadinha clássica: por que / porque / porquê / por quê.",
+      memorizar: "Vírgula não corta sujeito + verbo. Porquê = substantivo.",
+      miniRevisao: "1) Vírgula entre sujeito e verbo? (Não.) 2) “Porquê” com acento é o quê? (Substantivo.)",
     }),
     questions: [
       q({
         id: "p2-q1",
+        difficulty: "facil",
+        statement: "Assinale a frase com pontuação adequada:",
+        alternatives: [
+          { key: "A", text: "Os juízes, assinaram a sentença ontem." },
+          { key: "B", text: "Os juízes assinaram a sentença ontem." },
+          { key: "C", text: "Assinaram, os juízes a sentença ontem." },
+          { key: "D", text: "Os juízes assinaram, a sentença, ontem sem motivo." },
+        ],
+        correctKey: "B",
+        legalBasis: "Pontuação",
+        whyCorrect: "Não se separa sujeito (“Os juízes”) do verbo (“assinaram”) com vírgula.",
+        whyWrong: {
+          A: "Vírgula indevida entre sujeito e verbo.",
+          C: "Ordem e vírgula inadequados.",
+          D: "Vírgulas desnecessárias quebram o complemento.",
+        },
+      }),
+      q({
+        id: "p2-q2",
+        difficulty: "media",
+        statement: "Em “Não sei o porquê da demora”, a forma “porquê” está correta porque:",
+        alternatives: [
+          { key: "A", text: "Funciona como substantivo e vem acompanhada de determinante" },
+          { key: "B", text: "É sempre conjunção causal" },
+          { key: "C", text: "Só aparece em perguntas" },
+          { key: "D", text: "Substitui a vírgula" },
+        ],
+        correctKey: "A",
+        legalBasis: "Ortografia — porquê",
+        whyCorrect: "“O porquê” = substantivo (motivo).",
+        whyWrong: {
+          B: "Conjunção causal é “porque” (sem acento).",
+          C: "Em perguntas finais usa-se “por quê”.",
+          D: "Não tem relação com vírgula.",
+        },
+      }),
+      q({
+        id: "p2-q3",
+        difficulty: "media",
+        statement: "Assinale a palavra acentuada pela regra das proparoxítonas:",
+        alternatives: [
+          { key: "A", text: "táxi" },
+          { key: "B", text: "útil" },
+          { key: "C", text: "médico" },
+          { key: "D", text: "café" },
+        ],
+        correctKey: "C",
+        legalBasis: "Acentuação",
+        whyCorrect: "“Médico” é proparoxítona (todas são acentuadas).",
+        whyWrong: {
+          A: "Oxítona terminada em i.",
+          B: "Paroxítona terminada em l.",
+          D: "Oxítona terminada em e.",
+        },
+      }),
+      q({
+        id: "p2-q4",
+        difficulty: "facil",
+        statement: "Assinale a alternativa ortograficamente correta:",
+        alternatives: [
+          { key: "A", text: "Ele teve um mau dia no fórum." },
+          { key: "B", text: "Ele teve um mal dia no fórum." },
+          { key: "C", text: "Isso faz mal-humor em todos." },
+          { key: "D", text: "Houveram muitos atrasos." },
+        ],
+        correctKey: "A",
+        legalBasis: "Ortografia — mal/mau",
+        whyCorrect: "“Mau” é adjetivo (oposto de bom).",
+        whyWrong: {
+          B: "“Mal” é advérbio (oposto de bem).",
+          C: "Grafia inadequada da expressão.",
+          D: "O correto é “Houve” (haver = existir).",
+        },
+      }),
+    ],
+    bossQuestions: [
+      q({
+        id: "p2-b-q1",
+        difficulty: "dificil",
+        statement: "Assinale a opção em que a vírgula está corretamente empregada:",
+        alternatives: [
+          { key: "A", text: "O escrevente, redigiu o mandado." },
+          { key: "B", text: "Ontem, o escrevente redigiu o mandado." },
+          { key: "C", text: "O escrevente redigiu, o mandado." },
+          { key: "D", text: "Redigiu o escrevente, o mandado ontem." },
+        ],
+        correctKey: "B",
+        legalBasis: "Pontuação — adjunto adverbial",
+        whyCorrect: "Adjunto adverbial deslocado no início pode vir entre vírgulas/vírgula.",
+        whyWrong: {
+          A: "Separa sujeito e verbo.",
+          C: "Separa verbo e objeto.",
+          D: "Pontuação e ordem confusas.",
+        },
+      }),
+      q({
+        id: "p2-b-q2",
+        difficulty: "media",
+        statement: "“Por que você faltou?” — o emprego de “Por que” está correto porque:",
+        alternatives: [
+          { key: "A", text: "Inicia pergunta e equivale a “por qual motivo”" },
+          { key: "B", text: "É substantivo" },
+          { key: "C", text: "É conjunção explicativa no meio da frase" },
+          { key: "D", text: "Fecha pergunta" },
+        ],
+        correctKey: "A",
+        legalBasis: "Ortografia — por que",
+        whyCorrect: "No início de pergunta: “Por que”.",
+        whyWrong: {
+          B: "Substantivo é “porquê”.",
+          C: "Conjunção causal/explicativa: “porque”.",
+          D: "No fim da pergunta: “por quê?”.",
+        },
+      }),
+    ],
+  }),
+
+  phase({
+    id: "port-3",
+    subjectId: "port",
+    number: 3,
+    title: "Classes de palavras",
+    objective:
+      "Reconhecer classes gramaticais e o papel de substantivos, adjetivos, verbos, pronomes e conectivos no texto.",
+    estimatedMinutes: 12,
+    conceptsCount: 5,
+    unlockRequiresPhaseIds: ["port-2"],
+    sources: [{ label: "Edital TJSP — classes de palavras" }],
+    lessonBlocks: buildLessonBlocks({
+      prefix: "p3",
+      contexto: "A banca pede para classificar palavras no contexto do período, não isoladas.",
+      explicacao:
+        "Substantivo nomeia; adjetivo caracteriza; verbo indica processo; pronome substitui/acompanha; preposição relaciona; conjunção liga orações.",
+      baseLegal: "Morfologia — classes de palavras no padrão culto.",
+      traducao: "Pergunte: a palavra nomeia, caracteriza, liga ou indica ação?",
+      exemplo: "Em “decisão rápida”, “rápida” é adjetivo; em “A rápida chegou”, pode ser substantivo.",
+      prova: "Mesma forma, classes diferentes conforme o contexto.",
+      memorizar: "Classe = função no contexto.",
+      miniRevisao: "1) O que caracteriza o substantivo? 2) Conjunção liga o quê?",
+    }),
+    questions: [
+      q({
+        id: "p3-q1",
+        difficulty: "facil",
+        statement: "Em “A audiência foi longa”, a palavra “longa” é:",
+        alternatives: [
+          { key: "A", text: "Adjetivo" },
+          { key: "B", text: "Advérbio" },
+          { key: "C", text: "Preposição" },
+          { key: "D", text: "Conjunção" },
+        ],
+        correctKey: "A",
+        legalBasis: "Classes — adjetivo",
+        whyCorrect: "Caracteriza o substantivo “audiência”.",
+        whyWrong: {
+          B: "Advérbio modificaria verbo/adjetivo/outro advérbio.",
+          C: "Preposição relaciona termos (a, de, em).",
+          D: "Conjunção liga orações/palavras.",
+        },
+      }),
+      q({
+        id: "p3-q2",
+        difficulty: "media",
+        statement: "Em “Ela resolveu o conflito”, “Ela” classifica-se como:",
+        alternatives: [
+          { key: "A", text: "Pronome pessoal do caso reto" },
+          { key: "B", text: "Artigo definido" },
+          { key: "C", text: "Substantivo próprio" },
+          { key: "D", text: "Advérbio de modo" },
+        ],
+        correctKey: "A",
+        legalBasis: "Classes — pronome",
+        whyCorrect: "“Ela” é pronome pessoal reto (sujeito).",
+        whyWrong: {
+          B: "Artigo seria “a”, “o”.",
+          C: "Não nomeia ser específico com nome próprio.",
+          D: "Não modifica verbo.",
+        },
+      }),
+      q({
+        id: "p3-q3",
+        difficulty: "media",
+        statement: "A palavra destacada em “Saiu apesar da chuva” é:",
+        alternatives: [
+          { key: "A", text: "Locução prepositiva" },
+          { key: "B", text: "Conjunção coordenativa" },
+          { key: "C", text: "Interjeição" },
+          { key: "D", text: "Numeral" },
+        ],
+        correctKey: "A",
+        legalBasis: "Classes — preposição",
+        whyCorrect: "“Apesar de” = locução prepositiva.",
+        whyWrong: {
+          B: "Não liga orações coordenadas tipicamente como “e/mas”.",
+          C: "Interjeição expressa emoção.",
+          D: "Numeral indica quantidade/ordem.",
+        },
+      }),
+      q({
+        id: "p3-q4",
+        difficulty: "facil",
+        statement: "Em “Trabalharam muito”, “muito” funciona como:",
+        alternatives: [
+          { key: "A", text: "Advérbio de intensidade" },
+          { key: "B", text: "Artigo indefinido" },
+          { key: "C", text: "Pronome possessivo" },
+          { key: "D", text: "Preposição" },
+        ],
+        correctKey: "A",
+        legalBasis: "Classes — advérbio",
+        whyCorrect: "Modifica o verbo “trabalharam” (intensidade).",
+        whyWrong: {
+          B: "Artigo indefinido seria “um/uma”.",
+          C: "Possessivo: meu, seu, nosso.",
+          D: "Preposição não intensifica verbo assim.",
+        },
+      }),
+    ],
+    bossQuestions: [
+      q({
+        id: "p3-b-q1",
+        difficulty: "dificil",
+        statement: "No período “Não falaram porque estavam cansados”, “porque” é:",
+        alternatives: [
+          { key: "A", text: "Conjunção causal" },
+          { key: "B", text: "Pronome relativo" },
+          { key: "C", text: "Advérbio interrogativo" },
+          { key: "D", text: "Substantivo" },
+        ],
+        correctKey: "A",
+        legalBasis: "Classes — conjunção",
+        whyCorrect: "Introduce oração causal (motivo).",
+        whyWrong: {
+          B: "Relativo seria “que”, “quem”, “cujo”.",
+          C: "Interrogativo apareceria em pergunta.",
+          D: "Substantivo seria “o porquê”.",
+        },
+      }),
+      q({
+        id: "p3-b-q2",
+        difficulty: "media",
+        statement: "Assinale a opção em que o termo destacado é substantivo:",
+        alternatives: [
+          { key: "A", text: "O belo da paisagem impressionou." },
+          { key: "B", text: "Paisagem bela ao entardecer." },
+          { key: "C", text: "Cantaram belo demais." },
+          { key: "D", text: "Agiram belo e rápido." },
+        ],
+        correctKey: "A",
+        legalBasis: "Substantivação",
+        whyCorrect: "Com artigo “o”, “belo” substantiva-se (qualidade como coisa).",
+        whyWrong: {
+          B: "Adjetivo.",
+          C: "Advérbio/uso adverbial inadequado no padrão.",
+          D: "Uso adjetivo/adverbial, não substantivo.",
+        },
+      }),
+    ],
+  }),
+
+  phase({
+    id: "port-4",
+    subjectId: "port",
+    number: 4,
+    title: "Concordância, regência e crase",
+    objective:
+      "Aplicar concordância verbal/nominal, regência e regras de crase em frases de prova.",
+    estimatedMinutes: 14,
+    conceptsCount: 6,
+    unlockRequiresPhaseIds: ["port-3"],
+    sources: [{ label: "Edital TJSP — concordância, regência, crase, colocação" }],
+    lessonBlocks: buildLessonBlocks({
+      prefix: "p4",
+      contexto: "Crase, concordância e regência são os temas que mais geram eliminação na VUNESP.",
+      explicacao:
+        "Concordância: verbo com sujeito. Regência: verbo pede preposição. Crase: a + a. Colocação: próclise com palavra atrativa.",
+      baseLegal: "Sintaxe — concordância, regência, crase e colocação pronominal.",
+      traducao: "Ache o sujeito antes de concordar; teste a crase trocando pelo masculino.",
+      exemplo: "“Refiro-me à lei.” / “Faz dois anos…” / “Assisti ao filme.”",
+      prova: "Antes de verbo no infinitivo normalmente não há crase (“a partir”).",
+      memorizar: "Crase = a+a. Fazer (tempo) singular. Assisti ao filme.",
+      miniRevisao: "1) Crase é fusão de quê? 2) “Faz dois anos” ou “Fazem”?",
+    }),
+    questions: [
+      q({
+        id: "p4-q1",
         difficulty: "facil",
         statement: "A crase indica, em regra, a fusão de:",
         alternatives: [
@@ -202,17 +476,16 @@ export const portPhases: QuestPhase[] = [
           { key: "D", text: "Conjunção + interjeição" },
         ],
         correctKey: "A",
-        legalBasis: "Edital — crase",
+        legalBasis: "Crase",
         whyCorrect: "Crase = fusão da preposição a com o a do artigo/pronome.",
         whyWrong: {
           B: "Não é definição de crase.",
           C: "Não.",
           D: "Não.",
         },
-        memoryTip: "Crase = a + a.",
       }),
       q({
-        id: "p2-q2",
+        id: "p4-q2",
         difficulty: "media",
         statement: "Assinale a frase com concordância verbal adequada:",
         alternatives: [
@@ -222,7 +495,7 @@ export const portPhases: QuestPhase[] = [
           { key: "D", text: "Existe duas decisões contraditórias." },
         ],
         correctKey: "B",
-        legalBasis: "Edital — concordância verbal",
+        legalBasis: "Concordância verbal",
         whyCorrect: "“Fazer” indicando tempo decorrido fica no singular.",
         whyWrong: {
           A: "Com tempo decorrido, “fazer” não pluraliza.",
@@ -231,7 +504,7 @@ export const portPhases: QuestPhase[] = [
         },
       }),
       q({
-        id: "p2-q3",
+        id: "p4-q3",
         difficulty: "media",
         statement: "Em “Não se trata de erro formal”, a colocação do pronome “se” é exemplo de:",
         alternatives: [
@@ -241,37 +514,16 @@ export const portPhases: QuestPhase[] = [
           { key: "D", text: "Elipse verbal" },
         ],
         correctKey: "B",
-        legalBasis: "Edital — colocação pronominal",
+        legalBasis: "Colocação pronominal",
         whyCorrect: "Pronome antes do verbo = próclise (atraído por “não”).",
         whyWrong: {
-          A: "Ênclise = pronome depois do verbo (trata-se).",
-          C: "Mesóclise = no meio (tratar-se-ia).",
+          A: "Ênclise = pronome depois do verbo.",
+          C: "Mesóclise = no meio do verbo.",
           D: "Não há omissão do verbo.",
         },
       }),
       q({
-        id: "p2-q4",
-        difficulty: "facil",
-        statement: "Sentido figurado ocorre quando a palavra:",
-        alternatives: [
-          { key: "A", text: "É usada fora do sentido literal habitual" },
-          { key: "B", text: "Só aparece em dicionário jurídico" },
-          { key: "C", text: "É sempre um verbo" },
-          { key: "D", text: "Não pode ter sinônimo" },
-        ],
-        correctKey: "A",
-        legalBasis: "Edital — sentido próprio e figurado",
-        whyCorrect: "Figurado = metáfora/desvio do sentido próprio.",
-        whyWrong: {
-          B: "Não é critério.",
-          C: "Qualquer classe pode ter sentido figurado.",
-          D: "Pode ter sinônimo.",
-        },
-      }),
-    ],
-    bossQuestions: [
-      q({
-        id: "p2-b-q1",
+        id: "p4-q4",
         difficulty: "dificil",
         statement: "Assinale a opção em que a crase está CORRETA:",
         alternatives: [
@@ -281,7 +533,7 @@ export const portPhases: QuestPhase[] = [
           { key: "D", text: "Referiu-se à ele com respeito." },
         ],
         correctKey: "B",
-        legalBasis: "Edital — crase",
+        legalBasis: "Crase",
         whyCorrect: "“À servidora” = a (prep.) + a (artigo) diante de feminino.",
         whyWrong: {
           A: "Antes de verbo no infinitivo não há crase.",
@@ -289,9 +541,11 @@ export const portPhases: QuestPhase[] = [
           D: "Antes de pronome masculino “ele” não há crase.",
         },
       }),
+    ],
+    bossQuestions: [
       q({
-        id: "p2-b-q2",
-        difficulty: "media",
+        id: "p4-b-q1",
+        difficulty: "dificil",
         statement: "Regência verbal correta:",
         alternatives: [
           { key: "A", text: "Assisti o filme ontem." },
@@ -300,16 +554,62 @@ export const portPhases: QuestPhase[] = [
           { key: "D", text: "Prefiro mais café do que chá." },
         ],
         correctKey: "B",
-        legalBasis: "Edital — regência verbal",
-        whyCorrect: "“Assistir” no sentido de ver/presenciar regência “a”.",
+        legalBasis: "Regência verbal",
+        whyCorrect: "“Assistir” (ver) regência “a”.",
         whyWrong: {
           A: "Falta a preposição “a”.",
-          C: "“Obedecer” pede “a”: obedeço ao regulamento.",
-          D: "“Preferir” não admite “mais… do que” (preferir X a Y).",
+          C: "“Obedecer” pede “a”.",
+          D: "“Preferir” não admite “mais… do que”.",
         },
       }),
       q({
-        id: "p2-b-q3",
+        id: "p4-b-q2",
+        difficulty: "media",
+        statement: "Assinale a concordância nominal correta:",
+        alternatives: [
+          { key: "A", text: "Segue anexas as certidões." },
+          { key: "B", text: "Seguem anexas as certidões." },
+          { key: "C", text: "Segue anexo as certidões." },
+          { key: "D", text: "Seguem anexo as certidões." },
+        ],
+        correctKey: "B",
+        legalBasis: "Concordância nominal",
+        whyCorrect: "Verbo e adjetivo concordam com “certidões” (feminino plural).",
+        whyWrong: {
+          A: "Verbo deveria ir ao plural.",
+          C: "Adjetivo e verbo inadequados.",
+          D: "Adjetivo deveria ir ao feminino plural.",
+        },
+      }),
+    ],
+  }),
+
+  phase({
+    id: "port-5",
+    subjectId: "port",
+    number: 5,
+    title: "Semântica e reescritura",
+    objective:
+      "Dominar sinonímia, antonímia, sentido próprio/figurado e reescritura sem prejuízo de sentido.",
+    estimatedMinutes: 12,
+    conceptsCount: 5,
+    unlockRequiresPhaseIds: ["port-4"],
+    sources: [{ label: "Edital TJSP — significação, sinônimos, reescritura" }],
+    lessonBlocks: buildLessonBlocks({
+      prefix: "p5",
+      contexto: "A banca testa se você troca palavras sem mudar o sentido do texto.",
+      explicacao:
+        "Sinônimo ≈ mesmo sentido no contexto. Antônimo = oposto. Figurado = fora do literal. Reescritura fiel preserva informações.",
+      baseLegal: "Semântica e reescritura de frases.",
+      traducao: " Troque e releia: se o sentido mudou, a alternativa cai.",
+      exemplo: "“Escasso” ≈ “reduzido”; antônimo ≈ “abundante”.",
+      prova: "Sinônimo precisa funcionar NAQUELE contexto, não só no dicionário.",
+      memorizar: "Contexto manda no sinônimo.",
+      miniRevisao: "1) Figurado é o quê? 2) Reescritura pode omitir ideia central?",
+    }),
+    questions: [
+      q({
+        id: "p5-q1",
         difficulty: "facil",
         statement: "Antônimo de “escasso” é:",
         alternatives: [
@@ -319,12 +619,295 @@ export const portPhases: QuestPhase[] = [
           { key: "D", text: "Insuficiente" },
         ],
         correctKey: "A",
-        legalBasis: "Edital — sinônimos e antônimos",
+        legalBasis: "Antonímia",
         whyCorrect: "Abundante é o oposto de escasso.",
         whyWrong: {
           B: "Raro aproxima-se de escasso.",
           C: "Exíguo ≈ escasso.",
           D: "Insuficiente ≈ escasso.",
+        },
+      }),
+      q({
+        id: "p5-q2",
+        difficulty: "media",
+        statement: "Sentido figurado ocorre quando a palavra:",
+        alternatives: [
+          { key: "A", text: "É usada fora do sentido literal habitual" },
+          { key: "B", text: "Só aparece em dicionário jurídico" },
+          { key: "C", text: "É sempre um verbo" },
+          { key: "D", text: "Não pode ter sinônimo" },
+        ],
+        correctKey: "A",
+        legalBasis: "Sentido próprio e figurado",
+        whyCorrect: "Figurado = desvio do sentido próprio.",
+        whyWrong: {
+          B: "Não é critério.",
+          C: "Qualquer classe pode ter sentido figurado.",
+          D: "Pode ter sinônimo.",
+        },
+      }),
+      q({
+        id: "p5-q3",
+        difficulty: "media",
+        statement:
+          "Uma reescritura preserva o sentido quando:",
+        alternatives: [
+          { key: "A", text: "Mantém as informações essenciais sem contradizer o original" },
+          { key: "B", text: "Inverte a conclusão do autor" },
+          { key: "C", text: "Omite o núcleo do enunciado" },
+          { key: "D", text: "Troca afirmativa por negativa sem marcador" },
+        ],
+        correctKey: "A",
+        legalBasis: "Reescritura",
+        whyCorrect: "Fidelidade informacional é o critério.",
+        whyWrong: {
+          B: "Inverter conclusão muda o sentido.",
+          C: "Omitir núcleo prejudica o sentido.",
+          D: "Negação não marcada altera o sentido.",
+        },
+      }),
+      q({
+        id: "p5-q4",
+        difficulty: "facil",
+        statement: "Em “O foro fervia de processos”, há predominantemente:",
+        alternatives: [
+          { key: "A", text: "Sentido figurado" },
+          { key: "B", text: "Sentido estritamente químico" },
+          { key: "C", text: "Erro ortográfico obrigatório" },
+          { key: "D", text: "Crase obrigatória" },
+        ],
+        correctKey: "A",
+        legalBasis: "Figurado",
+        whyCorrect: "“Fervia” não está no sentido literal de temperatura.",
+        whyWrong: {
+          B: "Não há sentido químico no contexto.",
+          C: "A frase está ortograficamente aceitável.",
+          D: "Não há crase no trecho.",
+        },
+      }),
+    ],
+    bossQuestions: [
+      q({
+        id: "p5-b-q1",
+        difficulty: "dificil",
+        statement:
+          "Assinale a reescritura que mantém o sentido de “Embora cansado, concluiu o relatório.”:",
+        alternatives: [
+          { key: "A", text: "Concluiu o relatório, apesar de cansado." },
+          { key: "B", text: "Como estava cansado, não concluiu o relatório." },
+          { key: "C", text: "Concluiu o relatório porque estava cansado." },
+          { key: "D", text: "Estava cansado; portanto, deixou o relatório." },
+        ],
+        correctKey: "A",
+        legalBasis: "Reescritura — concessão",
+        whyCorrect: "“Apesar de” preserva a ideia concessiva de “embora”.",
+        whyWrong: {
+          B: "Nega a conclusão.",
+          C: "Troca concessão por causa.",
+          D: "Inverte o resultado.",
+        },
+      }),
+      q({
+        id: "p5-b-q2",
+        difficulty: "media",
+        statement: "Sinônimo contextual adequado de “célere” em “procedimento célere”:",
+        alternatives: [
+          { key: "A", text: "Rápido" },
+          { key: "B", text: "Lento" },
+          { key: "C", text: "Confuso" },
+          { key: "D", text: "Ilegal" },
+        ],
+        correctKey: "A",
+        legalBasis: "Sinonímia",
+        whyCorrect: "Célere ≈ rápido/ágil.",
+        whyWrong: {
+          B: "Antônimo.",
+          C: "Não equivale.",
+          D: "Não equivale.",
+        },
+      }),
+    ],
+  }),
+
+  phase({
+    id: "port-6",
+    subjectId: "port",
+    number: 6,
+    title: "Chefão — Português integrado",
+    objective:
+      "Revisão final misturando interpretação, gramática, crase, coesão e semântica no padrão VUNESP.",
+    estimatedMinutes: 16,
+    conceptsCount: 8,
+    unlockRequiresPhaseIds: ["port-5"],
+    sources: [{ label: "Edital TJSP — Bloco I completo (revisão)" }],
+    lessonBlocks: buildLessonBlocks({
+      prefix: "p6",
+      contexto: "O chefão da matéria simula a prova: textos + gramática misturados.",
+      explicacao:
+        "Leia o texto, resolva interpretação e só depois ataque gramática do trecho. Não invente o que o texto não diz.",
+      baseLegal: "Revisão integrada do Bloco I — Língua Portuguesa.",
+      traducao: "Uma questão por vez: literal × inferência; depois crase/concordância.",
+      exemplo: "Texto curto + pergunta de coesão + item de crase no mesmo bloco temático.",
+      prova: "No chefão, distratores misturam erro gramatical com extrapolação de sentido.",
+      memorizar: "Texto primeiro. Gramática depois. Sem edital na cabeça.",
+      miniRevisao: "Checklist: sentido do texto → conectivo → concordância → crase.",
+    }),
+    questions: [
+      q({
+        id: "p6-q1",
+        difficulty: "media",
+        statement:
+          'Leia: “O prazo venceu; contudo, o peticionamento foi aceito.” O conectivo “contudo” indica:',
+        alternatives: [
+          { key: "A", text: "Oposição/adversidade" },
+          { key: "B", text: "Conclusão" },
+          { key: "C", text: "Finalidade" },
+          { key: "D", text: "Proporção" },
+        ],
+        correctKey: "A",
+        legalBasis: "Coesão",
+        whyCorrect: "“Contudo” é adversativo.",
+        whyWrong: {
+          B: "Conclusão: portanto, logo.",
+          C: "Finalidade: para que.",
+          D: "Proporção: quanto mais…",
+        },
+      }),
+      q({
+        id: "p6-q2",
+        difficulty: "dificil",
+        statement: "Assinale a frase correta quanto à crase e à regência:",
+        alternatives: [
+          { key: "A", text: "Assistimos à sessão solene no tribunal." },
+          { key: "B", text: "Assistimos a sessão solene no tribunal." },
+          { key: "C", text: "Assistimos à ela na sessão." },
+          { key: "D", text: "Assistimos à partir da tarde." },
+        ],
+        correctKey: "A",
+        legalBasis: "Crase + regência",
+        whyCorrect: "Assistir (ver) + a + a (artigo) = à sessão.",
+        whyWrong: {
+          B: "Falta a crase/artigo adequado no padrão cobrado.",
+          C: "Antes de pronome pessoal não há crase.",
+          D: "Antes de verbo no infinitivo não há crase.",
+        },
+      }),
+      q({
+        id: "p6-q3",
+        difficulty: "media",
+        statement: "Em interpretação, extrapolação ocorre quando a alternativa:",
+        alternatives: [
+          { key: "A", text: "Acrescenta ideia que o texto não autoriza" },
+          { key: "B", text: "Repete fielmente um trecho" },
+          { key: "C", text: "Só muda a ordem das palavras sem sentido novo" },
+          { key: "D", text: "Mantém o mesmo conectivo" },
+        ],
+        correctKey: "A",
+        legalBasis: "Interpretação",
+        whyCorrect: "Extrapolação = ir além do texto.",
+        whyWrong: {
+          B: "Isso é literalidade.",
+          C: "Pode ser reescritura fiel.",
+          D: "Não define extrapolação.",
+        },
+      }),
+      q({
+        id: "p6-q4",
+        difficulty: "facil",
+        statement: "Assinale a concordância correta:",
+        alternatives: [
+          { key: "A", text: "Deve haver soluções viáveis." },
+          { key: "B", text: "Devem haver soluções viáveis." },
+          { key: "C", text: "Houveram soluções viáveis." },
+          { key: "D", text: "Existe soluções viáveis." },
+        ],
+        correctKey: "A",
+        legalBasis: "Concordância — haver",
+        whyCorrect: "Com “haver” (= existir), o auxiliar fica no singular: “Deve haver”.",
+        whyWrong: {
+          B: "Não se pluraliza o auxiliar com haver existencial.",
+          C: "Haver existencial não vai ao plural.",
+          D: "Concordância com “soluções”: “Existem”.",
+        },
+      }),
+    ],
+    bossQuestions: [
+      q({
+        id: "p6-b-q1",
+        difficulty: "dificil",
+        statement:
+          "Leia: “A decisão, embora dura, foi necessária.” Assinale a correta:",
+        alternatives: [
+          { key: "A", text: "“Embora” introduz concessão; “dura” caracteriza “decisão”." },
+          { key: "B", text: "“Embora” introduz causa; “dura” é advérbio." },
+          { key: "C", text: "Não há coesão no período." },
+          { key: "D", text: "Há crase obrigatória antes de “dura”." },
+        ],
+        correctKey: "A",
+        legalBasis: "Coesão + classes",
+        whyCorrect: "Concessão + adjetivo anteposto ao sentido do substantivo.",
+        whyWrong: {
+          B: "Não é causa; “dura” não é advérbio aqui.",
+          C: "Há coesão concessiva.",
+          D: "Não há crase nesse ponto.",
+        },
+      }),
+      q({
+        id: "p6-b-q2",
+        difficulty: "dificil",
+        statement: "Assinale a reescritura fiel de “Não obstante o atraso, o ato foi válido.”:",
+        alternatives: [
+          { key: "A", text: "O ato foi válido, apesar do atraso." },
+          { key: "B", text: "O ato foi inválido por causa do atraso." },
+          { key: "C", text: "O atraso invalidou necessariamente o ato." },
+          { key: "D", text: "Só houve atraso; o ato não existiu." },
+        ],
+        correctKey: "A",
+        legalBasis: "Reescritura",
+        whyCorrect: "“Não obstante” ≈ “apesar de” (concessão).",
+        whyWrong: {
+          B: "Inverte o resultado (válido → inválido).",
+          C: "Afirma invalidade necessária — extrapola.",
+          D: "Nega a existência do ato.",
+        },
+      }),
+      q({
+        id: "p6-b-q3",
+        difficulty: "media",
+        statement: "Em “Prefiro petições objetivas a petições prolixas”, a regência de “preferir” está:",
+        alternatives: [
+          { key: "A", text: "Correta (preferir X a Y)" },
+          { key: "B", text: "Errada; o certo é “mais… do que”" },
+          { key: "C", text: "Errada; falta crase obrigatória em “a”" },
+          { key: "D", text: "Errada; “preferir” é impessoal" },
+        ],
+        correctKey: "A",
+        legalBasis: "Regência — preferir",
+        whyCorrect: "Padrão culto: preferir X a Y.",
+        whyWrong: {
+          B: "“Mais… do que” é inadequado com preferir.",
+          C: "Antes de plural “petições” não se usa crase.",
+          D: "Preferir não é impessoal.",
+        },
+      }),
+      q({
+        id: "p6-b-q4",
+        difficulty: "dificil",
+        statement:
+          "No trecho “Os argumentos eram sólidos; portanto, convenceram.”, a segunda oração expressa:",
+        alternatives: [
+          { key: "A", text: "Conclusão" },
+          { key: "B", text: "Oposição" },
+          { key: "C", text: "Alternância" },
+          { key: "D", text: "Explicação parentética sem nexo" },
+        ],
+        correctKey: "A",
+        legalBasis: "Coesão — conclusivas",
+        whyCorrect: "“Portanto” marca conclusão.",
+        whyWrong: {
+          B: "Oposição: mas, porém.",
+          C: "Alternância: ou, ora… ora.",
+          D: "Há nexo conclusivo explícito.",
         },
       }),
     ],
