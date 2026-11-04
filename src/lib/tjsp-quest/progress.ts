@@ -114,9 +114,10 @@ export function markLessonBlock(
   };
 }
 
+/** Desafio/chefão liberados sem exigir aula (foco em questões). */
 export function canStartChallenge(state: QuestPlayerState, phase: QuestPhase): boolean {
   const p = state.phases[phase.id];
-  return Boolean(p?.unlocked && p.lessonDone);
+  return Boolean(p?.unlocked);
 }
 
 export function recordDesafioResult(

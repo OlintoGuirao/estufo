@@ -5,7 +5,7 @@ import type {
   QuestPhase,
   QuestQuestion,
 } from "@/types/tjsp-quest";
-import { buildLessonBlocks, q } from "@/data/tjsp-quest/lesson";
+import { q } from "@/data/tjsp-quest/lesson";
 
 const ALT_KEYS: QuestAltKey[] = ["A", "B", "C", "D", "E"];
 const BLOCK_KINDS = new Set<QuestLessonBlockKind>([
@@ -20,21 +20,37 @@ const BLOCK_KINDS = new Set<QuestLessonBlockKind>([
   "mini-revisao",
 ]);
 
+/** Bump para invalidar cache antigo (aula/edital em vez de questões). */
+export const QUEST_PHASE_AI_CONTENT_VERSION = 2;
+
 export type QuestPhaseAiPayload = {
   lessonBlocks: QuestLessonBlock[];
   questions: QuestQuestion[];
   bossQuestions: QuestQuestion[];
+  contentVersion?: number;
 };
 
 export type QuestPhaseAiMeta = {
   phaseId: string;
+  subjectId: string;
   subjectName: string;
   title: string;
   objective: string;
   sources: { label: string; url?: string }[];
 };
 
-/** Prompt: material da aula + questões estilo VUNESP (A–E). */
+function isPortugueseSubject(subjectId: string, subjectName: string): boolean {
+  const id = subjectId.toLowerCase();
+  const name = subjectName.toLowerCase();
+  return (
+    id.startsWith("port") ||
+    name.includes("portugu") ||
+    name.includes("língua") ||
+    name.includes("lingua")
+  );
+}
+
+/** Prompt: QUESTÕES de prova em 1º plano (não aula/edital). */
 export function buildQuestPhaseAiMessages(meta: QuestPhaseAiMeta): {
   role: "system" | "user";
   content: string;
@@ -42,44 +58,68 @@ export function buildQuestPhaseAiMessages(meta: QuestPhaseAiMeta): {
   const fontes = meta.sources
     .map((s) => (s.url ? `- ${s.label} (${s.url})` : `- ${s.label}`))
     .join("\n");
+  const isPort = isPortugueseSubject(meta.subjectId, meta.subjectName);
+
+  const subjectRules = isPort
+    ? [
+        "MATERIA = LINGUA PORTUGUESA (VUNESP / TJSP Escrevente).",
+        "PROIBIDO: perguntar o que o edital lista, quantos itens tem o programa, ou 'conforme o edital'.",
+        "OBRIGATORIO nas questoes:",
+        "- Interpretacao: texto de apoio curto (3–8 linhas) + pergunta sobre sentido, inferencia, coesao, ponto de vista.",
+        "- Gramatica/ortografia/concordancia/regencia/crase/pontuacao/classes de palavras: enunciado com frase ou trecho concreto.",
+        "- Alternativas testam CONTEUDO de portugues, nao o roteiro do edital.",
+        "Pelo menos 4 das 6 questoes de desafio devem ter texto de apoio no enunciado.",
+      ]
+    : [
+        "MATERIA DE DIREITO / CONHECIMENTOS GERAIS DO CONCURSO.",
+        "PROIBIDO: 'conforme o edital', 'o programa exige', 'o item do edital'.",
+        "OBRIGATORIO: questoes de APLICACAO da norma/conceito (caso, tipificacao, prazo, competencia, efeito juridico).",
+        "Use artigos/leis reais do tema quando souber; se inseguro, nao invente numero de artigo.",
+      ];
 
   return [
     {
       role: "system",
       content: [
-        "Voce e autor didatico e elaborador de questoes no PADRAO VUNESP para o concurso TJSP Escrevente.",
-        "Gere MATERIAL DE AULA + QUESTOES DE TREINO. Nao sao itens oficiais de banca.",
+        "Voce e elaborador de QUESTOES objetivas no PADRAO VUNESP (TJSP Escrevente).",
+        "PRIORIDADE ABSOLUTA: treinar o aluno com QUESTOES. Nao e professor explicando materia.",
         "",
-        "PADRAO VUNESP (obrigatorio nas questoes):",
-        "- Sempre 5 alternativas: A, B, C, D, E.",
-        "- Enunciado formal, objetivo; pode ter texto de apoio curto quando fizer sentido.",
-        "- Feche com 'Assinale a alternativa correta.' quando couber.",
-        "- Distratores plausiveis (troca de verbos nucleares, arts vizinhos, excecao como regra).",
-        "- Uma unica correta. Sem 'todas as anteriores' / 'nenhuma das anteriores'.",
-        "- Linguagem de prova (nao gíria).",
+        "PROIBIDO nas questoes:",
+        "- Perguntas meta sobre o edital, a banca, a estrutura do programa ou 'o que cai'.",
+        "- Enunciados do tipo 'Acerca do edital…', 'Segundo o conteudo programatico…'.",
+        "- Aulas longas disfarçadas de enunciado.",
         "",
-        "MATERIAL (lessonBlocks): blocos no estilo Mastigado, portugues claro.",
-        "kinds obrigatorios: contexto, explicacao, base-legal, texto-legal (se houver trecho), traducao, exemplo, prova, memorizar, mini-revisao.",
-        "required=true em todos exceto mini-revisao (required=false).",
+        ...subjectRules,
         "",
-        "Questoes: 6 para desafio (mix facil/media/dificil) + 4 chefao (mais dificeis).",
-        "Baseie-se no edital/objetivo/fontes. Nao invente artigos inexistentes; se inseguro, use warnings no texto da base-legal.",
+        "PADRAO VUNESP:",
+        "- Sempre 5 alternativas A–E; uma unica correta.",
+        "- Enunciado formal; fechar com 'Assinale a alternativa correta.' quando couber.",
+        "- Distratores plausiveis; sem 'todas/nenhuma das anteriores'.",
+        "",
+        "lessonBlocks: no maximo 3 blocos CURTOS (dica de prova / pegadinha). Todos required=false.",
+        "kinds permitidos: prova, memorizar, mini-revisao. NAO gere aula completa (sem contexto/explicacao/base-legal longos).",
+        "",
+        "Questoes: 6 desafio (mix facil/media/dificil) + 4 chefao (mais dificeis).",
+        "legalBasis = fundamento da resposta (regra gramatical OU artigo/lei), NUNCA 'Edital item X'.",
         "",
         "Responda SOMENTE JSON:",
-        '{"lessonBlocks":[{"id":"b1","kind":"contexto","title":"...","body":"...","required":true}],"questions":[{"id":"q1","statement":"...","alternatives":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."},{"key":"E","text":"..."}],"correctKey":"C","legalBasis":"...","whyCorrect":"...","whyWrong":{"A":"...","B":"...","D":"...","E":"..."},"memoryTip":"...","difficulty":"media"}],"bossQuestions":[...mesmo formato...]}',
+        '{"lessonBlocks":[{"id":"b1","kind":"prova","title":"Dica","body":"...","required":false}],"questions":[{"id":"q1","statement":"...","alternatives":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."},{"key":"E","text":"..."}],"correctKey":"C","legalBasis":"...","whyCorrect":"...","whyWrong":{"A":"...","B":"...","D":"...","E":"..."},"memoryTip":"...","difficulty":"media"}],"bossQuestions":[...mesmo formato...]}',
       ].join("\n"),
     },
     {
       role: "user",
       content: [
         `Fase id: ${meta.phaseId}`,
+        `subjectId: ${meta.subjectId}`,
         `Materia: ${meta.subjectName}`,
-        `Titulo: ${meta.title}`,
-        `Objetivo: ${meta.objective}`,
-        "Fontes / referencias:",
-        fontes || "(edital TJSP Escrevente — VUNESP)",
+        `Titulo do tema: ${meta.title}`,
+        `Objetivo do tema (so referencia do assunto — NAO virar pergunta sobre edital): ${meta.objective}`,
+        "Referencias (contexto interno; nao citar como enunciado):",
+        fontes || "(programa TJSP Escrevente — VUNESP)",
         "",
-        "Gere a aula completa e as questoes no padrao VUNESP (A–E).",
+        isPort
+          ? "Gere 6+4 QUESTOES de PORTUGUES (texto/gramatica). lessonBlocks so 1–3 dicas curtas."
+          : "Gere 6+4 QUESTOES de APLICACAO do tema. lessonBlocks so 1–3 dicas curtas de prova.",
       ].join("\n"),
     },
   ];
@@ -109,7 +149,6 @@ function parseQuestion(
     if (alternatives.some((x) => x.key === key)) continue;
     alternatives.push({ key, text });
   }
-  // VUNESP exige 5; aceita 4 só se a IA falhar parcialmente (completa com placeholder genérico? — rejeita)
   if (alternatives.length < 5) return null;
 
   const correctKey = String(o.correctKey ?? "")
@@ -138,8 +177,11 @@ function parseQuestion(
     statement,
     alternatives: alternatives.slice(0, 5),
     correctKey,
-    legalBasis: String(o.legalBasis ?? "").trim().slice(0, 300) || "Conforme material da fase.",
-    whyCorrect: String(o.whyCorrect ?? "").trim().slice(0, 800) || "Alternativa alinhada à tipificação/regra do tema.",
+    legalBasis:
+      String(o.legalBasis ?? "").trim().slice(0, 300) || "Fundamento do tema da fase.",
+    whyCorrect:
+      String(o.whyCorrect ?? "").trim().slice(0, 800) ||
+      "Alternativa alinhada à regra cobrada.",
     whyWrong,
     memoryTip: String(o.memoryTip ?? "").trim().slice(0, 200) || undefined,
     difficulty,
@@ -155,17 +197,17 @@ function parseBlocks(raw: unknown, phaseId: string): QuestLessonBlock[] {
     const o = item as Record<string, unknown>;
     const kind = String(o.kind ?? "") as QuestLessonBlockKind;
     if (!BLOCK_KINDS.has(kind)) return;
-    const body = String(o.body ?? "").trim().slice(0, 4000);
+    const body = String(o.body ?? "").trim().slice(0, 1200);
     if (body.length < 20) return;
     out.push({
       id: String(o.id ?? `${phaseId}-ai-b${i + 1}`).slice(0, 64),
       kind,
       title: String(o.title ?? kind).trim().slice(0, 80) || kind,
       body,
-      required: kind === "mini-revisao" ? false : o.required !== false,
+      required: false,
     });
   });
-  return out;
+  return out.slice(0, 3);
 }
 
 export function parseQuestPhaseAiJson(raw: string, phaseId: string): QuestPhaseAiPayload {
@@ -182,9 +224,6 @@ export function parseQuestPhaseAiJson(raw: string, phaseId: string): QuestPhaseA
   }
 
   const lessonBlocks = parseBlocks(data.lessonBlocks, phaseId);
-  if (lessonBlocks.length < 5) {
-    throw new Error("Material da aula insuficiente (mínimo 5 blocos).");
-  }
 
   const questions = (Array.isArray(data.questions) ? data.questions : [])
     .map((item, i) => parseQuestion(item, `${phaseId}-q`, i))
@@ -203,27 +242,25 @@ export function parseQuestPhaseAiJson(raw: string, phaseId: string): QuestPhaseA
     lessonBlocks,
     questions,
     bossQuestions: bossQuestions.length >= 2 ? bossQuestions : questions.slice(0, 4),
+    contentVersion: QUEST_PHASE_AI_CONTENT_VERSION,
   };
 }
 
-/** Fallback mock estilo VUNESP quando Gemini não está disponível. */
+/** Fallback mock: questões de prática (não meta-edital). */
 export function mockQuestPhaseAiContent(phase: QuestPhase): QuestPhaseAiPayload {
   const topic = phase.title;
-  const lessonBlocks =
-    phase.lessonBlocks.length >= 5
-      ? phase.lessonBlocks
-      : buildLessonBlocks({
-          prefix: `${phase.id}-mock`,
-          contexto: `Este bloco introduz ${topic} no contexto do edital TJSP (treino).`,
-          explicacao: `Explicação didática de ${topic}: foque nos conceitos cobrados pela VUNESP.`,
-          baseLegal: phase.sources.map((s) => s.label).join("; ") || "Edital / legislação indicada.",
-          textoLegal: `Trecho de referência para estudo de ${topic} (modo demonstrativo).`,
-          traducao: `Em termos práticos: ${phase.objective}`,
-          exemplo: `Exemplo hipotético aplicado a ${topic}.`,
-          prova: "Na VUNESP, atenha-se ao verbo nuclear e às exceções expressas no texto legal.",
-          memorizar: phase.objective,
-          miniRevisao: `Revise: ${topic}.`,
-        });
+  const isPort = isPortugueseSubject(phase.subjectId, phase.subjectId);
+  const lessonBlocks: QuestLessonBlock[] = [
+    {
+      id: `${phase.id}-mock-dica`,
+      kind: "prova",
+      title: "Dica de prova",
+      required: false,
+      body: isPort
+        ? "Na VUNESP de português, leia o texto antes das alternativas e marque o que o trecho sustenta."
+        : `Pegadinha clássica em ${topic}: confira o verbo nuclear e a exceção expressa.`,
+    },
+  ];
 
   const mk = (
     id: string,
@@ -234,45 +271,99 @@ export function mockQuestPhaseAiContent(phase: QuestPhase): QuestPhaseAiPayload 
     q({
       id,
       statement: `${statement}\n\nAssinale a alternativa correta.`,
-      alternatives: [
-        { key: "A", text: `Afirmação alinhada ao núcleo de ${topic}` },
-        { key: "B", text: "Troca o verbo nuclear por outro tipo penal/conceito vizinho" },
-        { key: "C", text: "Generaliza regra sem prever a exceção legal" },
-        { key: "D", text: "Aplica hipótese de outro ramo do direito" },
-        { key: "E", text: "Inverte sujeito e objeto da norma" },
-      ],
+      alternatives: isPort
+        ? [
+            { key: "A", text: "Interpretação literal correta do trecho" },
+            { key: "B", text: "Extrapolação sem apoio no texto" },
+            { key: "C", text: "Troca de conectivo/relação lógica" },
+            { key: "D", text: "Erro de concordância ou regência" },
+            { key: "E", text: "Inversão do sentido do período" },
+          ]
+        : [
+            { key: "A", text: `Afirmação alinhada ao núcleo de ${topic}` },
+            { key: "B", text: "Troca o verbo nuclear por instituto vizinho" },
+            { key: "C", text: "Generaliza regra sem a exceção legal" },
+            { key: "D", text: "Aplica hipótese de outro ramo" },
+            { key: "E", text: "Inverte sujeito e objeto da norma" },
+          ],
       correctKey: correct,
-      legalBasis: phase.sources[0]?.label ?? "Material da fase (mock)",
-      whyCorrect: `A alternativa ${correct} reflete o ponto central de ${topic} (modo demonstrativo · configure GEMINI_API_KEY).`,
+      legalBasis: isPort
+        ? "Interpretação / norma gramatical cobrada"
+        : (phase.sources[0]?.label ?? "Norma do tema"),
+      whyCorrect: `A alternativa ${correct} reflete o ponto cobrado em ${topic} (mock · configure GEMINI_API_KEY).`,
       whyWrong: {
-        A: correct === "A" ? undefined : "Não corresponde ao núcleo tipico/regra.",
-        B: correct === "B" ? undefined : "Confunde com instituto vizinho.",
-        C: correct === "C" ? undefined : "Ignora limite legal.",
-        D: correct === "D" ? undefined : "Fora do tema da fase.",
+        A: correct === "A" ? undefined : "Não corresponde ao núcleo.",
+        B: correct === "B" ? undefined : "Confunde com instituto/trecho vizinho.",
+        C: correct === "C" ? undefined : "Ignora limite da regra.",
+        D: correct === "D" ? undefined : "Fora do foco da questão.",
         E: correct === "E" ? undefined : "Inversão típica de pegadinha.",
       },
-      memoryTip: `Lembre o núcleo de ${topic}.`,
+      memoryTip: `Foque no núcleo de ${topic}.`,
       difficulty,
       boardStyle: "VUNESP",
     });
 
-  const questions = [
-    mk(`${phase.id}-ai-q1`, `Acerca de ${topic}, conforme o edital TJSP`, "A", "facil"),
-    mk(`${phase.id}-ai-q2`, `No padrão cobrado pela VUNESP sobre ${topic}`, "A", "media"),
-    mk(`${phase.id}-ai-q3`, `Assinale a opção correta relativa a ${topic}`, "A", "media"),
-    mk(`${phase.id}-ai-q4`, `Em relação a ${topic}, é correto afirmar`, "A", "dificil"),
-    mk(`${phase.id}-ai-q5`, `Sobre ${topic} e suas distinções típicas`, "A", "media"),
-    mk(`${phase.id}-ai-q6`, `Para fins de prova objetiva VUNESP, ${topic}`, "A", "facil"),
-  ];
+  const questions = isPort
+    ? [
+        mk(
+          `${phase.id}-ai-q1`,
+          `Leia: "Embora chovesse, a equipe concluiu o serviço."\nO conectivo "Embora" estabelece relação de:`,
+          "A",
+          "facil",
+        ),
+        mk(
+          `${phase.id}-ai-q2`,
+          `No trecho "O projeto atrasou, porém ninguém desistiu", o sentido de "porém" é de:`,
+          "A",
+          "media",
+        ),
+        mk(
+          `${phase.id}-ai-q3`,
+          `Assinale a opção em que a concordância verbal está adequada ao padrão culto:`,
+          "A",
+          "media",
+        ),
+        mk(
+          `${phase.id}-ai-q4`,
+          `Com base no período "Ele se referiu à proposta ontem", o emprego da crase ocorre porque:`,
+          "A",
+          "dificil",
+        ),
+        mk(
+          `${phase.id}-ai-q5`,
+          `Em interpretação, informação literal é aquela que:`,
+          "A",
+          "media",
+        ),
+        mk(
+          `${phase.id}-ai-q6`,
+          `Assinale a alternativa em que a regência do verbo "assistir" (sentido de ver) está correta:`,
+          "A",
+          "facil",
+        ),
+      ]
+    : [
+        mk(`${phase.id}-ai-q1`, `Na aplicação prática de ${topic}, é correto afirmar`, "A", "facil"),
+        mk(`${phase.id}-ai-q2`, `Em hipótese típica envolvendo ${topic}`, "A", "media"),
+        mk(`${phase.id}-ai-q3`, `Assinale a opção correta relativa a ${topic}`, "A", "media"),
+        mk(`${phase.id}-ai-q4`, `Quanto aos efeitos jurídicos de ${topic}`, "A", "dificil"),
+        mk(`${phase.id}-ai-q5`, `Sobre as distinções relevantes em ${topic}`, "A", "media"),
+        mk(`${phase.id}-ai-q6`, `Para fins de prova objetiva VUNESP sobre ${topic}`, "A", "facil"),
+      ];
 
   const bossQuestions = [
     mk(`${phase.id}-ai-boss1`, `Chefão — análise avançada de ${topic}`, "A", "dificil"),
     mk(`${phase.id}-ai-boss2`, `Chefão — pegadinha clássica VUNESP em ${topic}`, "A", "dificil"),
-    mk(`${phase.id}-ai-boss3`, `Chefão — aplicação conjunta de regras de ${topic}`, "A", "dificil"),
-    mk(`${phase.id}-ai-boss4`, `Chefão — distinção fina no tema ${topic}`, "A", "dificil"),
+    mk(`${phase.id}-ai-boss3`, `Chefão — aplicação conjunta em ${topic}`, "A", "dificil"),
+    mk(`${phase.id}-ai-boss4`, `Chefão — distinção fina em ${topic}`, "A", "dificil"),
   ];
 
-  return { lessonBlocks, questions, bossQuestions };
+  return {
+    lessonBlocks,
+    questions,
+    bossQuestions,
+    contentVersion: QUEST_PHASE_AI_CONTENT_VERSION,
+  };
 }
 
 export function mergePhaseWithAi(
@@ -281,7 +372,7 @@ export function mergePhaseWithAi(
 ): QuestPhase {
   return {
     ...base,
-    lessonBlocks: ai.lessonBlocks,
+    lessonBlocks: ai.lessonBlocks.length ? ai.lessonBlocks : base.lessonBlocks.map((b) => ({ ...b, required: false })),
     questions: ai.questions,
     bossQuestions: ai.bossQuestions,
     contentVerifiedAt: new Date().toISOString().slice(0, 10),

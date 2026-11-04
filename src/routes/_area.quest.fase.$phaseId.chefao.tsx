@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { QuestQuiz } from "@/components/tjsp-quest/quest-quiz";
 import { QuestCard, QuestShell } from "@/components/tjsp-quest/quest-shell";
@@ -40,14 +40,10 @@ function ChefaoPage() {
     return (
       <QuestShell title="Chefão" backTo={`/quest/fase/${phaseId}`}>
         <QuestCard>
-          <p className="font-semibold">Bloqueado</p>
-          <Link
-            to="/quest/fase/$phaseId/aula"
-            params={{ phaseId }}
-            className="mt-2 inline-block text-sm font-bold text-[#e85d04] underline"
-          >
-            Completar resumo
-          </Link>
+          <p className="font-semibold">Fase bloqueada</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Conclua o chefão da fase anterior para liberar.
+          </p>
         </QuestCard>
       </QuestShell>
     );

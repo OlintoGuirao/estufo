@@ -1,11 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BookOpen,
-  Brain,
   Check,
   Crown,
-  FileText,
-  Lightbulb,
   Loader2,
   Sparkles,
   Swords,
@@ -82,36 +79,8 @@ function PhaseHub() {
 
   const nodes: PathStep[] = [
     {
-      id: "aula",
-      label: "Aula",
-      icon: BookOpen,
-      status: lessonDone ? "done" : "available",
-      to: "/quest/fase/$phaseId/aula",
-    },
-    {
-      id: "base",
-      label: "Base legal",
-      icon: FileText,
-      status: lessonDone ? "done" : "available",
-      to: "/quest/fase/$phaseId/aula",
-    },
-    {
-      id: "exemplo",
-      label: "Exemplos",
-      icon: Lightbulb,
-      status: lessonDone ? "done" : "available",
-      to: "/quest/fase/$phaseId/aula",
-    },
-    {
-      id: "memo",
-      label: "Memorizar",
-      icon: Brain,
-      status: lessonDone ? "done" : "available",
-      to: "/quest/fase/$phaseId/aula",
-    },
-    {
       id: "desafio",
-      label: "Desafio",
+      label: "Questões",
       icon: Swords,
       status: !challengeOk ? "locked" : desafioDone ? "done" : "available",
       ...(challengeOk ? { to: "/quest/fase/$phaseId/desafio" } : {}),
@@ -123,6 +92,13 @@ function PhaseHub() {
       status: !challengeOk ? "locked" : chefaoDone ? "boss-done" : "boss",
       ...(challengeOk ? { to: "/quest/fase/$phaseId/chefao" } : {}),
     },
+    {
+      id: "dicas",
+      label: "Dicas (opcional)",
+      icon: BookOpen,
+      status: lessonDone ? "done" : "available",
+      to: "/quest/fase/$phaseId/aula",
+    },
   ];
 
   return (
@@ -133,13 +109,13 @@ function PhaseHub() {
         <QuestModuleHeader
           eyebrow={subject.name}
           title={`${phase.number}. ${phase.title}`}
-          to="/quest/fase/$phaseId/aula"
+          to="/quest/fase/$phaseId/desafio"
           params={{ phaseId }}
           accent={subject.color}
         />
         <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
           <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold text-[#ff9f1c]">
-            Material + questões IA · padrão VUNESP (A–E)
+            Questões VUNESP (A–E) · aula opcional
           </span>
           {mocked && (
             <span className="rounded-full bg-amber-500/20 px-2.5 py-1 text-[11px] font-bold text-amber-200">
@@ -154,7 +130,7 @@ function PhaseHub() {
             disabled={loading}
             onClick={() => {
               regenerate();
-              toast.message("Regenerando aula e questões VUNESP…");
+              toast.message("Gerando novas questões VUNESP…");
             }}
           >
             {loading ? (
@@ -162,7 +138,7 @@ function PhaseHub() {
             ) : (
               <Sparkles className="h-3.5 w-3.5" />
             )}
-            Regenerar com IA
+            Regenerar questões
           </Button>
         </div>
       </div>

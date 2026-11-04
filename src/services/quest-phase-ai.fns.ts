@@ -56,6 +56,7 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
       const result = await tutorChat(
         buildQuestPhaseAiMessages({
           phaseId: data.phaseId,
+          subjectId: base?.subjectId ?? data.phaseId.split("-")[0] ?? "geral",
           subjectName: data.subjectName,
           title: data.title,
           objective: data.objective,

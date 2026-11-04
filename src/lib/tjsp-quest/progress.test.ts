@@ -25,14 +25,9 @@ describe("tjsp-quest progress", () => {
     expect(s.xp).toBe(before);
   });
 
-  it("bloqueia desafio até concluir blocos obrigatórios", () => {
+  it("libera desafio sem exigir aula", () => {
     const phase = getQuestPhase("const-1")!;
-    let s = createInitialPlayerState();
-    expect(canStartChallenge(s, phase)).toBe(false);
-    for (const b of phase.lessonBlocks.filter((x) => x.required)) {
-      s = markLessonBlock(s, phase, b.id);
-    }
-    expect(s.phases[phase.id]?.lessonDone).toBe(true);
+    const s = createInitialPlayerState();
     expect(canStartChallenge(s, phase)).toBe(true);
   });
 

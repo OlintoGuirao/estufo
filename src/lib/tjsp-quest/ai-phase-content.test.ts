@@ -105,8 +105,9 @@ describe("parseQuestPhaseAiJson", () => {
     });
 
     const parsed = parseQuestPhaseAiJson(raw, "penal-1");
-    expect(parsed.lessonBlocks.length).toBeGreaterThanOrEqual(5);
+    expect(parsed.lessonBlocks.length).toBeLessThanOrEqual(3);
     expect(parsed.questions).toHaveLength(3);
+    expect(parsed.contentVersion).toBe(2);
     expect(parsed.questions[0]!.alternatives).toHaveLength(5);
     expect(parsed.questions[0]!.boardStyle).toBe("VUNESP");
     expect(parsed.bossQuestions[0]!.correctKey).toBe("B");
