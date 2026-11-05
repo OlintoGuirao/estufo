@@ -192,6 +192,33 @@ export async function claimDeviceStudyDataToAccount(userId: string): Promise<voi
         continue;
       }
 
+      // user_quest_phase_ai: PK = device_id:phase_id — precisa regravar id, não só UPDATE device_id.
+      if (table.name === "user_quest_phase_ai") {
+        const { data: rows, error: readErr } = await sb
+          .from(table.name)
+          .select("*")
+          .eq("device_id", device);
+        if (readErr) throw readErr;
+        for (const row of rows ?? []) {
+          const phaseId = String((row as { phase_id?: string }).phase_id ?? "");
+          if (!phaseId) continue;
+          const next = {
+            ...row,
+            id: `${owner}:${phaseId}`,
+            device_id: owner,
+          };
+          const { error: upErr } = await sb.from(table.name).upsert(next, { onConflict: "id" });
+          if (upErr) {
+            console.warn(`[study-owner] claim upsert ${table.name}`, upErr);
+            continue;
+          }
+          anyOk = true;
+        }
+        const { error: delErr } = await sb.from(table.name).delete().eq("device_id", device);
+        if (delErr) console.warn(`[study-owner] claim delete ${table.name}`, delErr);
+        continue;
+      }
+
       const { data, error } = await sb
         .from(table.name)
         .update({ device_id: owner })

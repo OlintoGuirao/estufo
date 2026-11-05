@@ -4,6 +4,7 @@ import {
 } from "@/lib/tjsp-quest/ai-phase-content";
 import { studyUserDataDb } from "@/services/study-user-data-db";
 
+const LOCAL_PREFIX = "estufoo.quest.ai.v3.";
 const LEGACY_PREFIX = "estufoo.quest.ai.v2.";
 
 export type QuestPhaseAiCached = {
@@ -14,48 +15,73 @@ export type QuestPhaseAiCached = {
   savedAt: string;
 };
 
-function isCurrentContent(content: QuestPhaseAiPayload | undefined): boolean {
-  if (!content?.questions?.length) return false;
-  return (content.contentVersion ?? 0) >= QUEST_PHASE_AI_CONTENT_VERSION;
+/** Conteúdo jogável — não regenera só porque a versão do schema mudou. */
+function isUsableContent(content: QuestPhaseAiPayload | undefined): boolean {
+  return (content?.questions?.length ?? 0) >= 3;
 }
 
-/** Cache só em memória nesta sessão — a fonte da verdade é o Supabase. */
+function isCurrentContent(content: QuestPhaseAiPayload | undefined): boolean {
+  if (!isUsableContent(content)) return false;
+  return (content!.contentVersion ?? 0) >= QUEST_PHASE_AI_CONTENT_VERSION;
+}
+
+/** Cache de sessão. */
 const memory = new Map<string, QuestPhaseAiCached>();
 let hydrated = false;
 let hydratePromise: Promise<void> | null = null;
 
-function readLegacyLocal(phaseId: string): QuestPhaseAiCached | null {
+function writeLocal(entry: QuestPhaseAiCached): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(`${LOCAL_PREFIX}${entry.phaseId}`, JSON.stringify(entry));
+  } catch {
+    /* quota / privado */
+  }
+}
+
+function readLocalKey(key: string): QuestPhaseAiCached | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(`${LEGACY_PREFIX}${phaseId}`);
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as QuestPhaseAiCached;
-    if (!parsed?.phaseId || !isCurrentContent(parsed.content)) return null;
+    if (!parsed?.phaseId || !isUsableContent(parsed.content)) return null;
     return parsed;
   } catch {
     return null;
   }
 }
 
-function clearLegacyLocal(phaseId: string): void {
+function readLocal(phaseId: string): QuestPhaseAiCached | null {
+  return (
+    readLocalKey(`${LOCAL_PREFIX}${phaseId}`) ??
+    readLocalKey(`${LEGACY_PREFIX}${phaseId}`)
+  );
+}
+
+function clearLocal(phaseId: string): void {
   if (typeof window === "undefined") return;
   try {
+    localStorage.removeItem(`${LOCAL_PREFIX}${phaseId}`);
     localStorage.removeItem(`${LEGACY_PREFIX}${phaseId}`);
   } catch {
     /* ignore */
   }
 }
 
-function listLegacyLocal(): QuestPhaseAiCached[] {
+function listLocalEntries(): QuestPhaseAiCached[] {
   if (typeof window === "undefined") return [];
   const out: QuestPhaseAiCached[] = [];
+  const seen = new Set<string>();
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (!k?.startsWith(LEGACY_PREFIX)) continue;
-      const phaseId = k.slice(LEGACY_PREFIX.length);
-      const entry = readLegacyLocal(phaseId);
-      if (entry) out.push(entry);
+      if (!k) continue;
+      if (!k.startsWith(LOCAL_PREFIX) && !k.startsWith(LEGACY_PREFIX)) continue;
+      const entry = readLocalKey(k);
+      if (!entry || seen.has(entry.phaseId)) continue;
+      seen.add(entry.phaseId);
+      out.push(entry);
     }
   } catch {
     /* ignore */
@@ -63,11 +89,19 @@ function listLegacyLocal(): QuestPhaseAiCached[] {
   return out;
 }
 
+function preferNewer(
+  a: QuestPhaseAiCached | null,
+  b: QuestPhaseAiCached | null,
+): QuestPhaseAiCached | null {
+  if (!a) return b;
+  if (!b) return a;
+  return a.savedAt >= b.savedAt ? a : b;
+}
+
 export const questPhaseAiStore = {
-  /** Leitura síncrona (memória). Prefira `ensureHydrated` + get ou `loadPhase`. */
   get(phaseId: string): QuestPhaseAiCached | null {
     const hit = memory.get(phaseId);
-    if (hit && isCurrentContent(hit.content)) return hit;
+    if (hit && isUsableContent(hit.content)) return hit;
     return null;
   },
 
@@ -82,57 +116,70 @@ export const questPhaseAiStore = {
     }
   },
 
-  /** Carrega uma fase do banco (e atualiza a memória). */
+  /**
+   * Carrega fase salva (memória → Supabase → localStorage).
+   * Aceita conteúdo jogável mesmo com contentVersion antiga — não força regenerar.
+   */
   async loadPhase(phaseId: string): Promise<QuestPhaseAiCached | null> {
     await this.ensureHydrated();
     const mem = this.get(phaseId);
     if (mem) return mem;
 
+    let remote: QuestPhaseAiCached | null = null;
     try {
-      const remote = await studyUserDataDb.getQuestPhaseAi(phaseId);
-      if (remote && isCurrentContent(remote.content)) {
-        memory.set(phaseId, remote);
-        return remote;
-      }
+      const row = await studyUserDataDb.getQuestPhaseAi(phaseId);
+      if (row && isUsableContent(row.content)) remote = row;
     } catch (err) {
-      console.warn("[quest-ai-store] loadPhase falhou", err);
+      console.warn("[quest-ai-store] loadPhase remoto falhou", err);
     }
 
-    const legacy = readLegacyLocal(phaseId);
-    if (legacy) {
-      await this.set(legacy);
-      clearLegacyLocal(phaseId);
-      return this.get(phaseId);
+    const local = readLocal(phaseId);
+    const best = preferNewer(remote, local);
+    if (!best) return null;
+
+    memory.set(phaseId, best);
+    writeLocal(best);
+    // Reenvia ao Supabase se só existia no aparelho ou se a versão local é mais nova.
+    if (!remote || local?.savedAt === best.savedAt) {
+      try {
+        await studyUserDataDb.upsertQuestPhaseAi(best);
+      } catch (err) {
+        console.warn("[quest-ai-store] rehydrate remoto falhou", err);
+      }
     }
-    return null;
+    return best;
   },
 
   /**
-   * Persiste no Supabase (obrigatório) e atualiza a memória.
-   * Não depende de localStorage para multi-dispositivo.
+   * Persiste em memória + localStorage sempre; Supabase best-effort.
+   * Falha remota NÃO apaga o banco local — evita regenerar a cada entrada.
    */
   async set(entry: QuestPhaseAiCached): Promise<void> {
-    if (!isCurrentContent(entry.content)) {
-      console.warn("[quest-ai-store] conteúdo inválido/versão antiga — não salvou", entry.phaseId);
+    if (!isUsableContent(entry.content)) {
+      console.warn("[quest-ai-store] conteúdo inválido — não salvou", entry.phaseId);
       return;
     }
     const saved: QuestPhaseAiCached = {
       ...entry,
+      content: {
+        ...entry.content,
+        contentVersion:
+          entry.content.contentVersion ?? QUEST_PHASE_AI_CONTENT_VERSION,
+      },
       savedAt: entry.savedAt || new Date().toISOString(),
     };
     memory.set(saved.phaseId, saved);
+    writeLocal(saved);
     try {
       await studyUserDataDb.upsertQuestPhaseAi(saved);
-      clearLegacyLocal(saved.phaseId);
     } catch (err) {
-      console.warn("[quest-ai-store] falha ao salvar no banco", err);
-      throw err;
+      console.warn("[quest-ai-store] falha ao salvar no Supabase (local ok)", err);
     }
   },
 
   async clear(phaseId: string): Promise<void> {
     memory.delete(phaseId);
-    clearLegacyLocal(phaseId);
+    clearLocal(phaseId);
     try {
       await studyUserDataDb.removeQuestPhaseAi(phaseId);
     } catch (err) {
@@ -148,29 +195,28 @@ export const questPhaseAiStore = {
     try {
       const remote = await studyUserDataDb.listQuestPhaseAi();
       for (const entry of remote) {
-        if (!entry?.phaseId || !isCurrentContent(entry.content)) continue;
+        if (!entry?.phaseId || !isUsableContent(entry.content)) continue;
         const prev = memory.get(entry.phaseId);
         if (prev && prev.savedAt > entry.savedAt) continue;
         memory.set(entry.phaseId, entry);
+        writeLocal(entry);
       }
 
-      // Migra cache antigo do aparelho → banco (uma vez).
-      for (const legacy of listLegacyLocal()) {
-        const existing = memory.get(legacy.phaseId);
-        if (existing && existing.savedAt >= legacy.savedAt) {
-          clearLegacyLocal(legacy.phaseId);
-          continue;
-        }
+      for (const local of listLocalEntries()) {
+        const existing = memory.get(local.phaseId);
+        if (existing && existing.savedAt >= local.savedAt) continue;
+        memory.set(local.phaseId, local);
         try {
-          await studyUserDataDb.upsertQuestPhaseAi(legacy);
-          memory.set(legacy.phaseId, legacy);
-          clearLegacyLocal(legacy.phaseId);
+          await studyUserDataDb.upsertQuestPhaseAi(local);
         } catch (err) {
-          console.warn("[quest-ai-store] migração legacy falhou", legacy.phaseId, err);
+          console.warn("[quest-ai-store] sync local→remoto falhou", local.phaseId, err);
         }
       }
     } catch (err) {
-      console.warn("[quest-ai-store] hydrate do banco falhou", err);
+      console.warn("[quest-ai-store] hydrate falhou — usando só local", err);
+      for (const local of listLocalEntries()) {
+        memory.set(local.phaseId, local);
+      }
     } finally {
       hydrated = true;
     }

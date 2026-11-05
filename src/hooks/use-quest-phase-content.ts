@@ -6,6 +6,7 @@ import {
 } from "@/services/quest-phase-ai.service";
 import { questPhaseAiStore } from "@/services/quest-phase-ai-store";
 import { getQuestPhase } from "@/data/tjsp-quest-catalog";
+import { mergePhaseWithAi } from "@/lib/tjsp-quest/ai-phase-content";
 import type { QuestPhase } from "@/types/tjsp-quest";
 
 const GENERATE_TIMEOUT_MS = 95_000;
@@ -35,6 +36,21 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   });
 }
 
+function fromCachedEntry(
+  phaseId: string,
+  cached: NonNullable<Awaited<ReturnType<typeof questPhaseAiStore.loadPhase>>>,
+): State {
+  const base = getQuestPhase(phaseId);
+  return {
+    phase: base ? mergePhaseWithAi(base, cached.content) : null,
+    loading: false,
+    error: null,
+    mocked: cached.mocked,
+    fromCache: true,
+    model: cached.model,
+  };
+}
+
 export function useQuestPhaseContent(phaseId: string): State & {
   regenerate: () => void;
 } {
@@ -53,7 +69,8 @@ export function useQuestPhaseContent(phaseId: string): State & {
     }
     return {
       phase: base,
-      loading: !!base,
+      // Só “montando” se ainda não há cache — senão parece regenerar a cada visita.
+      loading: false,
       error: null,
       mocked: false,
       fromCache: false,
@@ -62,8 +79,9 @@ export function useQuestPhaseContent(phaseId: string): State & {
   });
 
   const genSeq = useRef(0);
+  const bootedFor = useRef<string | null>(null);
 
-  const load = useCallback(
+  const generate = useCallback(
     async (force: boolean) => {
       const base = getQuestPhase(phaseId);
       if (!base) {
@@ -119,31 +137,46 @@ export function useQuestPhaseContent(phaseId: string): State & {
 
   useEffect(() => {
     let cancelled = false;
+    bootedFor.current = phaseId;
+
     void (async () => {
-      await questPhaseAiStore.hydrate();
-      if (cancelled) return;
-      const cached = questPhaseAiService.peekCached(phaseId);
-      if (cached) {
+      // 1) Já tem na sessão?
+      const peek = questPhaseAiService.peekCached(phaseId);
+      if (peek) {
+        if (cancelled) return;
         setState({
-          phase: cached.phase,
+          phase: peek.phase,
           loading: false,
           error: null,
-          mocked: cached.mocked,
+          mocked: peek.mocked,
           fromCache: true,
-          model: cached.model,
+          model: peek.model,
         });
         return;
       }
-      await load(false);
+
+      // 2) Carrega do Supabase / localStorage — SEM regenerar.
+      await questPhaseAiStore.hydrate();
+      if (cancelled) return;
+      const saved = await questPhaseAiStore.loadPhase(phaseId);
+      if (cancelled) return;
+      if (saved) {
+        setState(fromCachedEntry(phaseId, saved));
+        return;
+      }
+
+      // 3) Primeira vez nesta fase: gera uma vez e salva.
+      if (cancelled) return;
+      await generate(false);
     })();
+
     return () => {
       cancelled = true;
-      genSeq.current += 1;
     };
-  }, [phaseId, load]);
+  }, [phaseId, generate]);
 
   return {
     ...state,
-    regenerate: () => void load(true),
+    regenerate: () => void generate(true),
   };
 }

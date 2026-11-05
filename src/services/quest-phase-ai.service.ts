@@ -25,6 +25,9 @@ export type QuestPhaseAiResult = {
   fromCache: boolean;
 };
 
+/** Evita 2 gerações paralelas da mesma fase (Strict Mode / remount). */
+const inflightGenerate = new Map<string, Promise<QuestPhaseAiResult>>();
+
 export const questPhaseAiService = {
   peekCached(phaseId: string): QuestPhaseAiResult | null {
     const base = getQuestPhase(phaseId);
@@ -55,54 +58,62 @@ export const questPhaseAiService = {
       };
     }
 
-    const subject = getQuestSubject(base.subjectId);
-    try {
-      const r = await generateQuestPhaseContent({
-        data: {
-          phaseId: base.id,
-          subjectName: subject?.name ?? base.subjectId,
-          title: base.title,
-          objective: base.objective,
-          sources: base.sources.map((s) => ({
-            label: s.label,
-            ...(s.url ? { url: s.url } : {}),
-          })),
-        },
-      });
-
-      const entry = {
-        phaseId: base.id,
-        content: r.content,
-        model: r.model,
-        mocked: r.mocked,
-        savedAt: new Date().toISOString(),
-      };
-
-      try {
-        await questPhaseAiStore.set(entry);
-      } catch (saveErr) {
-        console.warn("[quest-phase-ai] gerou mas não gravou no banco", saveErr);
-        // Ainda devolve o conteúdo nesta sessão; próximo device regenera se o save falhar.
-      }
-
-      return {
-        phase: mergePhaseWithAi(base, r.content),
-        content: r.content,
-        model: r.model,
-        mocked: r.mocked,
-        fromCache: false,
-      };
-    } catch (e) {
-      if (previous) {
-        return {
-          phase: mergePhaseWithAi(base, previous.content),
-          content: previous.content,
-          model: previous.model,
-          mocked: previous.mocked,
-          fromCache: true,
-        };
-      }
-      return parseErr(e);
+    if (!opts?.force) {
+      const pending = inflightGenerate.get(phaseId);
+      if (pending) return pending;
     }
+
+    const subject = getQuestSubject(base.subjectId);
+    const run = (async (): Promise<QuestPhaseAiResult> => {
+      try {
+        const r = await generateQuestPhaseContent({
+          data: {
+            phaseId: base.id,
+            subjectName: subject?.name ?? base.subjectId,
+            title: base.title,
+            objective: base.objective,
+            sources: base.sources.map((s) => ({
+              label: s.label,
+              ...(s.url ? { url: s.url } : {}),
+            })),
+          },
+        });
+
+        const entry = {
+          phaseId: base.id,
+          content: r.content,
+          model: r.model,
+          mocked: r.mocked,
+          savedAt: new Date().toISOString(),
+        };
+
+        // set() grava local + tenta Supabase; não regenera na próxima entrada se o remoto falhar.
+        await questPhaseAiStore.set(entry);
+
+        return {
+          phase: mergePhaseWithAi(base, r.content),
+          content: r.content,
+          model: r.model,
+          mocked: r.mocked,
+          fromCache: false,
+        };
+      } catch (e) {
+        if (previous) {
+          return {
+            phase: mergePhaseWithAi(base, previous.content),
+            content: previous.content,
+            model: previous.model,
+            mocked: previous.mocked,
+            fromCache: true,
+          };
+        }
+        return parseErr(e);
+      } finally {
+        inflightGenerate.delete(phaseId);
+      }
+    })();
+
+    if (!opts?.force) inflightGenerate.set(phaseId, run);
+    return run;
   },
 };
