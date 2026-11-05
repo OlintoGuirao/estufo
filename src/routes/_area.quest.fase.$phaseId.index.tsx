@@ -39,6 +39,7 @@ function PhaseHub() {
     phase: aiPhase,
     loading,
     mocked,
+    error: genError,
     regenerate,
   } = useQuestPhaseContent(phaseId);
   const phase = aiPhase ?? catalogPhase;
@@ -142,7 +143,12 @@ function PhaseHub() {
           </Button>
         </div>
         {loading && (
-          <p className="mt-2 text-center text-xs text-white/60">Montando banco da fase…</p>
+          <p className="mt-2 text-center text-xs text-white/60">
+            Montando banco da fase… (até ~1–2 min)
+          </p>
+        )}
+        {!loading && genError && (
+          <p className="mt-2 text-center text-xs text-amber-200/90">{genError}</p>
         )}
       </div>
 

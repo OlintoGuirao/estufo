@@ -35,8 +35,14 @@ export function getQuestQuestionTargets(subjectId: string): {
   return { desafio: 6, boss: 4 };
 }
 
-/** Tamanho de cada lote na geração (cabe no JSON da IA). */
-export const QUEST_AI_BATCH = { desafio: 8, boss: 2 } as const;
+/**
+ * Tamanho de cada lote na geração (cabe no JSON da IA).
+ * Português pede ~50+10: no máx. QUEST_AI_MAX_BATCHES chamadas + pad mock.
+ */
+export const QUEST_AI_BATCH = { desafio: 12, boss: 5 } as const;
+
+/** Evita 7× Gemini seguidos (trava Regenerar / timeout Vercel). */
+export const QUEST_AI_MAX_BATCHES = 2;
 
 /** Quantas questões caem por sessão de jogo (amostra do banco). */
 export const QUEST_SESSION_SIZE = { desafio: 12, boss: 6 } as const;

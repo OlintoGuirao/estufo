@@ -44,6 +44,8 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
         mockQuestPhaseAiContent,
         parseQuestPhaseAiJson,
         QUEST_AI_BATCH,
+        QUEST_AI_MAX_BATCHES,
+        QUEST_PHASE_AI_CONTENT_VERSION,
       } = ai;
       type QuestPhaseAiPayload = ai.QuestPhaseAiPayload;
       const { getQuestPhase } = await import("@/data/tjsp-quest-catalog");
@@ -81,10 +83,13 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
         sources: data.sources,
       };
 
-      const batchTotal = Math.max(
-        1,
-        Math.ceil(targets.desafio / QUEST_AI_BATCH.desafio),
-        Math.ceil(targets.boss / QUEST_AI_BATCH.boss),
+      const batchTotal = Math.min(
+        QUEST_AI_MAX_BATCHES,
+        Math.max(
+          1,
+          Math.ceil(targets.desafio / QUEST_AI_BATCH.desafio),
+          Math.ceil(targets.boss / QUEST_AI_BATCH.boss),
+        ),
       );
 
       let merged: QuestPhaseAiPayload = {
@@ -161,17 +166,25 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
 
       if (merged.questions.length < 3) {
         merged = mockPayload;
+        mocked = true;
       } else {
-        merged.questions = merged.questions.slice(0, targets.desafio);
-        merged.bossQuestions = (
-          merged.bossQuestions.length >= 2
+        // Completa meta da trilha (50+10) sem mais chamadas lentas à IA.
+        merged.questions = dedupeQuestions([
+          ...merged.questions,
+          ...mockPayload.questions,
+        ]).slice(0, targets.desafio);
+        merged.bossQuestions = dedupeQuestions([
+          ...(merged.bossQuestions.length >= 2
             ? merged.bossQuestions
-            : merged.questions.slice(0, targets.boss)
-        ).slice(0, targets.boss);
+            : merged.questions.slice(0, targets.boss)),
+          ...mockPayload.bossQuestions,
+        ]).slice(0, targets.boss);
         if (!merged.lessonBlocks.length) {
           merged.lessonBlocks = mockPayload.lessonBlocks;
         }
       }
+
+      merged.contentVersion = QUEST_PHASE_AI_CONTENT_VERSION;
 
       return {
         content: merged,

@@ -43,19 +43,16 @@ export const questPhaseAiService = {
     const base = getQuestPhase(phaseId);
     if (!base) throw new ApiError("Fase não encontrada.", 404);
 
-    if (opts?.force) {
-      await questPhaseAiStore.clear(phaseId);
-    } else {
-      const fromDb = await questPhaseAiStore.loadPhase(phaseId);
-      if (fromDb) {
-        return {
-          phase: mergePhaseWithAi(base, fromDb.content),
-          content: fromDb.content,
-          model: fromDb.model,
-          mocked: fromDb.mocked,
-          fromCache: true,
-        };
-      }
+    // Não apaga o banco antes de gerar — se a IA falhar/travar, o aluno mantém o anterior.
+    const previous = await questPhaseAiStore.loadPhase(phaseId);
+    if (!opts?.force && previous) {
+      return {
+        phase: mergePhaseWithAi(base, previous.content),
+        content: previous.content,
+        model: previous.model,
+        mocked: previous.mocked,
+        fromCache: true,
+      };
     }
 
     const subject = getQuestSubject(base.subjectId);
@@ -96,6 +93,15 @@ export const questPhaseAiService = {
         fromCache: false,
       };
     } catch (e) {
+      if (previous) {
+        return {
+          phase: mergePhaseWithAi(base, previous.content),
+          content: previous.content,
+          model: previous.model,
+          mocked: previous.mocked,
+          fromCache: true,
+        };
+      }
       return parseErr(e);
     }
   },
