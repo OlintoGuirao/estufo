@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader, Panel } from "@/components/common";
+import { VunespProposal } from "@/components/redacao/vunesp-proposal";
 import { countWords } from "@/lib/redacao/ai";
 import { approvalTrailService } from "@/services/approval-trail.service";
 import { correctRedacaoFn } from "@/services/redacao.fns";
@@ -117,16 +118,23 @@ function RedacaoEssayPage() {
       </div>
 
       <PageHeader
-        title={essay.themeTitle}
-        description={done ? "Correção salva" : "Escreva e conclua para a IA corrigir"}
+        title="Proposta de redação"
+        description={
+          done
+            ? "Correção salva"
+            : "Leia os textos motivadores como na prova VUNESP e escreva sua dissertação"
+        }
       />
 
-      <Panel title="Proposta">
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">{essay.themePrompt}</p>
-        {essay.themeContext && (
-          <p className="mt-3 text-xs text-muted-foreground">{essay.themeContext}</p>
-        )}
-      </Panel>
+      <VunespProposal
+        title={essay.themeTitle}
+        prompt={essay.themePrompt}
+        supportTexts={
+          essay.supportTexts?.length
+            ? essay.supportTexts
+            : redacaoStore.getTheme(essay.themeId)?.supportTexts
+        }
+      />
 
       {essay.focusPoints.length > 0 && (
         <Panel title="Foco desta redação">

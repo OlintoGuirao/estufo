@@ -3,8 +3,10 @@ import type {
   RedacaoCompetency,
   RedacaoCorrection,
   RedacaoImprovementPoint,
+  RedacaoSupportText,
   RedacaoTheme,
 } from "@/types/redacao";
+import { VUNESP_REDACAO_COMMAND } from "@/types/redacao";
 
 function asObj(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -29,6 +31,27 @@ function themeMeta(contestName: string, board: string): Pick<RedacaoTheme, "cont
   return out;
 }
 
+function parseSupportTexts(raw: unknown): RedacaoSupportText[] {
+  if (!Array.isArray(raw)) return [];
+  const out: RedacaoSupportText[] = [];
+  for (let i = 0; i < raw.length && out.length < 3; i++) {
+    const o = asObj(raw[i]);
+    if (!o) continue;
+    const body = String(o["body"] ?? o["text"] ?? "").trim();
+    if (body.length < 40) continue;
+    out.push({
+      label: String(o["label"] ?? `TEXTO ${out.length + 1}`)
+        .trim()
+        .toUpperCase()
+        .slice(0, 20) || `TEXTO ${out.length + 1}`,
+      body: body.slice(0, 1800),
+      source: String(o["source"] ?? o["citation"] ?? "").trim().slice(0, 400) ||
+        "(Fonte adaptada para treino.)",
+    });
+  }
+  return out;
+}
+
 export function buildThemeMessages(input: {
   contestName: string;
   organ: string;
@@ -42,27 +65,62 @@ export function buildThemeMessages(input: {
   return [
     {
       role: "system",
-      content: `Você é professor de redação para concursos públicos brasileiros.
-Gere temas ATUAIS e PROVÁVEIS de redação com base no edital/banca informados.
-Priorize dissertativa-argumentativa (padrão da maioria das bancas).
-Responda SOMENTE JSON válido:
-{"themes":[{"title":"...","prompt":"proposta completa (comando da redação)","context":"2-4 linhas com motivadores/atualidade","likelihood":"alta"|"media"}]}
-Regras: exatamente ${input.count} temas; títulos distintos; prompt com comando claro (posição, argumentos, conclusão); sem inventar lei inexistente.`,
+      content: `Você elabora PROPOSTAS DE REDAÇÃO no padrão VUNESP (TJSP / concursos paulistas).
+
+Formato OBRIGATÓRIO de cada tema (como na prova impressa):
+1) Exatamente 3 textos motivadores (TEXTO 1, TEXTO 2, TEXTO 3), com vieses diferentes:
+   - um com dado/estatística ou trecho jornalístico;
+   - um com ângulo social/opinião;
+   - um com desafio/crítica/contraste.
+2) Cada texto: 4–8 linhas + "source" no estilo da banca, ex.:
+   (Nome. Título da matéria. www.site.com.br, DD.MM.AAAA. Adaptado)
+3) "prompt" = SEMPRE este comando (copie igual):
+   "${VUNESP_REDACAO_COMMAND}"
+4) "title" = tema em CAIXA ALTA, formulado como dilema/tensão (ex.: "ENTRE X E Y"), 1 linha.
+5) "context" = 1–2 frases só para o card da lista (não aparece na prova).
+
+PROIBIDO: inventar lei/artigo; tema genérico sem textos; menos de 3 textos.
+Responda SOMENTE JSON:
+{"themes":[{"title":"...","prompt":"...","context":"...","likelihood":"alta"|"media","supportTexts":[{"label":"TEXTO 1","body":"...","source":"(...)"},{"label":"TEXTO 2","body":"...","source":"(...)"},{"label":"TEXTO 3","body":"...","source":"(...)"}]}]}
+Exatamente ${input.count} temas, todos distintos e atuais.`,
     },
     {
       role: "user",
       content: `Concurso: ${input.contestName}
 Órgão: ${input.organ}
 Cargo: ${input.role}
-Banca: ${input.board || "não informada"}
+Banca: ${input.board || "VUNESP"}
 Resumo do edital: ${input.summary || "(sem resumo)"}
 Matérias do edital: ${input.subjects.join("; ") || "(não listadas)"}
-Pontos que o aluno ainda precisa melhorar (leve em conta ao variar os temas): ${
+Pontos que o aluno ainda precisa melhorar (varie os temas sem fugir do padrão VUNESP): ${
         input.openImprovements.length
           ? input.openImprovements.join(" | ")
           : "(nenhum ainda)"
       }
-Gere ${input.count} temas prováveis e atuais.`,
+Gere ${input.count} propostas completas (3 textos + comando + tema).`,
+    },
+  ];
+}
+
+function mockSupportAging(): RedacaoSupportText[] {
+  return [
+    {
+      label: "TEXTO 1",
+      body: "A expectativa de vida no Brasil sobe, e parte da população já se vê chegando aos 80 anos. Pesquisas mostram que, aos 65, muitos ainda se sentem produtivos e esperam viver mais de uma década com autonomia — mas o desejo de longevidade convive com ansiedade sobre o que essa fase realmente reserva.",
+      source:
+        "(Gabriela Maraccini. Brasileiros acreditam que vão viver até os 80 anos, mostra pesquisa. www.cnnbrasil.com.br, 04.08.2025. Adaptado)",
+    },
+    {
+      label: "TEXTO 2",
+      body: "A “revolução da longevidade” muda o mapa demográfico: em breve, o país terá mais pessoas com 60 anos ou mais do que crianças. Envelhecer não significa, automaticamente, adoecer; em São Paulo, milhares de idosos mantêm independência e até sustentam famílias — o desafio é desenhar políticas que acompanhem essa realidade.",
+      source:
+        "(Cristiane Segatto. Envelhecer com saúde: hora de desenhar o novo mapa da vida. www.estadao.com.br, 05.01.2022. Adaptado)",
+    },
+    {
+      label: "TEXTO 3",
+      body: "No Japão, o abandono e a pobreza na velhice já empurram idosos a crimes por sobrevivência. O Brasil caminha para dobrar sua população idosa nas próximas décadas, ainda com rede de cuidados frágil, aposentadorias apertadas e sobrecarga familiar — sobretudo feminina.",
+      source:
+        "(Francisco Iglesias. No Japão, idosos matam, morrem ou vão para a prisão por abandono. www.em.com.br, 03.07.2025. Adaptado)",
     },
   ];
 }
@@ -73,38 +131,110 @@ export function mockThemes(input: {
   count: number;
 }): RedacaoTheme[] {
   const now = new Date().toISOString();
-  const bank = input.board || "banca do concurso";
+  const bank = input.board || "VUNESP";
   const meta = themeMeta(input.contestName, input.board);
-  const base = [
+  const cmd = VUNESP_REDACAO_COMMAND;
+  const base: Omit<RedacaoTheme, "id" | "createdAt" | "contestName" | "board" | "genre">[] = [
     {
-      title: "Desinformação e responsabilidade social nas redes",
-      prompt: `Com base nos textos motivadores e nos seus conhecimentos, redija um texto dissertativo-argumentativo sobre os desafios do combate à desinformação nas redes sociais e o papel do cidadão e do Estado. Apresente tese clara, dois argumentos e proposta de intervenção.`,
-      context: `Tema recorrente em provas recentes (${bank}): fake news, liberdade de expressão e dever de informação.`,
-      likelihood: "alta" as const,
+      title:
+        "O ENVELHECIMENTO DA POPULAÇÃO: ENTRE A CAPACIDADE PRODUTIVA DOS IDOSOS E OS DESAFIOS DE CUIDAR DELES",
+      prompt: cmd,
+      context: `Proposta estilo ${bank}: longevidade, produtividade e cuidado (textos motivadores).`,
+      likelihood: "alta",
+      supportTexts: mockSupportAging(),
     },
     {
-      title: "Acesso à justiça e cidadania no Brasil",
-      prompt: `Redija um texto dissertativo-argumentativo discutindo obstáculos ao acesso à justiça no Brasil e caminhos para ampliar a cidadania. Defenda um ponto de vista com argumentos e conclusão.`,
-      context: `Alinhado a editais de tribunais e órgãos públicos; cidadania e direitos fundamentais.`,
-      likelihood: "alta" as const,
+      title:
+        "DESINFORMAÇÃO NAS REDES: ENTRE A LIBERDADE DE EXPRESSÃO E A RESPONSABILIDADE SOCIAL",
+      prompt: cmd,
+      context: "Fake news, cidadania digital e dever de informação.",
+      likelihood: "alta",
+      supportTexts: [
+        {
+          label: "TEXTO 1",
+          body: "O volume de conteúdos falsos nas redes cresce na mesma velocidade da conectividade. Estudos apontam que notícias enganosas circulam mais rápido que as verificadas, afetando escolhas eleitorais, saúde e confiança nas instituições.",
+          source: "(Reportagem adaptada sobre desinformação digital. 2024. Adaptado)",
+        },
+        {
+          label: "TEXTO 2",
+          body: "Defensores da liberdade de expressão alertam que a moderação excessiva pode censurar o debate público. Ao mesmo tempo, plataformas e o Estado são cobrados a conter discursos que colocam em risco direitos coletivos.",
+          source: "(Artigo de opinião sobre regulação de redes. 2025. Adaptado)",
+        },
+        {
+          label: "TEXTO 3",
+          body: "Escolas e serviços públicos já enfrentam o custo da desinformação: mutirões de checagem, campanhas educativas e perda de tempo em desmentir boatos que atrasam políticas públicas.",
+          source: "(Levantamento sobre impacto da desinformação no serviço público. 2025. Adaptado)",
+        },
+      ],
     },
     {
-      title: "Trabalho, tecnologia e dignidade humana",
-      prompt: `Elabore uma dissertação argumentativa sobre os impactos da automação e da inteligência artificial no mundo do trabalho, defendendo medidas que preservem a dignidade humana.`,
-      context: `Atualidades + ética no serviço público; comum em bancas objetivas com redação.`,
-      likelihood: "media" as const,
+      title: "ACESSO À JUSTIÇA NO BRASIL: ENTRE O DIREITO GARANTIDO E OS OBSTÁCULOS DO COTIDIANO",
+      prompt: cmd,
+      context: "Cidadania, tribunais e barreiras práticas ao acesso à justiça.",
+      likelihood: "alta",
+      supportTexts: [
+        {
+          label: "TEXTO 1",
+          body: "A Constituição assegura o acesso à justiça, mas filas, custos e a complexidade processual ainda afastam parcela da população dos seus direitos.",
+          source: "(Texto adaptado sobre acesso à justiça. 2024. Adaptado)",
+        },
+        {
+          label: "TEXTO 2",
+          body: "Juizados especiais, Defensoria e mediação ampliam portas de entrada — porém a oferta é desigual entre capitais e interior.",
+          source: "(Matéria sobre Defensoria e juizados. 2025. Adaptado)",
+        },
+        {
+          label: "TEXTO 3",
+          body: "Sem informação clara e linguagem acessível, o cidadão desiste antes mesmo de protocolar um pedido. O problema não é só jurídico: é também de cidadania e comunicação.",
+          source: "(Ensaio sobre linguagem e cidadania. 2023. Adaptado)",
+        },
+      ],
     },
     {
-      title: "Educação pública e equidade de oportunidades",
-      prompt: `Produza um texto dissertativo-argumentativo sobre a importância da educação pública de qualidade para a redução das desigualdades no Brasil.`,
-      context: `Tema clássico e atual; encaixa bem no perfil de ${input.contestName || "concursos"}.`,
-      likelihood: "media" as const,
+      title: "TRABALHO E TECNOLOGIA: ENTRE A INOVAÇÃO E A DIGNIDADE HUMANA",
+      prompt: cmd,
+      context: "Automação, IA e mundo do trabalho.",
+      likelihood: "media",
+      supportTexts: [
+        {
+          label: "TEXTO 1",
+          body: "Ferramentas de inteligência artificial já reorganizam rotinas em escritórios, fábricas e no próprio serviço público, prometendo ganho de produtividade.",
+          source: "(Reportagem sobre automação no trabalho. 2025. Adaptado)",
+        },
+        {
+          label: "TEXTO 2",
+          body: "Sindicatos e pesquisadores alertam para precarização, vigilância e exclusão de quem não acompanha a requalificação digital.",
+          source: "(Análise sobre trabalho e tecnologia. 2024. Adaptado)",
+        },
+        {
+          label: "TEXTO 3",
+          body: "O desafio ético é simples de enunciar e difícil de cumprir: inovar sem transformar a pessoa em peça descartável da engrenagem.",
+          source: "(Artigo sobre dignidade e inovação. 2025. Adaptado)",
+        },
+      ],
     },
     {
-      title: "Saúde mental no serviço público",
-      prompt: `Redija um texto dissertativo-argumentativo sobre a valorização da saúde mental dos servidores e o impacto no atendimento ao cidadão.`,
-      context: `Tema contemporâneo com boa aderência a editais de administração pública.`,
-      likelihood: "alta" as const,
+      title: "EDUCAÇÃO PÚBLICA: ENTRE A PROMESSA DE EQUIDADE E AS DESIGUALDADES PERSISTENTES",
+      prompt: cmd,
+      context: `Educação e oportunidades — perfil ${input.contestName || "concurso"}.`,
+      likelihood: "media",
+      supportTexts: [
+        {
+          label: "TEXTO 1",
+          body: "Indicadores de aprendizagem ainda revelam abismos entre redes públicas e privadas e entre regiões do país.",
+          source: "(Dados educacionais adaptados. 2024. Adaptado)",
+        },
+        {
+          label: "TEXTO 2",
+          body: "Professores apontam falta de infraestrutura, formação continuada e valorização como entraves cotidianos à qualidade.",
+          source: "(Reportagem sobre carreira docente. 2025. Adaptado)",
+        },
+        {
+          label: "TEXTO 3",
+          body: "Sem escola pública forte, a mobilidade social fica refém da renda familiar — e o discurso da meritocracia perde sentido.",
+          source: "(Ensaio sobre equidade educacional. 2023. Adaptado)",
+        },
+      ],
     },
   ];
   return base.slice(0, Math.max(1, Math.min(input.count, base.length))).map((t) => ({
@@ -112,6 +242,7 @@ export function mockThemes(input: {
     title: t.title,
     prompt: t.prompt,
     context: t.context,
+    supportTexts: t.supportTexts,
     genre: "dissertativa-argumentativa" as const,
     likelihood: t.likelihood,
     ...meta,
@@ -139,14 +270,26 @@ export function parseThemesJson(
       const o = asObj(item);
       if (!o) continue;
       const title = String(o["title"] ?? "").trim();
-      const prompt = String(o["prompt"] ?? "").trim();
-      if (!title || !prompt) continue;
+      if (!title) continue;
       const likelihood = o["likelihood"] === "media" ? "media" : "alta";
+      let supportTexts = parseSupportTexts(o["supportTexts"] ?? o["texts"]);
+      if (supportTexts.length < 2) {
+        // Sem textos motivadores no padrão da prova → descarta (preenchemos com mock se faltar lote).
+        continue;
+      }
+      // Garante rótulos TEXTO 1…N
+      supportTexts = supportTexts.map((t, i) => ({
+        ...t,
+        label: t.label || `TEXTO ${i + 1}`,
+      }));
       themes.push({
         id: uid("theme"),
-        title: title.slice(0, 180),
-        prompt: prompt.slice(0, 2500),
-        context: String(o["context"] ?? "").trim().slice(0, 800) || "Tema alinhado ao edital.",
+        title: title.slice(0, 220).toUpperCase(),
+        prompt: VUNESP_REDACAO_COMMAND,
+        context:
+          String(o["context"] ?? "").trim().slice(0, 800) ||
+          "Proposta no padrão VUNESP (textos motivadores + tema).",
+        supportTexts,
         genre: "dissertativa-argumentativa",
         likelihood,
         ...themeExtras,
@@ -180,14 +323,15 @@ Regras: 4 a 5 competências; 2 a 4 melhorias acionáveis (sem reescrever a reda�
     {
       role: "user",
       content: `Concurso: ${input.contestName || "não informado"}
-Banca: ${input.board || "não informada"}
-Tema: ${input.themeTitle}
-Proposta: ${input.themePrompt}
+Banca: ${input.board || "VUNESP"}
+Tema (após os textos motivadores): ${input.themeTitle}
+Comando da prova: ${input.themePrompt}
 Pontos de foco desta redação (corrigir com atenção especial): ${
         input.focusPoints.length
           ? input.focusPoints.map((p) => `${p.area}: ${p.tip}`).join(" | ")
           : "(nenhum)"
       }
+Avalie se o aluno dialogou com o tema e com a proposta (não precisa citar os textos literalmente).
 
 TEXTO DO ALUNO:
 ${input.essayBody.slice(0, 12000)}`,

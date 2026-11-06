@@ -46,12 +46,15 @@ export const generateRedacaoThemesFn = createServerFn({ method: "POST" })
         count,
       });
       const result = await tutorChat(buildThemeMessages(meta), {
-        task: "redacao-temas", mockText: JSON.stringify({
+        task: "redacao-temas",
+        maxOutputTokens: 8192,
+        mockText: JSON.stringify({
           themes: mock.map((t) => ({
             title: t.title,
             prompt: t.prompt,
             context: t.context,
             likelihood: t.likelihood,
+            supportTexts: t.supportTexts,
           })),
         }),
       });

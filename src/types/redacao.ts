@@ -17,11 +17,28 @@ export type RedacaoImprovementPoint = {
   status: "aberto" | "melhorou" | "resolvido";
 };
 
+/** Texto motivador no padrão VUNESP (TEXTO 1, 2, 3…). */
+export type RedacaoSupportText = {
+  /** Ex.: "TEXTO 1" */
+  label: string;
+  body: string;
+  /** Citação no estilo da banca, ex.: (Autor. Título. site, data. Adaptado) */
+  source: string;
+};
+
 export type RedacaoTheme = {
   id: string;
+  /** Tema em destaque (pode ir em CAIXA ALTA na UI). */
   title: string;
+  /**
+   * Comando padrão da prova (após os textos).
+   * Ex.: "Com base nos textos apresentados e em seus próprios conhecimentos…"
+   */
   prompt: string;
+  /** Resumo curto para o card da lista. */
   context: string;
+  /** 2–3 textos motivadores como na prova VUNESP. */
+  supportTexts?: RedacaoSupportText[];
   genre: "dissertativa-argumentativa";
   likelihood: "alta" | "media";
   contestName?: string;
@@ -54,6 +71,8 @@ export type RedacaoEssay = {
   themeTitle: string;
   themePrompt: string;
   themeContext: string;
+  /** Cópia dos textos motivadores no momento em que o aluno começou a escrever. */
+  supportTexts?: RedacaoSupportText[];
   body: string;
   status: RedacaoEssayStatus;
   focusPoints: RedacaoImprovementPoint[];
@@ -62,6 +81,10 @@ export type RedacaoEssay = {
   updatedAt: string;
   submittedAt?: string;
 };
+
+/** Comando oficial estilo VUNESP (após os textos motivadores). */
+export const VUNESP_REDACAO_COMMAND =
+  "Com base nos textos apresentados e em seus próprios conhecimentos, escreva um texto dissertativo-argumentativo, empregando a norma-padrão da língua portuguesa, sobre o tema:";
 
 export type RedacaoState = {
   schedule: RedacaoSchedule;

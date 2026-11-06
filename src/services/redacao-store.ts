@@ -282,6 +282,7 @@ export const redacaoStore = {
       themeTitle: theme.title,
       themePrompt: theme.prompt,
       themeContext: theme.context,
+      ...(theme.supportTexts?.length ? { supportTexts: theme.supportTexts.map((t) => ({ ...t })) } : {}),
       body: "",
       status: "rascunho",
       focusPoints: focus,

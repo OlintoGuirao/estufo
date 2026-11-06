@@ -234,11 +234,20 @@ function RedacaoIndexPage() {
                 <Badge variant={t.likelihood === "alta" ? "default" : "secondary"}>
                   {t.likelihood === "alta" ? "Alta chance" : "Média chance"}
                 </Badge>
+                {t.supportTexts && t.supportTexts.length >= 2 ? (
+                  <Badge variant="outline">{t.supportTexts.length} textos motivadores</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-amber-700">
+                    Gere de novo (padrão VUNESP)
+                  </Badge>
+                )}
               </div>
-              <h3 className="font-semibold leading-snug">{t.title}</h3>
+              <h3 className="text-sm font-semibold uppercase leading-snug tracking-wide">
+                {t.title}
+              </h3>
               <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{t.context}</p>
               <Button className="mt-4" size="sm" onClick={() => start(t.id)}>
-                Escrever esta redação
+                Abrir proposta e escrever
               </Button>
             </article>
           ))}
