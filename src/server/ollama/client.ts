@@ -1,5 +1,6 @@
 import { getOllamaConfig } from "./config";
 import { OllamaError, summarizeForLog } from "./errors";
+import { resolveCallOptions, type TutorChatOptions } from "@/server/llm-tasks";
 
 export type OllamaChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -17,18 +18,19 @@ type FetchImpl = typeof fetch;
  */
 export async function ollamaChat(
   messages: OllamaChatMessage[],
-  opts?: { fetchImpl?: FetchImpl; mockText?: string },
+  rawOpts?: TutorChatOptions & { fetchImpl?: FetchImpl },
 ): Promise<OllamaGenerateResult> {
   const cfg = getOllamaConfig();
+  const opts = { ...resolveCallOptions(rawOpts), fetchImpl: rawOpts?.fetchImpl };
   if (cfg.useMock) {
     return {
-      text: opts?.mockText ?? "Esta é uma resposta mockada do tutor (OLLAMA_USE_MOCK=true).",
+      text: opts.mockText ?? "Esta é uma resposta mockada do tutor (OLLAMA_USE_MOCK=true).",
       model: cfg.model,
       mocked: true,
     };
   }
 
-  const fetchImpl = opts?.fetchImpl ?? fetch;
+  const fetchImpl = opts.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), cfg.timeoutMs);
 
@@ -43,7 +45,8 @@ export async function ollamaChat(
         // desliga raciocínio longo para dicas/treino do app.
         think: false,
         messages,
-        options: { temperature: 0.4 },
+        ...(opts.json ? { format: opts.responseSchema ?? "json" } : {}),
+        options: { temperature: opts.temperature },
       }),
       signal: controller.signal,
       cache: "no-store",

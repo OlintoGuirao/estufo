@@ -3,8 +3,9 @@
 export type TrailLessonPracticeQuestion = {
   id: string;
   statement: string;
-  alternatives: { key: "A" | "B" | "C" | "D"; text: string }[];
-  correctKey: "A" | "B" | "C" | "D";
+  /** VUNESP usa 5 alternativas (A–E); conteúdo antigo pode ter só A–D. */
+  alternatives: { key: "A" | "B" | "C" | "D" | "E"; text: string }[];
+  correctKey: "A" | "B" | "C" | "D" | "E";
   explanation: string;
   legalBasis: string;
 };

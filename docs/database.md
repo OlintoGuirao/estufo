@@ -33,6 +33,8 @@ Com esse padrão, o schema sobe pelo **SQL Editor** do Supabase (ou CLI), não p
    - `db/migrations/007_study_mind_packs.sql` (mapa mental + flashcards por `device_id`)  
    - `db/migrations/008_study_user_data.sql` (erros, simulados, revisões, plano, Quest, estado de questões por `device_id`)  
    - `db/migrations/009_video_lessons.sql` (progresso, anotações, quiz e respostas das videoaulas por `device_id`)
+   - `db/migrations/010` a `012` (redação, progresso diário e retomada da trilha)
+   - `db/migrations/013_legal_corpus.sql` (lei seca + pgvector para o Professor IA — ver `docs/tutor-ollama.md`)
 
 ## Opcional: `DATABASE_URL`
 

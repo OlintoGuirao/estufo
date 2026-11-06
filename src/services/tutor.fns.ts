@@ -17,6 +17,7 @@ const tipSchema = z.object({
   previousTips: z.array(z.string().max(800)).max(5).optional(),
   /** Nunca usar no prompt — só para validar vazamento na resposta. */
   correctKeyForValidationOnly: z.string().max(1).optional(),
+  studentProfile: z.string().max(1500).optional(),
 });
 
 export const getTutorStatus = createServerFn({ method: "GET" }).handler(async () => {
@@ -42,6 +43,7 @@ export const requestTutorTip = createServerFn({ method: "POST" })
         ...(data.topic ? { topic: data.topic } : {}),
         ...(data.tipLevel != null ? { tipLevel: data.tipLevel } : {}),
         ...(data.previousTips ? { previousTips: data.previousTips } : {}),
+        ...(data.studentProfile ? { studentProfile: data.studentProfile } : {}),
       };
 
       // Gabarito NÃO entra no prompt — só usamos para validar a saída.
@@ -69,7 +71,7 @@ export const requestTutorTip = createServerFn({ method: "POST" })
       }
 
       const result = await tutorChat(messages, {
-        mockText:
+        task: "tip", mockText:
           "Pense no conceito central do tópico antes de eliminar alternativas extremos. Relia o enunciado procurando a palavra-chave da regra — sem chutar pela opção mais longa. (resposta mockada · GEMINI_USE_MOCK)",
       });
 
@@ -99,13 +101,23 @@ export const requestTutorExplain = createServerFn({ method: "POST" })
       studentChoice: z.string().min(1).max(1),
       subject: z.string().max(200).optional(),
       topic: z.string().max(200).optional(),
+      studentProfile: z.string().max(1500).optional(),
     }),
   )
   .handler(async ({ data }) => {
     try {
       const { buildExplainMessages } = await import("@/lib/tutor/prompts");
       const { tutorChat } = await import("@/server/tutor-llm");
+      const { retrieveLegalContext } = await import("@/server/legal/retrieve");
+      const legal = await retrieveLegalContext(
+        [data.subject, data.topic, data.statement, ...data.alternatives.map((a) => a.text)]
+          .filter(Boolean)
+          .join("\n"),
+        { limit: 4 },
+      );
       const messages = buildExplainMessages({
+        ...(data.studentProfile ? { studentProfile: data.studentProfile } : {}),
+        ...(legal.text ? { legalContext: legal.text } : {}),
         statement: data.statement,
         alternatives: data.alternatives,
         correctKey: data.correctKey,
@@ -114,11 +126,11 @@ export const requestTutorExplain = createServerFn({ method: "POST" })
         ...(data.topic ? { topic: data.topic } : {}),
       });
       const result = await tutorChat(messages, {
-        mockText:
+        task: "explain", mockText:
           "Você acertou. A alternativa correta aplica a regra do tópico de forma direta; as demais costumam exagerar ou inverter a condição. (explicação mockada · GEMINI_USE_MOCK)",
       });
       return {
-        explanation: result.text.trim().slice(0, 1200),
+        explanation: result.text.trim().slice(0, 2400),
         model: result.model,
         mocked: result.mocked,
       };
@@ -141,31 +153,58 @@ export const generatePracticeQuestion = createServerFn({ method: "POST" })
       const { parsePracticeQuestionJson, hidePracticeAnswer } =
         await import("@/lib/tutor/validate");
       const { tutorChat } = await import("@/server/tutor-llm");
-      const messages = buildPracticeMessages(data);
-      const result = await tutorChat(messages, {
-        mockText: JSON.stringify({
-          statement:
-            "Para treinar o conceito, assinale a alternativa correta sobre a regra principal do tópico estudado:",
-          alternatives: [
-            { key: "A", text: "Afirmação genérica demais" },
-            { key: "B", text: "Regra aplicada no caso típico" },
-            { key: "C", text: "Exceção tratada como regra" },
-            { key: "D", text: "Inversão da condição" },
-            { key: "E", text: "Conceito de outro ramo" },
-          ],
-          correctKey: "B",
-          explanation: "A alternativa B reflete a regra típica do tópico sem misturar exceções.",
-        }),
+      const { pickVunespExamples, formatVunespExamples } = await import("@/server/vunesp-examples");
+      const { verifyGeneratedQuestions } = await import("@/server/question-verify");
+      const { retrieveLegalContext } = await import("@/server/legal/retrieve");
+      const { sealAnswer } = await import("@/server/answer-token");
+
+      const legal = await retrieveLegalContext(
+        `${data.subject}\n${data.topic}\n${data.conceptHint}`,
+        { limit: 4 },
+      );
+      const messages = buildPracticeMessages({
+        ...data,
+        examples: formatVunespExamples(pickVunespExamples(data.subject, data.topic, 2)),
+        ...(legal.text ? { legalContext: legal.text } : {}),
       });
-      const full = parsePracticeQuestionJson(result.text, {
-        subject: data.subject,
-        topic: data.topic,
+      const mockText = JSON.stringify({
+        statement:
+          "Para treinar o conceito, assinale a alternativa correta sobre a regra principal do tópico estudado:",
+        alternatives: [
+          { key: "A", text: "Afirmação genérica demais" },
+          { key: "B", text: "Regra aplicada no caso típico" },
+          { key: "C", text: "Exceção tratada como regra" },
+          { key: "D", text: "Inversão da condição" },
+          { key: "E", text: "Conceito de outro ramo" },
+        ],
+        correctKey: "B",
+        explanation: "A alternativa B reflete a regra típica do tópico sem misturar exceções.",
       });
-      const token = btoa(unescape(encodeURIComponent(JSON.stringify(full))));
+
+      // Até 2 tentativas: a questão só sai se o verificador chegar ao mesmo gabarito.
+      let result = await tutorChat(messages, { task: "practice", mockText });
+      let full = parsePracticeQuestionJson(result.text, { subject: data.subject, topic: data.topic });
+      let verified = false;
+      for (let attempt = 0; attempt < 2 && !result.mocked; attempt++) {
+        const v = await verifyGeneratedQuestions([full], {
+          subject: data.subject,
+          ...(legal.text ? { legalContext: legal.text } : {}),
+        });
+        if (v.kept.length) {
+          verified = v.verified;
+          break;
+        }
+        if (attempt === 1) break;
+        result = await tutorChat(messages, { task: "practice", mockText });
+        full = parsePracticeQuestionJson(result.text, { subject: data.subject, topic: data.topic });
+      }
+
+      const token = sealAnswer(full);
       return {
         publicQuestion: hidePracticeAnswer(full),
-        /** Token opaco — correção só via gradePracticeQuestion; não é questão oficial. */
+        /** Token cifrado — correção só via gradePracticeQuestion; não é questão oficial. */
         answerToken: token,
+        verified,
         model: result.model,
         mocked: result.mocked,
       };
@@ -180,12 +219,12 @@ export const gradePracticeQuestion = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      const raw = decodeURIComponent(escape(atob(data.answerToken)));
-      const q = JSON.parse(raw) as {
+      const { openAnswer } = await import("@/server/answer-token");
+      const q = openAnswer<{
         correctKey: string;
         explanation: string;
         aiGenerated?: boolean;
-      };
+      }>(data.answerToken);
       if (!q.correctKey) throw new Error("Token inválido.");
       const correct = q.correctKey.toUpperCase() === data.choice.toUpperCase();
       return {
@@ -263,12 +302,19 @@ export const requestTutorMastigado = createServerFn({ method: "POST" })
         subject: z.string().max(200).optional(),
         topic: z.string().max(200).optional(),
         /** Trecho do gabarito / fundamento. */
-        explanationHint: z.string().max(1200).optional(),
+        explanationHint: z.string().max(4000).optional(),
         alternatives: z
           .array(z.object({ key: z.string().min(1).max(1), text: z.string().min(1).max(800) }))
           .min(2)
           .max(5)
           .optional(),
+        /** Id da questão do banco — o servidor busca o gabarito sozinho. */
+        questionId: z.string().max(200).optional(),
+        /** Gabarito (quando a questão não está no banco local). */
+        correctKey: z.string().max(1).optional(),
+        /** Letra marcada pelo aluno ⇒ modo correção. */
+        studentChoice: z.string().max(1).optional(),
+        studentProfile: z.string().max(1500).optional(),
       })
       .refine((d) => Boolean(d.fonteUrl?.trim() || d.explanationHint?.trim()), {
         message: "Informe fonte ou trecho do gabarito.",
@@ -276,33 +322,41 @@ export const requestTutorMastigado = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      const { stripHtmlToText } = await import("@/lib/tutor/fonte");
+      const { stripHtmlToText, fetchOfficialSource, pickRelevantExcerpt } = await import(
+        "@/lib/tutor/fonte"
+      );
       const { buildMastigadoMessages } = await import("@/lib/tutor/prompts");
       const { tutorChat } = await import("@/server/tutor-llm");
       const { OllamaError } = await import("@/server/ollama/errors");
+      const { retrieveLegalContext } = await import("@/server/legal/retrieve");
+
+      let correctKey = data.correctKey?.toUpperCase();
+      if (!correctKey && data.questionId) {
+        const { tjspBancoCatalog } = await import("@/services/tjsp-banco.catalog");
+        correctKey = tjspBancoCatalog.getRaw(data.questionId)?.correctKey?.toUpperCase();
+      }
+
+      const query = [
+        data.subject,
+        data.topic,
+        data.statement,
+        data.explanationHint,
+        ...(data.alternatives ?? []).map((a) => a.text),
+      ]
+        .filter(Boolean)
+        .join("\n");
 
       let pageText = "";
       let fetchedPage = false;
       if (data.fonteUrl) {
-        try {
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 12_000);
-          const res = await fetch(data.fonteUrl, {
-            signal: ctrl.signal,
-            headers: {
-              Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
-              "User-Agent": "EstufooTutor/1.0",
-            },
-            redirect: "follow",
-          });
-          clearTimeout(timer);
-          if (res.ok) {
-            const html = await res.text();
-            pageText = stripHtmlToText(html, 9000);
-            fetchedPage = pageText.length >= 80;
-          }
-        } catch {
-          pageText = "";
+        const extraHosts = (process.env["TUTOR_FONTE_ALLOWED_HOSTS"] ?? "")
+          .split(",")
+          .filter(Boolean);
+        const html = await fetchOfficialSource(data.fonteUrl, { extraHosts });
+        if (html) {
+          const full = stripHtmlToText(html, 3_000_000);
+          pageText = pickRelevantExcerpt(full, query, 12_000);
+          fetchedPage = pageText.length >= 80;
         }
       }
 
@@ -311,8 +365,10 @@ export const requestTutorMastigado = createServerFn({ method: "POST" })
           data.explanationHint?.trim() ||
           "Material insuficiente. Declare a limitação em Fundamentação; não invente norma.";
       } else if (data.explanationHint?.trim()) {
-        pageText = `${data.explanationHint.trim()}\n\n---\nConteúdo da fonte:\n${pageText}`;
+        pageText = `${data.explanationHint.trim()}\n\n---\nConteúdo da fonte (trechos relevantes):\n${pageText}`;
       }
+
+      const legal = await retrieveLegalContext(query, { limit: 6 });
 
       const messages = buildMastigadoMessages({
         statement: data.statement,
@@ -321,10 +377,14 @@ export const requestTutorMastigado = createServerFn({ method: "POST" })
         ...(data.topic ? { topic: data.topic } : {}),
         ...(data.fonteUrl ? { fonteUrl: data.fonteUrl } : {}),
         ...(data.alternatives ? { alternatives: data.alternatives } : {}),
+        ...(correctKey ? { correctKey } : {}),
+        ...(data.studentChoice ? { studentChoice: data.studentChoice.toUpperCase() } : {}),
+        ...(data.studentProfile ? { studentProfile: data.studentProfile } : {}),
+        ...(legal.text ? { legalContext: legal.text } : {}),
       });
 
       const result = await tutorChat(messages, {
-        mockText: `1. Contextualização
+        task: "mastigado", mockText: `1. Contextualização
 Você está diante de um tema típico de concurso — vamos do zero.
 
 2. Conceitos fundamentais
@@ -351,13 +411,40 @@ A banca troca termos parecidos ou trata exceção como regra.
 Modo mock — confirme lei/artigo/fonte no material real; não invente.`,
       });
 
-      const text = result.text.trim();
+      let text = result.text.trim();
       if (!text) {
         throw new OllamaError("empty", "O tutor não gerou texto. Tente de novo.", 502);
       }
 
-      const { extractActiveTestFromMastigado } = await import("@/lib/tutor/validate");
-      const parsed = extractActiveTestFromMastigado(text);
+      const { extractActiveTestFromMastigado, tipLooksLikeAnswerReveal } = await import(
+        "@/lib/tutor/validate"
+      );
+      let parsed = extractActiveTestFromMastigado(text);
+
+      // Modo aula: o gabarito foi ao modelo só como referência — não pode vazar.
+      if (!data.studentChoice && correctKey && tipLooksLikeAnswerReveal(parsed.text, correctKey)) {
+        const retry = await tutorChat(
+          [
+            ...messages,
+            { role: "assistant", content: text.slice(0, 6_000) },
+            {
+              role: "user",
+              content:
+                "Você revelou a letra correta da questão do aluno, o que é proibido no MODO AULA. Reescreva a aula inteira no mesmo formato SEM indicar qual alternativa da questão original está certa.",
+            },
+          ],
+          { task: "mastigado" },
+        );
+        text = retry.text.trim() || text;
+        parsed = extractActiveTestFromMastigado(text);
+      }
+
+      const { findUnsupportedArticles } = await import("@/server/legal/citations");
+      const unsupported = findUnsupportedArticles(parsed.text, [
+        pageText,
+        legal.text,
+        data.explanationHint ?? "",
+      ]);
 
       return {
         mastigado: parsed.text,
@@ -366,6 +453,10 @@ Modo mock — confirme lei/artigo/fonte no material real; não invente.`,
         model: result.model,
         mocked: result.mocked,
         fetchedPage,
+        mode: data.studentChoice ? ("correcao" as const) : ("aula" as const),
+        legalSources: legal.sources,
+        /** Artigos citados pela IA que não aparecem em nenhuma fonte enviada. */
+        unverifiedCitations: unsupported,
       };
     } catch (err) {
       return await throwTutorError(err);
@@ -387,7 +478,7 @@ export const generateMindMapOutline = createServerFn({ method: "POST" })
       const { tutorChat } = await import("@/server/tutor-llm");
       const messages = buildMindMapOutlineMessages(data);
       const result = await tutorChat(messages, {
-        mockText: JSON.stringify({
+        task: "mind-map", mockText: JSON.stringify({
           topics: [
             {
               title: "Conceito central",
@@ -499,7 +590,7 @@ export const generateStudyPack = createServerFn({ method: "POST" })
       const { tutorChat } = await import("@/server/tutor-llm");
       const mock = mockStudyPack({ title: data.title, subject: data.subject });
       const result = await tutorChat(buildStudyPackMessages({ ...data, material }), {
-        mockText: JSON.stringify(mock),
+        task: "study-pack", mockText: JSON.stringify(mock),
       });
       const parsed = parseStudyPackJson(result.text);
       let pack = expandStudyPackArticles(parsed, material);
@@ -511,7 +602,7 @@ export const generateStudyPack = createServerFn({ method: "POST" })
           const enrich = await tutorChat(
             buildStubEnrichmentMessages({ material, stubs }),
             {
-              mockText: JSON.stringify({
+              task: "study-pack", mockText: JSON.stringify({
                 items: stubs.map((s) => ({
                   tempId: s.tempId,
                   title: `Tipificacao ${s.artHint}`,
@@ -550,9 +641,18 @@ export const generateStudyPack = createServerFn({ method: "POST" })
               summary: n.summary,
             })),
           }),
-          { mockText: JSON.stringify({ questions: mockAiQuestions(pack) }) },
+          { task: "questions", mockText: JSON.stringify({ questions: mockAiQuestions(pack) }) },
         );
-        const questions = parseAiQuestionsJson(qResult.text);
+        let questions = parseAiQuestionsJson(qResult.text);
+        if (!qResult.mocked && questions.length) {
+          // Material do aluno é a fonte: o verificador resolve com ele em mãos.
+          const { verifyGeneratedQuestions } = await import("@/server/question-verify");
+          const v = await verifyGeneratedQuestions(questions, {
+            subject: data.subject,
+            legalContext: material.slice(0, 12_000),
+          });
+          questions = v.kept;
+        }
         pack = applyAiQuestions(
           pack,
           questions.length >= 2 ? questions : mockAiQuestions(pack),
@@ -627,7 +727,7 @@ Se o nó citar artigo, inclua o número (ex.: Art. 144). Se citar lei, inclua n�
             content: `Mapa: ${data.mapTitle}\nMatéria: ${data.subject}\nNós:\n${block}`,
           },
         ],
-        { mockText },
+        { task: "flashcards", mockText },
       );
       const cleaned = result.text
         .trim()
@@ -696,7 +796,7 @@ export const generateWeeklyReinforce = createServerFn({ method: "POST" })
           },
         ],
         {
-          mockText: `1) Diagnostico da semana\nVoce acumulou erros nos temas listados. Foque nos verbos nucleares e nas distinguicoes tipicas de banca.\n\n2) Mapa mental\n- Temas da semana\n  - Erros recorrentes\n  - Revisao ativa\n\n3) Pontos a memorizar\n- Revise cada enunciado errado\n- Refaca 5 questoes parecidas no banco\n\n4) Questoes de reforco\n1. Conceito X — Assinale a correta. A) ... B) ... C) ... D) ... E) ... (A)\n2. ... (B)\n3. ... (C)\n4. ... (D)\n5. ... (E)`,
+          task: "weekly", mockText: `1) Diagnostico da semana\nVoce acumulou erros nos temas listados. Foque nos verbos nucleares e nas distinguicoes tipicas de banca.\n\n2) Mapa mental\n- Temas da semana\n  - Erros recorrentes\n  - Revisao ativa\n\n3) Pontos a memorizar\n- Revise cada enunciado errado\n- Refaca 5 questoes parecidas no banco\n\n4) Questoes de reforco\n1. Conceito X — Assinale a correta. A) ... B) ... C) ... D) ... E) ... (A)\n2. ... (B)\n3. ... (C)\n4. ... (D)\n5. ... (E)`,
         },
       );
       return { text: result.text, model: result.model, mocked: !!result.mocked };

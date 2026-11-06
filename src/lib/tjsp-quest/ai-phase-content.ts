@@ -51,7 +51,7 @@ export type QuestPhaseAiPayload = {
   lessonBlocks: QuestLessonBlock[];
   questions: QuestQuestion[];
   bossQuestions: QuestQuestion[];
-  contentVersion?: number;
+  contentVersion?: number | undefined;
 };
 
 export type QuestPhaseAiMeta = {
@@ -60,7 +60,11 @@ export type QuestPhaseAiMeta = {
   subjectName: string;
   title: string;
   objective: string;
-  sources: { label: string; url?: string }[];
+  sources: { label: string; url?: string | undefined }[];
+  /** Questões reais VUNESP/TJSP formatadas (few-shot de estilo). */
+  examples?: string;
+  /** Lei seca recuperada (RAG) para fundamentar questões de direito. */
+  legalContext?: string;
 };
 
 export type QuestPhaseAiBatchOpts = {
@@ -176,7 +180,15 @@ export function buildQuestPhaseAiMessages(
             : `Gere EXATAMENTE ${desafioCount} questoes de desafio + ${bossCount} de chefao de APLICACAO do tema.`
         }`,
         "lessonBlocks: 1–3 dicas curtas (so no primeiro lote, se houver varios).",
-      ].join("\n"),
+        meta.examples
+          ? `\nQUESTOES REAIS DA BANCA (imite o estilo, o nivel e o tipo de distrator — NAO copie):\n${meta.examples}`
+          : "",
+        meta.legalContext
+          ? `\nFONTE LEGAL (texto oficial — use para o gabarito e o legalBasis; cite so artigos daqui):\n${meta.legalContext}`
+          : "",
+      ]
+        .filter((line) => line !== "")
+        .join("\n"),
     },
   ];
 }

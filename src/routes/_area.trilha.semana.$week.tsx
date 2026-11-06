@@ -120,6 +120,8 @@ function WeekLessonPage() {
           .filter(Boolean)
           .join("\n\n")
           .slice(0, 6000),
+        // Últimas trocas: o professor lembra o que perguntou e o que o aluno respondeu.
+        history: (progress?.chat ?? []).slice(-10),
       });
     },
     onSuccess: (r) => {

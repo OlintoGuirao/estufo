@@ -19,6 +19,8 @@ export type TipRequestInput = {
   topic?: string;
   tipLevel?: number;
   previousTips?: string[];
+  /** Resumo curto do histórico do aluno (erros/dificuldades). */
+  studentProfile?: string;
 };
 
 export type GeneratedPracticeQuestion = {
@@ -42,4 +44,9 @@ export type StudyAdviceItem = {
   topic?: string;
 };
 
-export const MAX_PROMPT_CHARS = 6_000;
+/**
+ * Limite do texto enviado ao modelo por mensagem.
+ * O Gemini aceita contextos muito maiores; 6k cortava o material de apoio
+ * (fonte/lei) no meio e o modelo inventava o resto.
+ */
+export const MAX_PROMPT_CHARS = 30_000;

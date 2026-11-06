@@ -73,7 +73,7 @@ export const generateVideoLessonQuizFn = createServerFn({ method: "POST" })
           lessonTitle: data.lessonTitle,
           count,
         }),
-        { mockText: JSON.stringify(mock) },
+        { task: "video-quiz", mockText: JSON.stringify(mock) },
       );
       let payload;
       try {
@@ -112,7 +112,7 @@ export const explainVideoWrongFn = createServerFn({ method: "POST" })
       );
       const { tutorChat } = await import("@/server/tutor-llm");
       const result = await tutorChat(buildWrongApproachMessages(data), {
-        mockText: mockWrongApproach(data.choice),
+        task: "explain", mockText: mockWrongApproach(data.choice),
       });
       const text = (result.text || mockWrongApproach(data.choice)).trim().slice(0, 1600);
       return { tip: text, model: result.model, mocked: !!result.mocked };

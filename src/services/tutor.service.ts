@@ -16,6 +16,14 @@ import type { StudyPackAi } from "@/lib/tutor/study-pack";
 import { ApiError } from "./api";
 import type { TutorDifficultyCode } from "@/lib/tutor/types";
 import { tutorDifficultyStore } from "./tutor-difficulty-store";
+import { getStudentProfileText } from "./student-profile";
+
+/** Anexa o perfil do aluno (erros/dificuldades) — o professor adapta a explicação. */
+async function withProfile<T extends { subject?: string; studentProfile?: string }>(data: T): Promise<T> {
+  if (data.studentProfile) return data;
+  const studentProfile = await getStudentProfileText(data.subject);
+  return studentProfile ? { ...data, studentProfile } : data;
+}
 
 function parseErr(e: unknown): never {
   if (e instanceof Error && e.message.startsWith("{")) {
@@ -38,6 +46,7 @@ export type TutorTipInput = {
   tipLevel?: number;
   previousTips?: string[];
   correctKeyForValidationOnly?: string;
+  studentProfile?: string;
 };
 
 export const tutorService = {
@@ -51,7 +60,7 @@ export const tutorService = {
 
   async tip(data: TutorTipInput) {
     try {
-      return await requestTutorTip({ data });
+      return await requestTutorTip({ data: await withProfile(data) });
     } catch (e) {
       return parseErr(e);
     }
@@ -64,9 +73,10 @@ export const tutorService = {
     studentChoice: string;
     subject?: string;
     topic?: string;
+    studentProfile?: string;
   }) {
     try {
-      return await requestTutorExplain({ data });
+      return await requestTutorExplain({ data: await withProfile(data) });
     } catch (e) {
       return parseErr(e);
     }
@@ -79,9 +89,13 @@ export const tutorService = {
     topic?: string;
     explanationHint?: string;
     alternatives?: { key: string; text: string }[];
+    questionId?: string;
+    correctKey?: string;
+    studentChoice?: string;
+    studentProfile?: string;
   }) {
     try {
-      return await requestTutorMastigado({ data });
+      return await requestTutorMastigado({ data: await withProfile(data) });
     } catch (e) {
       return parseErr(e);
     }

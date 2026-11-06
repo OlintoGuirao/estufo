@@ -131,7 +131,7 @@ TEXTO DO EDITAL (início):
 ${clipped.slice(0, 24_000)}`,
         },
       ],
-      { mockText },
+      { task: "generic", json: true, mockText },
     );
 
     const meta = buildTrailMetaFromAiText(result.text, { fileName: data.fileName });

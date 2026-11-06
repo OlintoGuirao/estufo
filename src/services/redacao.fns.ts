@@ -46,7 +46,7 @@ export const generateRedacaoThemesFn = createServerFn({ method: "POST" })
         count,
       });
       const result = await tutorChat(buildThemeMessages(meta), {
-        mockText: JSON.stringify({
+        task: "redacao-temas", mockText: JSON.stringify({
           themes: mock.map((t) => ({
             title: t.title,
             prompt: t.prompt,
@@ -107,7 +107,7 @@ export const correctRedacaoFn = createServerFn({ method: "POST" })
           focusPoints: focus,
         }),
         {
-          mockText: JSON.stringify({
+          task: "redacao-correcao", mockText: JSON.stringify({
             score: mock.score,
             maxScore: mock.maxScore,
             competencies: mock.competencies,

@@ -1,3 +1,4 @@
+import { getStudentProfileText } from "./student-profile";
 import { ApiError } from "./api";
 import { askTrailProfessor, generateTrailWeekLesson } from "./trail-week-lesson.fns";
 import { trailWeekLessonStore } from "./trail-week-lesson-store";
@@ -91,6 +92,7 @@ export const trailWeekLessonService = {
     question: string;
     moduleTitle?: string;
     lessonContext?: string;
+    history?: { role: "aluno" | "professor"; text: string }[];
   }): Promise<{ answer: string; mocked: boolean }> {
     const trail = approvalTrailStore.get();
     if (!trail) throw new ApiError("Nenhuma trilha encontrada.", 404);
@@ -106,6 +108,8 @@ export const trailWeekLessonService = {
           question: input.question,
           moduleTitle: input.moduleTitle ?? "",
           lessonContext: input.lessonContext ?? "",
+          history: (input.history ?? []).map((m) => ({ role: m.role, text: m.text.slice(0, 2000) })),
+          studentProfile: await getStudentProfileText(),
         },
       });
     } catch (e) {

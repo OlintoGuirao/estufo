@@ -29,7 +29,7 @@ const KINDS = new Set<ProfessorModuleKind>([
   "pratica",
   "fechamento",
 ]);
-const KEYS = new Set(["A", "B", "C", "D"]);
+const KEYS = new Set(["A", "B", "C", "D", "E"]);
 const CONTENT_KINDS = new Set<ProfessorModuleKind>(["teoria", "lei", "memorizacao"]);
 
 type AiQ = {
@@ -40,11 +40,13 @@ type AiQ = {
   legalBasis?: string;
 };
 
-/** Embaralha alternativas e remapeia A–D para quebrar vício (sempre C / sempre a mais longa). */
+type AltKey = "A" | "B" | "C" | "D" | "E";
+
+/** Embaralha alternativas e remapeia A–E para quebrar vício (sempre C / sempre a mais longa). */
 function shuffleAlternatives(
-  alts: { key: "A" | "B" | "C" | "D"; text: string }[],
+  alts: { key: AltKey; text: string }[],
   correctKey: string,
-): { alternatives: { key: "A" | "B" | "C" | "D"; text: string }[]; correctKey: "A" | "B" | "C" | "D" } {
+): { alternatives: { key: AltKey; text: string }[]; correctKey: AltKey } {
   const correctText =
     alts.find((a) => a.key === correctKey)?.text ?? alts[0]!.text;
   const texts = alts.map((a) => a.text);
@@ -55,7 +57,7 @@ function shuffleAlternatives(
     texts[i] = texts[j]!;
     texts[j] = tmp;
   }
-  const keys = ["A", "B", "C", "D"].slice(0, texts.length) as ("A" | "B" | "C" | "D")[];
+  const keys = (["A", "B", "C", "D", "E"] as AltKey[]).slice(0, texts.length);
   const alternatives = keys.map((key, i) => ({ key, text: texts[i]! }));
   const newCorrect =
     alternatives.find((a) => a.text === correctText)?.key ?? alternatives[0]!.key;
@@ -77,7 +79,7 @@ function parseQuestions(
         text: normalizeProfessorPlainText(String(a.text ?? "")),
       }))
       .filter((a) => KEYS.has(a.key) && a.text)
-      .slice(0, 4) as { key: "A" | "B" | "C" | "D"; text: string }[];
+      .slice(0, 5) as { key: AltKey; text: string }[];
     if (alts.length < 2) continue;
     const explanation =
       normalizeProfessorPlainText(String(q.explanation ?? "")) ||
@@ -314,9 +316,10 @@ Depois de TODAS as etapas:
 No início: 1 kind "abertura" (5 min) listando as etapas do dia/semana.
 
 ANTI-VÍCIO NAS QUESTÕES (obrigatório):
-- Distribua correctKey entre A, B, C e D de forma equilibrada (não concentre em C).
+- Padrão VUNESP: SEMPRE 5 alternativas (A, B, C, D, E) e uma única correta.
+- Distribua correctKey entre A, B, C, D e E de forma equilibrada (não concentre em C).
 - A alternativa correta NÃO pode ser sistematicamente a mais longa.
-- Todas as alternativas A–D devem ter tamanho parecido (variação máxima ~20 caracteres).
+- Todas as alternativas A–E devem ter tamanho parecido (variação máxima ~20 caracteres).
 - Distratores plausíveis, no nível da banca.
 
 QUALIDADE DO ENUNCIADO (Português / interpretação — obrigatório):
@@ -332,7 +335,7 @@ QUALIDADE DO ENUNCIADO (Português / interpretação — obrigatório):
 ESTILO:
 - Português claro, 1ª pessoa, frases curtas.
 - PROIBIDO markdown (*, **, _, #, backticks). Para destaque use «termo».
-- Não invente artigos/leis.
+- Não invente artigos/leis. Se receber FONTE LEGAL, fundamente nela e cite o artigo; se não, diga "confira o texto oficial".
 
 Responda APENAS JSON:
 {
@@ -354,7 +357,8 @@ Responda APENAS JSON:
             { "key": "A", "text": "..." },
             { "key": "B", "text": "..." },
             { "key": "C", "text": "..." },
-            { "key": "D", "text": "..." }
+            { "key": "D", "text": "..." },
+            { "key": "E", "text": "..." }
           ],
           "correctKey": "A",
           "explanation": "2–4 frases",

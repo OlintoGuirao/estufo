@@ -62,7 +62,7 @@ export const generateSubjectStudyMaterialFn = createServerFn({ method: "POST" })
         items,
       }),
       {
-        mockText: JSON.stringify({
+        task: "material", mockText: JSON.stringify({
           items: mock.map((m) => ({ id: m.id, explanation: m.explanation })),
         }),
       },

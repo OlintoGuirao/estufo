@@ -1,5 +1,11 @@
 export type OllamaErrorCode =
-  "offline" | "model_missing" | "timeout" | "invalid_response" | "empty" | "rejected";
+  | "offline"
+  | "model_missing"
+  | "timeout"
+  | "invalid_response"
+  | "empty"
+  | "rejected"
+  | "upstream";
 
 export class OllamaError extends Error {
   readonly code: OllamaErrorCode;
@@ -24,7 +30,7 @@ function isOllamaLike(
   if (
     typeof e["code"] === "string" &&
     typeof e["message"] === "string" &&
-    ["offline", "model_missing", "timeout", "invalid_response", "empty", "rejected"].includes(
+    ["offline", "model_missing", "timeout", "invalid_response", "empty", "rejected", "upstream"].includes(
       e["code"] as string,
     )
   ) {

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { QuestPhaseAiPayload } from "@/lib/tjsp-quest/ai-phase-content";
 
 async function throwTutorError(err: unknown): Promise<never> {
   const { OllamaError } = await import("@/server/ollama/errors");
@@ -47,7 +48,6 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
         QUEST_AI_MAX_BATCHES,
         QUEST_PHASE_AI_CONTENT_VERSION,
       } = ai;
-      type QuestPhaseAiPayload = ai.QuestPhaseAiPayload;
       const { getQuestPhase } = await import("@/data/tjsp-quest-catalog");
       const { tutorChat } = await import("@/server/tutor-llm");
 
@@ -74,6 +74,16 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
             bossPassPct: 80,
           });
 
+      const { pickVunespExamples, formatVunespExamples } = await import("@/server/vunesp-examples");
+      const { retrieveLegalContext } = await import("@/server/legal/retrieve");
+      const { verifyGeneratedQuestions } = await import("@/server/question-verify");
+      const isPort = subjectId.startsWith("port");
+      const legal = isPort
+        ? { text: "" }
+        : await retrieveLegalContext(`${data.subjectName}\n${data.title}\n${data.objective}`, {
+            limit: 8,
+          });
+
       const meta = {
         phaseId: data.phaseId,
         subjectId,
@@ -81,7 +91,10 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
         title: data.title,
         objective: data.objective,
         sources: data.sources,
+        examples: formatVunespExamples(pickVunespExamples(data.subjectName, data.title, 2)),
+        ...(legal.text ? { legalContext: legal.text } : {}),
       };
+      let droppedByVerify = 0;
 
       const batchTotal = Math.min(
         QUEST_AI_MAX_BATCHES,
@@ -119,7 +132,7 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
             batchTotal,
           }),
           {
-            mockText: JSON.stringify({
+            task: "questions", mockText: JSON.stringify({
               lessonBlocks: i === 0 ? mockPayload.lessonBlocks : [],
               questions: mockPayload.questions.slice(
                 i * QUEST_AI_BATCH.desafio,
@@ -154,6 +167,18 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
           };
         }
 
+        // 2ª passagem: outro modelo/chamada resolve sem gabarito; divergentes saem.
+        if (!mocked) {
+          const v = await verifyGeneratedQuestions(
+            [...payload.questions, ...payload.bossQuestions],
+            { subject: data.subjectName, ...(legal.text ? { legalContext: legal.text } : {}) },
+          );
+          const ok = new Set(v.kept.map((x) => x.id));
+          payload.questions = payload.questions.filter((x: { id: string }) => ok.has(x.id));
+          payload.bossQuestions = payload.bossQuestions.filter((x: { id: string }) => ok.has(x.id));
+          droppedByVerify += v.dropped;
+        }
+
         if (i === 0 && payload.lessonBlocks.length) {
           merged.lessonBlocks = payload.lessonBlocks;
         }
@@ -168,16 +193,17 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
         merged = mockPayload;
         mocked = true;
       } else {
-        // Completa meta da trilha (50+10) sem mais chamadas lentas à IA.
+        // Completa com as questões curadas da própria fase (nunca com placeholders
+        // genéricos do mock — antes o aluno via "Afirmação alinhada ao núcleo de…").
         merged.questions = dedupeQuestions([
           ...merged.questions,
-          ...mockPayload.questions,
+          ...(base?.questions ?? []),
         ]).slice(0, targets.desafio);
         merged.bossQuestions = dedupeQuestions([
           ...(merged.bossQuestions.length >= 2
             ? merged.bossQuestions
             : merged.questions.slice(0, targets.boss)),
-          ...mockPayload.bossQuestions,
+          ...(base?.bossQuestions ?? []),
         ]).slice(0, targets.boss);
         if (!merged.lessonBlocks.length) {
           merged.lessonBlocks = mockPayload.lessonBlocks;
@@ -190,6 +216,7 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
         content: merged,
         model,
         mocked,
+        droppedByVerify,
       };
     } catch (err) {
       return await throwTutorError(err);

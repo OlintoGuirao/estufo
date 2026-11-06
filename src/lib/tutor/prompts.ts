@@ -72,6 +72,7 @@ export function buildTipMessages(input: TipRequestInput): TutorChatMessage[] {
     [
       input.subject ? `Matéria: ${input.subject}` : "",
       input.topic ? `Tópico: ${input.topic}` : "",
+      input.studentProfile ? `Perfil do aluno (adapte a dica a ele): ${clip(input.studentProfile, 600)}` : "",
       "Enunciado:",
       clip(input.statement, 2_000),
       "Alternativas (sem indicação de correção):",
@@ -98,13 +99,22 @@ export function buildExplainMessages(input: {
   studentChoice: string;
   subject?: string;
   topic?: string;
+  studentProfile?: string;
+  legalContext?: string;
 }): TutorChatMessage[] {
-  const alts = input.alternatives.map((a) => `${a.key}) ${clip(a.text, 200)}`).join("\n");
+  const alts = input.alternatives.map((a) => `${a.key}) ${clip(a.text, 400)}`).join("\n");
+  const acertou = input.correctKey.toUpperCase() === input.studentChoice.toUpperCase();
   return [
     {
       role: "system",
-      content:
-        "Você é um tutor de concursos. O aluno ACERTOU. Explique em 3–5 frases o raciocínio da resposta correta, de forma clara e acolhedora. Não invente leis inexistentes.",
+      content: [
+        "Você é um professor de concursos (TJSP Escrevente · VUNESP), em português do Brasil.",
+        acertou
+          ? "O aluno ACERTOU. Confirme o raciocínio em 3–5 frases e aponte em 1 frase a pegadinha da alternativa mais tentadora."
+          : `O aluno ERROU (marcou ${input.studentChoice}). Explique por que a ${input.studentChoice} está errada, por que a ${input.correctKey} está certa e qual confusão provavelmente levou ao erro. 5–8 frases.`,
+        "Se houver FONTE LEGAL, fundamente nela e cite o artigo. Não invente leis ou artigos; se não tiver certeza, diga para conferir o texto oficial.",
+        "Sem markdown pesado; parágrafos curtos.",
+      ].join("\n"),
     },
     {
       role: "user",
@@ -115,7 +125,9 @@ export function buildExplainMessages(input: {
           clip(input.statement, 1_800),
           alts,
           `Resposta correta: ${input.correctKey}. Aluno marcou: ${input.studentChoice}.`,
-          "Explique brevemente o porquê.",
+          input.studentProfile ? `Perfil do aluno: ${clip(input.studentProfile, 600)}` : "",
+          input.legalContext ? `FONTE LEGAL (texto oficial):\n${clip(input.legalContext, 8_000)}` : "",
+          "Explique o porquê.",
         ]
           .filter(Boolean)
           .join("\n"),
@@ -150,10 +162,10 @@ Defina os termos que o aluno precisa compreender antes de resolver o exercício.
 ### C. Resumo didático
 Apresente os conceitos essenciais de maneira organizada e concisa. Destaque regras, diferenças importantes, fórmulas e condições de aplicação.
 
-### D. Resolução passo a passo (EXEMPLO — NÃO a questão original)
-PROIBIDO resolver, apontar a letra ou comentar as alternativas da questão original do aluno.
-Em vez disso, invente um EXEMPLO DIDÁTICO curto (outro enunciado, números ou situação análoga) e resolva ESSE exemplo passo a passo:
-- O que descobrir → operação/raciocínio → por que funciona → resultado intermediário → checagem.
+### D. Resolução passo a passo
+Siga o MODO informado na mensagem do aluno:
+- MODO AULA (o aluno ainda NÃO respondeu): PROIBIDO apontar a letra ou dizer qual alternativa está certa. Invente um EXEMPLO DIDÁTICO análogo e resolva ESSE exemplo passo a passo (o que descobrir → raciocínio → por que funciona → resultado → checagem). Você recebe o gabarito só para não ensinar nada errado — nunca o revele.
+- MODO CORREÇÃO (o aluno JÁ respondeu): resolva a QUESTÃO ORIGINAL. Analise alternativa por alternativa (A–E), uma linha cada, dizendo por que está certa ou errada. Se o aluno errou, explique a confusão que provavelmente o levou à letra que marcou e como evitar.
 Prefira o método mais intuitivo; se útil para concurso, mostre depois um atalho.
 
 ### E. Memorização
@@ -161,7 +173,7 @@ Crie uma estratégia de memorização adequada ao conteúdo (associações, pala
 Não invente mnemônicos artificiais só para preencher. Se uma associação simples ou um exemplo for melhor, use-o.
 
 ### F. Pegadinhas de concurso
-Explique erros comuns, confusões conceituais e como o enunciado pode induzir ao erro. Não atribua à banca intenções específicas sem fundamento. Não revele a letra correta da questão original.
+Explique erros comuns, confusões conceituais e como o enunciado pode induzir ao erro. Não atribua à banca intenções específicas sem fundamento. No MODO AULA, não revele a letra correta da questão original.
 
 ### G. Teste ativo
 NÃO escreva o teste em prosa. Na seção 7, coloque APENAS um bloco JSON (sem texto extra) com uma mini-questão de múltipla escolha A–E, ORIGINAL, sobre o mesmo conceito — diferente da questão do aluno:
@@ -210,9 +222,11 @@ Use exatamente estes títulos numerados (sem markdown ** nos títulos), nesta or
 7. Teste ativo
 8. Fundamentação
 
-Na seção 4: só EXEMPLO inventado — nunca a questão original.
+Na seção 4: MODO AULA → só exemplo inventado; MODO CORREÇÃO → a questão original, alternativa por alternativa.
 Na seção 7: só o bloco JSON do teste.
-Máximo ~500 palavras no texto (o JSON do teste não conta no limite). Seja didático e objetivo.`;
+Na seção 8: cite apenas dispositivos que aparecem na FONTE LEGAL ou no material de apoio. Se não houver, diga "confira o texto oficial" em vez de inventar número de artigo.
+Se receber PERFIL DO ALUNO, adapte a profundidade e reforce os pontos em que ele costuma errar.
+Máximo ~800 palavras no texto (o JSON do teste não conta no limite). Seja didático e objetivo.`;
 
 /** Prompt do “Mastigado” — professor particular completo. */
 export function buildMastigadoMessages(input: {
@@ -222,6 +236,13 @@ export function buildMastigadoMessages(input: {
   fonteUrl?: string;
   foundationText: string;
   alternatives?: { key: string; text: string }[];
+  /** Gabarito — no modo aula serve só para o professor não ensinar errado. */
+  correctKey?: string;
+  /** Letra marcada pelo aluno (presente ⇒ MODO CORREÇÃO). */
+  studentChoice?: string;
+  studentProfile?: string;
+  /** Trechos da lei seca recuperados (RAG). */
+  legalContext?: string;
 }): TutorChatMessage[] {
   const subjectLine = [input.subject, input.topic].filter(Boolean).join(" · ") || "concurso";
   const fonteLine = input.fonteUrl
@@ -229,8 +250,24 @@ export function buildMastigadoMessages(input: {
     : "Sem URL de fonte — use o fundamento/gabarito abaixo.";
   const alts =
     input.alternatives?.length ?
-      input.alternatives.map((a) => `${a.key}) ${clip(a.text, 280)}`).join("\n")
+      input.alternatives.map((a) => `${a.key}) ${clip(a.text, 400)}`).join("\n")
     : "(alternativas não fornecidas)";
+  const correction = Boolean(input.studentChoice);
+  const key = input.correctKey?.toUpperCase();
+
+  const modeBlock = correction
+    ? [
+        "MODO: CORREÇÃO (o aluno já respondeu).",
+        `O aluno marcou: ${input.studentChoice}.`,
+        key ? `Gabarito oficial: ${key}.` : "Gabarito não informado — deduza com cuidado pela fonte.",
+        key && input.studentChoice?.toUpperCase() !== key
+          ? "O aluno ERROU: explique por que a letra dele está errada e por que o gabarito está certo."
+          : "O aluno ACERTOU: confirme o raciocínio e mostre as pegadinhas das demais.",
+      ]
+    : [
+        "MODO: AULA (o aluno ainda NÃO respondeu — não revele a letra).",
+        key ? `Gabarito (USO INTERNO, NUNCA REVELE): ${key}.` : "",
+      ];
 
   return [
     { role: "system", content: MASTIGADO_SYSTEM },
@@ -239,15 +276,24 @@ export function buildMastigadoMessages(input: {
       content: clip(
         [
           `Matéria: ${subjectLine}`,
-          `Enunciado da questão do aluno (NÃO resolva esta; use só para alinhar o tema):`,
-          clip(input.statement, 2_000),
-          "Alternativas da questão do aluno (NÃO diga qual está certa; NÃO resolva):",
+          ...modeBlock,
+          input.studentProfile ? `PERFIL DO ALUNO: ${clip(input.studentProfile, 700)}` : "",
+          "Enunciado da questão do aluno:",
+          clip(input.statement, 3_000),
+          "Alternativas:",
           alts,
           fonteLine,
-          "Material de apoio (fonte / gabarito textual) — ensine o conceito e fundamente; não revele a letra da questão do aluno:",
-          clip(input.foundationText, 8_000),
-          "Produza a aula no formato pedido (exemplo na Resolução; JSON no Teste ativo).",
-        ].join("\n"),
+          input.legalContext
+            ? `FONTE LEGAL (texto oficial recuperado — fundamente nela):\n${clip(input.legalContext, 10_000)}`
+            : "",
+          "Material de apoio (fonte / comentário do gabarito):",
+          clip(input.foundationText, 14_000),
+          correction
+            ? "Produza a aula no formato pedido (seção 4 = resolução da questão original; JSON no Teste ativo)."
+            : "Produza a aula no formato pedido (seção 4 = exemplo inventado; JSON no Teste ativo).",
+        ]
+          .filter(Boolean)
+          .join("\n"),
         MAX_PROMPT_CHARS,
       ),
     },
@@ -258,13 +304,20 @@ export function buildPracticeMessages(input: {
   subject: string;
   topic: string;
   conceptHint: string;
+  /** Questões reais da banca (few-shot de estilo). */
+  examples?: string;
+  legalContext?: string;
 }): TutorChatMessage[] {
   return [
     {
       role: "system",
       content: [
-        "Gere UMA questão ORIGINAL de concurso (múltipla escolha A–E) para treinar o conceito.",
-        "NÃO copie nem parafraseie uma questão real de banca.",
+        "Você é elaborador de questões no padrão VUNESP (TJSP Escrevente).",
+        "Gere UMA questão ORIGINAL de múltipla escolha A–E para treinar o conceito.",
+        "NÃO copie nem parafraseie uma questão real de banca — use os exemplos só como referência de estilo.",
+        "Uma única alternativa correta; distratores plausíveis (erros típicos de candidato); alternativas de tamanho parecido; sem 'todas/nenhuma das anteriores'.",
+        "Se depender de lei, use a FONTE LEGAL e cite o artigo na explanation. Não invente artigos.",
+        "explanation: por que a correta está certa e, em 1 frase cada, por que as outras estão erradas.",
         "Responda SOMENTE JSON válido, sem markdown:",
         '{"statement":"...","alternatives":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."},{"key":"E","text":"..."}],"correctKey":"A","explanation":"..."}',
       ].join("\n"),
@@ -272,7 +325,16 @@ export function buildPracticeMessages(input: {
     {
       role: "user",
       content: clip(
-        `Matéria: ${input.subject}\nTópico: ${input.topic}\nConceito a treinar (sem gabarito): ${clip(input.conceptHint, 800)}\nGere questão inédita.`,
+        [
+          `Matéria: ${input.subject}`,
+          `Tópico: ${input.topic}`,
+          `Conceito a treinar: ${clip(input.conceptHint, 800)}`,
+          input.examples ? `\nEXEMPLOS REAIS DA BANCA (estilo):\n${input.examples}` : "",
+          input.legalContext ? `\nFONTE LEGAL:\n${clip(input.legalContext, 8_000)}` : "",
+          "\nGere a questão inédita.",
+        ]
+          .filter(Boolean)
+          .join("\n"),
         MAX_PROMPT_CHARS,
       ),
     },

@@ -18,6 +18,8 @@
     "supabase:status": "tsx scripts/supabase-status.ts",
     "parse:tjsp-provas": "tsx scripts/parse-tjsp-provas.ts",
     "parse:tjsp-banco": "tsx scripts/parse-tjsp-banco.ts",
+    "legal:ingest": "tsx scripts/legal-ingest.ts",
+    "eval:tutor": "tsx scripts/eval-tutor.ts",
     "cap:sync": "npx cap sync android",
     "cap:open": "npx cap open android",
     "apk:debug": "cd android && .\\gradlew.bat assembleDebug",

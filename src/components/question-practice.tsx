@@ -75,7 +75,7 @@ export function QuestionPractice({
   const explanationText = (raw?.explanation || (q ? explById[q.id] : undefined) || "").trim();
   const fonteUrl = extractFonteUrl(explanationText) ?? null;
   const explanationHint = explanationText
-    ? explanationText.replace(/\[fonte\]\([^)]+\)/gi, "").trim().slice(0, 1100)
+    ? explanationText.replace(/\[fonte\]\([^)]+\)/gi, "").trim().slice(0, 3500)
     : undefined;
   const canMastigar = Boolean(fonteUrl || explanationHint);
 
@@ -95,6 +95,10 @@ export function QuestionPractice({
         subject: q.subject,
         topic: q.topic,
         alternatives: q.alternatives.map((a) => ({ key: a.key, text: a.text })),
+        questionId: q.id,
+        ...(raw?.correctKey ? { correctKey: raw.correctKey } : {}),
+        // Já respondeu ⇒ modo correção (resolve a questão original, alternativa por alternativa).
+        ...(q.answered?.choice ? { studentChoice: q.answered.choice } : {}),
         ...(fonteUrl ? { fonteUrl } : {}),
         ...(explanationHint ? { explanationHint } : {}),
       });
@@ -113,7 +117,11 @@ export function QuestionPractice({
         activeTest: r.activeTest ?? null,
       });
       if (r.mocked) toast.message("Resposta mockada (GEMINI_USE_MOCK).");
-      else if (fonteUrl && !r.fetchedPage) {
+      else if (r.unverifiedCitations?.length) {
+        toast.warning(
+          `Confira no texto oficial: ${r.unverifiedCitations.slice(0, 3).join(", ")} não aparece(m) nas fontes consultadas.`,
+        );
+      } else if (fonteUrl && !r.fetchedPage) {
         toast.message("Fonte difícil de ler — usei o fundamento disponível.");
       } else toast.success("Mastigado pronto.");
     },
@@ -244,7 +252,7 @@ export function QuestionPractice({
             onClick={() => mastigadoMut.mutate()}
           >
             <Sparkles className="h-3.5 w-3.5" />
-            {mastigadoMut.isPending ? "Mastigando…" : "Mastigado"}
+            {mastigadoMut.isPending ? "Mastigando…" : q.answered ? "Corrigir com a IA" : "Mastigado"}
           </Button>
         </div>
 

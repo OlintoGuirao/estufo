@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "note": "Semente mínima para o Professor IA (busca por palavras). Rode npm run legal:ingest para baixar a lei seca completa do edital e (opcional) gravar embeddings no Supabase.",
+  "updatedAt": "2026-11-06",
+  "chunks": [
+    {
+      "id": "cf88:Art5:1",
+      "lawId": "cf88",
+      "lawName": "Constituição Federal de 1988",
+      "article": "Art. 5º",
+      "content": "Art. 5º Todos são iguais perante a lei, sem distinção de qualquer natureza, garantindo-se aos brasileiros e aos estrangeiros residentes no País a inviolabilidade do direito à vida, à liberdade, à igualdade, à segurança e à propriedade, nos termos seguintes: I - homens e mulheres são iguais em direitos e obrigações, nos termos desta Constituição; II - ninguém será obrigado a fazer ou deixar de fazer alguma coisa senão em virtude de lei; III - ninguém será submetido a tortura nem a tratamento desumano ou degradante; X - são invioláveis a intimidade, a vida privada, a honra e a imagem das pessoas, assegurado o direito a indenização pelo dano material ou moral decorrente de sua violação; LIV - ninguém será privado da liberdade ou de seus bens sem o devido processo legal; LV - aos litigantes, em processo judicial ou administrativo, e aos acusados em geral são assegurados o contraditório e ampla defesa, com os meios e recursos a ela inerentes; LVII - ninguém será considerado culpado até o trânsito em julgado de sentença penal condenatória; LXIII - o preso será informado de seus direitos, entre os quais o de permanecer calado, sendo-lhe assegurada a assistência da família e de advogado.",
+      "sourceUrl": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm"
+    },
+    {
+      "id": "cf88:Art37:1",
+      "lawId": "cf88",
+      "lawName": "Constituição Federal de 1988",
+      "article": "Art. 37",
+      "content": "Art. 37. A administração pública direta e indireta de qualquer dos Poderes da União, dos Estados, do Distrito Federal e dos Municípios obedecerá aos princípios de legalidade, impessoalidade, moralidade, publicidade e eficiência e, também, ao seguinte: I - os cargos, empregos e funções públicas são acessíveis aos brasileiros que preencham os requisitos estabelecidos em lei, assim como aos estrangeiros, na forma da lei; II - a investidura em cargo ou emprego público depende de aprovação prévia em concurso público de provas ou de provas e títulos, de acordo com a natureza e a complexidade do cargo ou emprego, na forma prevista em lei, ressalvadas as nomeações para cargo em comissão declarado em lei de livre nomeação e exoneração; § 6º As pessoas jurídicas de direito público e as de direito privado prestadoras de serviços públicos responderão pelos danos que seus agentes, nessa qualidade, causarem a terceiros, assegurado o direito de regresso contra o responsável nos casos de dolo ou culpa.",
+      "sourceUrl": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm"
+    },
+    {
+      "id": "cf88:Art93:1",
+      "lawId": "cf88",
+      "lawName": "Constituição Federal de 1988",
+      "article": "Art. 93",
+      "content": "Art. 93. Lei complementar, de iniciativa do Supremo Tribunal Federal, disporá sobre o Estatuto da Magistratura, observados os seguintes princípios: I - ingresso na carreira, cujo cargo inicial será o de juiz substituto, mediante concurso público de provas e títulos, com a participação da Ordem dos Advogados do Brasil em todas as fases, exigindo-se do bacharel em direito, no mínimo, três anos de atividade jurídica e obedecendo-se, nas nomeações, à ordem de classificação; IX - todos os julgamentos dos órgãos do Poder Judiciário serão públicos, e fundamentadas todas as decisões, sob pena de nulidade, podendo a lei limitar a presença, em determinados atos, às próprias partes e a seus advogados, ou somente a estes, em casos nos quais a preservação do direito à intimidade do interessado no sigilo não prejudique o interesse público à informação; X - as decisões administrativas dos tribunais serão motivadas e em sessão pública, sendo as disciplinares tomadas pelo voto da maioria absoluta de seus membros.",
+      "sourceUrl": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm"
+    },
+    {
+      "id": "cpc:Art139:1",
+      "lawId": "cpc",
+      "lawName": "Código de Processo Civil (Lei 13.105/2015)",
+      "article": "Art. 139",
+      "content": "Art. 139. O juiz dirigirá o processo conforme as disposições deste Código, incumbindo-lhe: I - assegurar às partes igualdade de tratamento; II - velar pela duração razoável do processo; III - prevenir ou reprimir qualquer ato contrário à dignidade da justiça e indeferir postulações meramente protelatórias; IV - determinar o suprimento de pressupostos processuais e o saneamento de outros vícios processuais; V - promover, a qualquer tempo, a autocomposição, preferencialmente com auxílio de conciliadores e mediadores judiciais; VI - dilatar os prazos processuais e alterar a ordem de produção dos meios de prova, adequando-os às necessidades do conflito de modo a conferir maior efetividade à tutela do direito; VII - exercer o poder de polícia, requisitando, quando necessário, força policial, além da segurança interna dos fóruns e tribunais; VIII - determinar, a qualquer tempo, o comparecimento pessoal das partes, para inquiri-las sobre os fatos da causa, hipótese em que não incidirá a pena de confesso; IX - determinar o cumprimento da sentença e o cumprimento provisório da decisão, nos casos e nas formas previstas neste Código; X - quando se deparar com diversas demandas individuais repetitivas, oficiar o Ministério Público e a Defensoria Pública, e, na medida do possível, outros legitimados, para, se for o caso, promover a propositura de ação coletiva.",
+      "sourceUrl": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2015/lei/l13105.htm"
+    },
+    {
+      "id": "cpc:Art152:1",
+      "lawId": "cpc",
+      "lawName": "Código de Processo Civil (Lei 13.105/2015)",
+      "article": "Art. 152",
+      "content": "Art. 152. Incumbe ao escrivão ou ao chefe de secretaria: I - redigir, na forma legal, os ofícios, os mandados, as cartas precatórias e os demais atos que pertençam ao seu ofício; II - efetivar as ordens judiciais, zelar pela ordem no cartório, cumprir as ordens de serviço e executar as tarefas que a lei e o juiz lhe atribuírem; III - atender às partes e advogados, prestando-lhes as informações solicitadas; IV - receber e enviar petições, documentos e atos processuais, certificando-lhes a data e a hora; V - praticar atos de ofício, quando determinado em lei ou pelo juiz; VI - remeter à distribuição as petições iniciais e os demais atos processuais; VII - manter sob sua guarda e responsabilidade os autos, não permitindo que saiam do cartório, salvo: a) quando tenham de seguir à conclusão do juiz; b) com vista aos advogados, às partes e ao Ministério Público, pelo prazo legal; c) quando o juiz determinar a remessa a outro juízo; VIII - fornecer certidão de qualquer ato ou termo processuais, independentemente de despacho, nas hipóteses em que a lei não exigir autorização judicial; IX - praticar, de ofício, os atos meramente ordinatórios.",
+      "sourceUrl": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2015/lei/l13105.htm"
+    },
+    {
+      "id": "cpp:Art5:1",
+      "lawId": "cpp",
+      "lawName": "Código de Processo Penal (Decreto-Lei 3.689/1941)",
+      "article": "Art. 5º",
+      "content": "Art. 5º Nos crimes de ação pública o inquérito policial será iniciado: I - de ofício; II - mediante requisição da autoridade judiciária ou do Ministério Público, ou a requerimento do ofendido ou de quem tiver qualidade para representá-lo. § 1º O requerimento a que se refere o n.º II conterá, sempre que possível: a) a narração do fato, com todas as circunstâncias; b) a individualização do indiciado ou seus sinais característicos e as razões de convicção ou de presunção de ser ele o autor da infração, ou os motivos de impossibilidade de o fazer; c) a nomeação das testemunhas, com indicação de sua profissão e residência. § 2º Do despacho que indeferir o requerimento de abertura de inquérito caberá recurso para o chefe de Polícia. § 3º Qualquer pessoa do povo que tiver conhecimento da existência de infração penal em que caiba ação pública poderá, verbalmente ou por escrito, comunicá-la à autoridade policial, e esta, verificada a procedência das informações, mandará instaurar inquérito. § 4º O inquérito, nos crimes em que a ação pública depender de representação, não poderá sem ela ser iniciado. § 5º Nos crimes de ação privada, a autoridade policial somente poderá proceder a inquérito a requerimento de quem tenha qualidade para intentá-la.",
+      "sourceUrl": "https://www.planalto.gov.br/ccivil_03/decreto-lei/del3689compilado.htm"
+    },
+    {
+      "id": "cp:Art312:1",
+      "lawId": "cp",
+      "lawName": "Código Penal (Decreto-Lei 2.848/1940)",
+      "article": "Art. 312",
+      "content": "Art. 312. Apropriar-se o funcionário público de dinheiro, valor ou qualquer outro bem móvel, público ou particular, de que tem a posse em razão do cargo, ou desviá-lo, em proveito próprio ou alheio: Pena - reclusão, de dois a doze anos, e multa. § 1º Aplica-se a mesma pena, se o funcionário público, embora não tendo a posse do dinheiro, valor ou bem, o subtrai, ou concorre para que seja subtraído, em proveito próprio ou alheio, valendo-se de facilidade que lhe proporciona a qualidade de funcionário. § 2º Se o funcionário público concorre culposamente para o crime de outrem: Pena - detenção, de três meses a um ano. Peculato mediante erro de outrem. Art. 313. Apropriar-se de dinheiro ou qualquer utilidade que, no exercício do cargo, recebeu por erro de outrem: Pena - reclusão, de um a quatro anos, e multa.",
+      "sourceUrl": "https://www.planalto.gov.br/ccivil_03/decreto-lei/del2848compilado.htm"
+    },
+    {
+      "id": "l8429:Art9:1",
+      "lawId": "l8429",
+      "lawName": "Lei 8.429/1992 (Improbidade Administrativa)",
+      "article": "Art. 9º",
+      "content": "Art. 9º Constitui ato de improbidade administrativa importando em enriquecimento ilícito auferir qualquer tipo de vantagem patrimonial indevida em razão do exercício de cargo, de mandato, de função, de emprego ou de atividade nas entidades referidas no art. 1º desta Lei, e notadamente: I - receber, para si ou para outrem, dinheiro, bem móvel ou imóvel, ou qualquer outra vantagem econômica, direta ou indireta, a título de comissão, percentagem, gratificação ou presente de quem tenha interesse, direto ou indireto, que possa ser atingido ou amparado por ação ou omissão decorrente das atribuições do agente público; II - perceber vantagem econômica, direta ou indireta, para facilitar a aquisição, permuta ou locação de bem móvel ou imóvel, ou a contratação de serviços pelas entidades referidas no art. 1º desta Lei por preço superior ao valor de mercado; XI - incorporar, de qualquer forma, ao seu patrimônio bens, direitos, valores, ações ou quaisquer outros bens, públicos ou de particulares, mediante apropriação, desvio ou utilização indevida.",
+      "sourceUrl": "https://www.planalto.gov.br/ccivil_03/leis/l8429.htm"
+    }
+  ]
+}
