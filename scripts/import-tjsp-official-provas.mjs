@@ -309,6 +309,14 @@ const SPECS = [
     timeLimitMin: 300,
   },
   {
+    year: 2024,
+    title: "TJSP Escrevente 2024 — Prova objetiva",
+    exam: "2024/escrevente_tecnico_judiciario2024.pdf",
+    gab: "2024/gabarito2024.pdf",
+    expected: 100,
+    timeLimitMin: 300,
+  },
+  {
     year: 2025,
     title: "TJSP Escrevente 2025 — Prova objetiva",
     exam: "2025/escrevente_tecnico_judiciario2025.pdf",

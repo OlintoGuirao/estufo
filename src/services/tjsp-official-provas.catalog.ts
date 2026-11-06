@@ -91,16 +91,18 @@ function shuffle<T>(arr: T[]): T[] {
 
 export const tjspOfficialProvasCatalog = {
   list(): OfficialProvaSummary[] {
-    return provas.map((p) => ({
-      id: p.id,
-      year: p.year,
-      title: p.title,
-      questionCount: p.questions.length,
-      timeLimitMin: p.timeLimitMin,
-      hasFullAnswerKey: p.hasFullAnswerKey,
-      answerKeyCount: p.answerKeyCount,
-      subjects: p.subjects,
-    }));
+    return [...provas]
+      .sort((a, b) => b.year - a.year)
+      .map((p) => ({
+        id: p.id,
+        year: p.year,
+        title: p.title,
+        questionCount: p.questions.length,
+        timeLimitMin: p.timeLimitMin,
+        hasFullAnswerKey: p.hasFullAnswerKey,
+        answerKeyCount: p.answerKeyCount,
+        subjects: p.subjects,
+      }));
   },
 
   get(id: string): { id: string; title: string; year: number; timeLimitMin: number; questions: Question[]; raw: RawQ[] } {
