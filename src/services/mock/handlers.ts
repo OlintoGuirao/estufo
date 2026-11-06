@@ -622,10 +622,11 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
         topic?: string;
         explanation?: string;
       }[] = [];
+      const review: import("@/types").MockExamReviewItem[] = [];
       const subj: Record<string, [number, number]> = {};
       const top: Record<string, [number, number]> = {};
       let ok = 0;
-      questions.forEach((x) => {
+      questions.forEach((x, qi) => {
         let correctKey = "";
         let explanation = "";
         if (isOfficialProvaQuestionId(x.id)) {
@@ -654,6 +655,21 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
             explanation,
           });
         }
+        review.push({
+          id: x.id,
+          number: qi + 1,
+          statement: x.statement,
+          subject: x.subject || "Geral",
+          topic: x.topic || "Geral",
+          alternatives: (x.alternatives ?? []).map((a) => ({
+            key: String(a.key),
+            text: String(a.text),
+          })),
+          yourKey: yours || "—",
+          correctKey: correctKey || "—",
+          correct: hit,
+          ...(explanation ? { explanation } : {}),
+        });
         if (tjspBancoCatalog.isBancoId(x.id) && yours) {
           try {
             tjspBancoCatalog.answer(x.id, yours);
@@ -686,12 +702,30 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
         if (existing) Object.assign(existing, payload);
         else db.errorNotes.push(payload);
       }
-      const pct = Math.round((ok / Math.max(questions.length, 1)) * 100);
-      const bySubject = Object.entries(subj).map(([subject, [h, t]]) => ({ subject, pct: Math.round((h / t) * 100) }));
-      const byTopic = Object.entries(top).map(([topic, [h, t]]) => ({ topic, pct: Math.round((h / t) * 100) }));
+      const totalQ = Math.max(questions.length, 1);
+      const pct = Math.round((ok / totalQ) * 100);
+      const bySubject = Object.entries(subj)
+        .map(([subject, [h, t]]) => ({
+          subject,
+          correct: h,
+          wrong: t - h,
+          total: t,
+          pct: Math.round((h / t) * 100),
+        }))
+        .sort((a, b) => a.pct - b.pct);
+      const byTopic = Object.entries(top)
+        .map(([topic, [h, t]]) => ({
+          topic,
+          correct: h,
+          wrong: t - h,
+          total: t,
+          pct: Math.round((h / t) * 100),
+        }))
+        .sort((a, b) => a.pct - b.pct);
       const result = {
         examId: b,
         score: ok,
+        total: questions.length,
         correctPct: pct,
         timeUsedSec: body.timeUsedSec,
         bySubject,
@@ -702,9 +736,11 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
           yourKey,
           correctKey,
         })),
+        review,
         recommendations: byTopic
           .filter((t) => t.pct < 70)
-          .map((t) => `Revise o tópico "${t.topic}" e resolva mais questões sobre ele.`)
+          .slice(0, 5)
+          .map((t) => `Revise o tópico "${t.topic}" (${t.correct}/${t.total} acertos).`)
           .concat(
             wrong.length
               ? [`${wrong.length} erro(s) foram para o Caderno de erros.`]
@@ -715,6 +751,8 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
       db.examResults[b] = result;
       exam.status = "concluido";
       exam.score = ok;
+      // Sempre correção ao final (mesmo se o formulário antigo pediu imediata).
+      exam.correctionMode = "ao-final";
       return result;
     }
     return { ...exam, questions: questions.map(strip) };

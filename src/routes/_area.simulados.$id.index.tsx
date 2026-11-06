@@ -74,7 +74,8 @@ function TakeExam() {
           </p>
           <p className="text-sm text-muted-foreground">
             O cronômetro começa ao clicar em Iniciar. Ao zerar, o simulado é enviado
-            automaticamente. Erros vão para o Caderno de erros.
+            automaticamente. Durante a prova você só marca as respostas — o gabarito e o
+            balancete por matéria aparecem só no final.
           </p>
           <Button
             className="h-12 w-full"
@@ -112,7 +113,7 @@ function TakeExam() {
         }
       />
       <p className="mb-3 text-xs text-muted-foreground">
-        Banco de provas · erros entram no caderno ao finalizar
+        Sem feedback na hora · gabarito e balancete só ao finalizar · erros vão ao caderno
       </p>
       <div className="mb-4 flex flex-wrap gap-1.5">
         {exam.questions.map((x, i) => (

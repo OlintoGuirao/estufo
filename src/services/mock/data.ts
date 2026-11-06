@@ -160,22 +160,24 @@ function seedDemoCatalog() {
   db.examResults.e1 = {
     examId: "e1",
     score: 7,
+    total: 10,
     correctPct: 70,
     timeUsedSec: 1420,
     bySubject: [
-      { subject: "Direito Previdenciário", pct: 80 },
-      { subject: "Língua Portuguesa", pct: 60 },
+      { subject: "Direito Previdenciário", pct: 80, correct: 4, wrong: 1, total: 5 },
+      { subject: "Língua Portuguesa", pct: 60, correct: 3, wrong: 2, total: 5 },
     ],
     byTopic: [
-      { topic: "Benefícios", pct: 100 },
-      { topic: "Segurados", pct: 60 },
-      { topic: "Crase", pct: 50 },
-      { topic: "Concordância", pct: 70 },
+      { topic: "Benefícios", pct: 100, correct: 2, wrong: 0, total: 2 },
+      { topic: "Segurados", pct: 60, correct: 3, wrong: 2, total: 5 },
+      { topic: "Crase", pct: 50, correct: 1, wrong: 1, total: 2 },
+      { topic: "Concordância", pct: 70, correct: 1, wrong: 0, total: 1 },
     ],
     wrong: [
       { id: "q3", statement: stems[2][2], yourKey: "A", correctKey: "C" },
       { id: "q1", statement: stems[0][2], yourKey: "C", correctKey: "B" },
     ],
+    review: [],
     recommendations: ["Revise o tópico Crase em Língua Portuguesa.", "Resolva 20 questões de Segurados do RGPS."],
   };
 

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState, ErrorState, ListSkeleton, PageHeader, formatDate } from "@/components/common";
-import { Field, NativeSelect } from "@/components/forms";
+import { Field } from "@/components/forms";
 import { useMe } from "@/hooks/use-auth";
 import { getTrailStudySnapshotForSimulado } from "@/lib/approval-trail/studied-for-simulado";
 import { examsService } from "@/services";
@@ -187,7 +187,6 @@ function NewExam({ onClose }: { onClose: () => void }) {
     title: "",
     questionCount: 20,
     timeLimitMin: 60,
-    correctionMode: "ao-final" as MockExam["correctionMode"],
   });
 
   const title =
@@ -204,7 +203,7 @@ function NewExam({ onClose }: { onClose: () => void }) {
         subjects,
         questionCount: f.questionCount,
         timeLimitMin: f.timeLimitMin,
-        correctionMode: f.correctionMode,
+        correctionMode: "ao-final",
         fromTrail: true,
         trailWeekNumber: snapshot?.weekNumber ?? null,
       }),
@@ -313,18 +312,11 @@ function NewExam({ onClose }: { onClose: () => void }) {
               />
             </Field>
           </div>
-          <Field label="Correção" htmlFor="c">
-            <NativeSelect
-              id="c"
-              value={f.correctionMode}
-              onChange={(e) =>
-                setF({ ...f, correctionMode: e.target.value as MockExam["correctionMode"] })
-              }
-            >
-              <option value="ao-final">Ao final</option>
-              <option value="imediata">Imediata</option>
-            </NativeSelect>
-          </Field>
+          <p className="rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            Correção <strong className="text-foreground">só ao final</strong>: durante a prova não
+            aparece se acertou ou errou. No fim você vê a pontuação, o balancete por matéria e a
+            revisão com sua resposta e o gabarito.
+          </p>
           <p className="text-xs text-muted-foreground">
             As questões vêm do banco TJSP e das provas oficiais, filtradas pelas matérias que você
             estudou na trilha.

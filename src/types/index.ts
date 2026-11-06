@@ -158,14 +158,44 @@ export type MockExam = {
   trailWeekNumber?: number | null;
 };
 
+/** Balancete por matéria/tópico no resultado do simulado. */
+export type MockExamBalanceRow = {
+  subject?: string;
+  topic?: string;
+  correct: number;
+  wrong: number;
+  total: number;
+  pct: number;
+};
+
+/** Questão na revisão pós-prova (sua resposta + gabarito). */
+export type MockExamReviewItem = {
+  id: string;
+  number: number;
+  statement: string;
+  subject: string;
+  topic: string;
+  alternatives: { key: string; text: string }[];
+  yourKey: string;
+  correctKey: string;
+  correct: boolean;
+  explanation?: string;
+};
+
 export type MockExamResult = {
   examId: string;
+  /** Quantidade de acertos. */
   score: number;
+  /** Total de questões da prova. */
+  total: number;
   correctPct: number;
   timeUsedSec: number;
-  bySubject: { subject: string; pct: number }[];
-  byTopic: { topic: string; pct: number }[];
+  /** Por matéria — use correct/wrong/total para o balancete. */
+  bySubject: Array<{ subject: string; pct: number; correct?: number; wrong?: number; total?: number }>;
+  byTopic: Array<{ topic: string; pct: number; correct?: number; wrong?: number; total?: number }>;
   wrong: { id: string; statement: string; yourKey: string; correctKey: string }[];
+  /** Todas as questões para revisar depois da nota. */
+  review?: MockExamReviewItem[];
   recommendations: string[];
 };
 
