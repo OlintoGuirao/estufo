@@ -54,16 +54,42 @@ function joinPages(pages) {
   return pages.map((p) => p.text).join("\n");
 }
 
-function parseGabarito(pages) {
+/**
+ * Extrai gabarito. Se houver várias VERSÃO N (Vunesp), usa a 1 por padrão
+ * (cadernos públicos costumam ser a versão 1). "N" = questão anulada.
+ * @returns {{ answers: Map<number,string>, annulled: Set<number>, version: number|null }}
+ */
+function parseGabarito(pages, preferredVersion = 1) {
   const text = joinPages(pages);
-  const answers = new Map();
-  const re = /(?:^|[;\s,])\s*(\d{1,3})\s*[\.\-\–\)\:]\s*([A-Ea-e])\b/g;
-  let m;
-  while ((m = re.exec(text))) {
-    const n = Number(m[1]);
-    if (n >= 1 && n <= 200) answers.set(n, m[2].toUpperCase());
+  const versionBlocks = [...text.matchAll(/VERS[AÃ]O\s*(\d)\b/gi)];
+  let slice = text;
+  let version = null;
+  if (versionBlocks.length > 0) {
+    const wanted =
+      versionBlocks.find((m) => Number(m[1]) === preferredVersion) ?? versionBlocks[0];
+    version = Number(wanted[1]);
+    const start = wanted.index + wanted[0].length;
+    const next = versionBlocks.find((m) => m.index > wanted.index);
+    const end = next ? next.index : text.length;
+    slice = text.slice(start, end);
   }
-  return answers;
+
+  const answers = new Map();
+  const annulled = new Set();
+  const re = /(?:^|[;\s,])\s*(\d{1,3})\s*[\.\-\–\)\:]\s*([A-Ea-eNn])\b/g;
+  let m;
+  while ((m = re.exec(slice))) {
+    const n = Number(m[1]);
+    if (n < 1 || n > 200) continue;
+    const letter = m[2].toUpperCase();
+    if (letter === "N") {
+      annulled.add(n);
+      answers.delete(n);
+      continue;
+    }
+    answers.set(n, letter);
+  }
+  return { answers, annulled, version };
 }
 
 /** Fallback quando o PDF do gabarito é só imagem (ex.: 2021). */
@@ -217,7 +243,7 @@ function splitStatementAndAlts(rawBody, currentNumber = 0) {
   return { statement, alternatives };
 }
 
-function parseQuestions(pages, year, gabarito) {
+function parseQuestions(pages, year, gabarito, annulled = new Set()) {
   const plain = joinPages(pages);
   const subjectRanges = buildSubjectRanges(plain);
 
@@ -246,12 +272,19 @@ function parseQuestions(pages, year, gabarito) {
     subjectRanges.map((r) => r.name).join(" → ") || "(nenhum)",
   );
   console.log("  textos de apoio", new Set(stimuli.values()).size);
+  if (annulled.size) {
+    console.log("  anuladas (excluídas)", [...annulled].sort((a, b) => a - b).join(", "));
+  }
 
   const questions = [];
   const warnings = [];
 
   for (let i = 0; i < filtered.length; i++) {
     const cur = filtered[i];
+    if (annulled.has(cur.number)) {
+      warnings.push(`Q${cur.number}: anulada (excluída)`);
+      continue;
+    }
     const next = filtered[i + 1];
     const bodyStart = cur.index + cur.matchLen;
     let bodyEnd = next ? next.index : plain.length;
@@ -309,6 +342,16 @@ const SPECS = [
     timeLimitMin: 300,
   },
   {
+    year: 2023,
+    title: "TJSP Escrevente 2023 — Prova objetiva",
+    exam: "2023/escrevente_tecnico_judiciario2023.pdf",
+    gab: "2023/gabarito2023.pdf",
+    /** Caderno público + gabarito definitivo Vunesp (versão 1; Q47/53/66/69 anuladas). */
+    gabVersion: 1,
+    expected: 94,
+    timeLimitMin: 300,
+  },
+  {
     year: 2024,
     title: "TJSP Escrevente 2024 — Prova objetiva",
     exam: "2024/escrevente_tecnico_judiciario2024.pdf",
@@ -331,16 +374,24 @@ for (const spec of SPECS) {
   console.log("\n==", spec.year, "==");
   const examPages = await pdfPages(spec.exam);
   const gabPages = await pdfPages(spec.gab);
-  let gabarito = parseGabarito(gabPages);
+  let parsedGab = parseGabarito(gabPages, spec.gabVersion ?? 1);
+  let gabarito = parsedGab.answers;
+  let annulled = parsedGab.annulled;
   if (gabarito.size < 20) {
     const fb = loadGabaritoFallback(spec.year);
     if (fb.size) {
       console.log("gabarito PDF vazio — usando fallback OCR", fb.size);
       gabarito = fb;
+      annulled = new Set();
     }
   }
-  console.log("gabarito keys", gabarito.size);
-  const { questions, warnings } = parseQuestions(examPages, spec.year, gabarito);
+  console.log(
+    "gabarito keys",
+    gabarito.size,
+    parsedGab.version != null ? `(versão ${parsedGab.version})` : "",
+    annulled.size ? `anuladas=${annulled.size}` : "",
+  );
+  const { questions, warnings } = parseQuestions(examPages, spec.year, gabarito, annulled);
   console.log("questions", questions.length, "warnings", warnings.length);
   if (warnings.length) console.log(warnings.slice(0, 15).join(" | "));
   const withKey = questions.filter((q) => q.correctKey).length;
