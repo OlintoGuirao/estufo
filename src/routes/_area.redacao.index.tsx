@@ -37,15 +37,17 @@ function RedacaoIndexPage() {
   const [tick, setTick] = useState(0);
   void tick;
 
-  useQuery({
+  const hydrateQ = useQuery({
     queryKey: [...QK, "hydrate"],
     queryFn: async () => {
       await approvalTrailService.hydrate();
       await studyScheduleStore.hydrate();
+      // 1) Carrega temas/redações do banco (não gera IA).
+      await redacaoStore.hydrate();
+      // 2) Só depois espelha a agenda — sem apagar temas remotos.
       const sched = studyScheduleStore.get();
-      // Espelha Configurações → Redação
       redacaoStore.setSchedule(sched.redacaoDays as RedacaoWeekday[]);
-      return redacaoStore.hydrate();
+      return redacaoStore.get();
     },
   });
 
@@ -68,7 +70,7 @@ function RedacaoIndexPage() {
   const gen = useMutation({
     mutationFn: async () => {
       const open = redacaoStore.openImprovements().map((p) => `${p.area}: ${p.tip}`);
-      return generateRedacaoThemesFn({
+      const res = await generateRedacaoThemesFn({
         data: {
           contestName: trail?.contestName,
           organ: trail?.organ,
@@ -80,15 +82,17 @@ function RedacaoIndexPage() {
           count: 5,
         },
       });
+      // Só gera de novo no clique; grava local + Supabase.
+      await redacaoStore.saveThemes(res.themes, { replace: true });
+      return res;
     },
     onSuccess: (res) => {
-      redacaoStore.addThemes(res.themes);
       setTick((t) => t + 1);
       qc.invalidateQueries({ queryKey: QK });
       toast.success(
         res.mocked
-          ? "Temas de demonstração gerados (configure a IA para temas sob medida)."
-          : `${res.themes.length} temas gerados com base no edital.`,
+          ? "Temas de demonstração salvos (configure a IA para temas sob medida)."
+          : `${res.themes.length} temas salvos. Não regeneram ao reabrir a página.`,
       );
     },
     onError: (err) => {
@@ -207,12 +211,20 @@ function RedacaoIndexPage() {
           </p>
         )}
 
-        {!themes.length && (
+        {hydrateQ.isLoading && !themes.length && (
+          <p className="mb-3 text-sm text-muted-foreground">Carregando temas salvos…</p>
+        )}
+        {!hydrateQ.isLoading && !themes.length && (
           <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
             <PenLine className="mx-auto mb-2 h-8 w-8 opacity-50" />
             Ainda sem temas. Clique em <strong>Gerar temas</strong> para a IA propor assuntos
-            atuais e prováveis.
+            atuais e prováveis. Eles ficam salvos até você gerar de novo.
           </div>
+        )}
+        {!!themes.length && (
+          <p className="mb-3 text-xs text-muted-foreground">
+            {themes.length} tema(s) salvos · só regeneram se você clicar em Gerar temas
+          </p>
         )}
 
         <div className="grid gap-3 sm:grid-cols-2">
