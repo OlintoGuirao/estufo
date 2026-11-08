@@ -34,6 +34,7 @@ import { Route as AreaImportacaoIdRouteImport } from './routes/_area.importacao.
 import { Route as AreaMapasIndexRouteImport } from './routes/_area.mapas.index'
 import { Route as AreaMapasIdRouteImport } from './routes/_area.mapas.$id'
 import { Route as AreaQuestIndexRouteImport } from './routes/_area.quest.index'
+import { Route as AreaQuestDiarioRouteImport } from './routes/_area.quest.diario'
 import { Route as AreaQuestLojaRouteImport } from './routes/_area.quest.loja'
 import { Route as AreaQuestRevisaoRouteImport } from './routes/_area.quest.revisao'
 import { Route as AreaRedacaoIndexRouteImport } from './routes/_area.redacao.index'
@@ -178,6 +179,11 @@ const AreaQuestIndexRoute = AreaQuestIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AreaQuestRoute,
 } as any)
+const AreaQuestDiarioRoute = AreaQuestDiarioRouteImport.update({
+  id: '/diario',
+  path: '/diario',
+  getParentRoute: () => AreaQuestRoute,
+} as any)
 const AreaQuestLojaRoute = AreaQuestLojaRouteImport.update({
   id: '/loja',
   path: '/loja',
@@ -304,6 +310,7 @@ export interface FileRoutesByFullPath {
   '/video-aulas': typeof AreaVideoAulasRouteWithChildren
   '/importacao/$id': typeof AreaImportacaoIdRoute
   '/mapas/$id': typeof AreaMapasIdRoute
+  '/quest/diario': typeof AreaQuestDiarioRoute
   '/quest/loja': typeof AreaQuestLojaRoute
   '/quest/revisao': typeof AreaQuestRevisaoRoute
   '/redacao/$essayId': typeof AreaRedacaoEssayIdRoute
@@ -345,6 +352,7 @@ export interface FileRoutesByTo {
   '/tutor': typeof AreaTutorRoute
   '/importacao/$id': typeof AreaImportacaoIdRoute
   '/mapas/$id': typeof AreaMapasIdRoute
+  '/quest/diario': typeof AreaQuestDiarioRoute
   '/quest/loja': typeof AreaQuestLojaRoute
   '/quest/revisao': typeof AreaQuestRevisaoRoute
   '/redacao/$essayId': typeof AreaRedacaoEssayIdRoute
@@ -391,6 +399,7 @@ export interface FileRoutesById {
   '/_area/video-aulas': typeof AreaVideoAulasRouteWithChildren
   '/_area/importacao/$id': typeof AreaImportacaoIdRoute
   '/_area/mapas/$id': typeof AreaMapasIdRoute
+  '/_area/quest/diario': typeof AreaQuestDiarioRoute
   '/_area/quest/loja': typeof AreaQuestLojaRoute
   '/_area/quest/revisao': typeof AreaQuestRevisaoRoute
   '/_area/redacao/$essayId': typeof AreaRedacaoEssayIdRoute
@@ -438,6 +447,7 @@ export interface FileRouteTypes {
     | '/video-aulas'
     | '/importacao/$id'
     | '/mapas/$id'
+    | '/quest/diario'
     | '/quest/loja'
     | '/quest/revisao'
     | '/redacao/$essayId'
@@ -479,6 +489,7 @@ export interface FileRouteTypes {
     | '/tutor'
     | '/importacao/$id'
     | '/mapas/$id'
+    | '/quest/diario'
     | '/quest/loja'
     | '/quest/revisao'
     | '/redacao/$essayId'
@@ -524,6 +535,7 @@ export interface FileRouteTypes {
     | '/_area/video-aulas'
     | '/_area/importacao/$id'
     | '/_area/mapas/$id'
+    | '/_area/quest/diario'
     | '/_area/quest/loja'
     | '/_area/quest/revisao'
     | '/_area/redacao/$essayId'
@@ -734,6 +746,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AreaQuestIndexRouteImport
       parentRoute: typeof AreaQuestRoute
     }
+    '/_area/quest/diario': {
+      id: '/_area/quest/diario'
+      path: '/diario'
+      fullPath: '/quest/diario'
+      preLoaderRoute: typeof AreaQuestDiarioRouteImport
+      parentRoute: typeof AreaQuestRoute
+    }
     '/_area/quest/loja': {
       id: '/_area/quest/loja'
       path: '/loja'
@@ -892,6 +911,7 @@ const AreaQuestFasePhaseIdRouteWithChildren =
   AreaQuestFasePhaseIdRoute._addFileChildren(AreaQuestFasePhaseIdRouteChildren)
 
 interface AreaQuestRouteChildren {
+  AreaQuestDiarioRoute: typeof AreaQuestDiarioRoute
   AreaQuestLojaRoute: typeof AreaQuestLojaRoute
   AreaQuestRevisaoRoute: typeof AreaQuestRevisaoRoute
   AreaQuestIndexRoute: typeof AreaQuestIndexRoute
@@ -900,6 +920,7 @@ interface AreaQuestRouteChildren {
 }
 
 const AreaQuestRouteChildren: AreaQuestRouteChildren = {
+  AreaQuestDiarioRoute: AreaQuestDiarioRoute,
   AreaQuestLojaRoute: AreaQuestLojaRoute,
   AreaQuestRevisaoRoute: AreaQuestRevisaoRoute,
   AreaQuestIndexRoute: AreaQuestIndexRoute,

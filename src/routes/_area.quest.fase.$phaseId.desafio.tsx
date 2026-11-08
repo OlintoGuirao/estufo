@@ -66,7 +66,7 @@ function DesafioPage() {
   }
 
   return (
-    <QuestShell title="Desafio" backTo={`/quest/fase/${phaseId}`}>
+    <QuestShell title="Desafio" backTo={`/quest/fase/${phaseId}`} world={phase.subjectId}>
       <p className="mb-2 text-center text-[11px] font-semibold text-white/70">
         Sessão: {sessionQuestions.length} de {phase.questions.length} no banco
       </p>

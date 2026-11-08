@@ -17,11 +17,32 @@ export function phaseUsesInnerTrail(phase: QuestPhase): boolean {
   return phase.subjectId === "port" || total >= need * 0.8;
 }
 
+/**
+ * Sempre 10 trilhas. Antes o número dependia do tamanho do banco: com 8
+ * questões geradas a fase tinha UMA trilha e, depois das 5 primeiras,
+ * parecia que não havia mais nada. Agora a etapa que ainda não tem questões
+ * pede um lote novo à IA na hora (ver `stageNeedsQuestions`).
+ */
 export function trailStageCount(phase: QuestPhase): number {
-  if (!phaseUsesInnerTrail(phase)) return 0;
-  const byQ = Math.floor(phase.questions.length / PHASE_TRAIL.questionsPerStage);
-  const byB = Math.floor(phase.bossQuestions.length / PHASE_TRAIL.bossPerStage);
-  return Math.max(1, Math.min(PHASE_TRAIL.stages, byQ, byB || PHASE_TRAIL.stages));
+  return phaseUsesInnerTrail(phase) ? PHASE_TRAIL.stages : 0;
+}
+
+/** A etapa ainda não tem as 5 questões + chefe no banco? */
+export function stageNeedsQuestions(phase: QuestPhase, stageIndex: number): boolean {
+  const needQ = (stageIndex + 1) * PHASE_TRAIL.questionsPerStage;
+  const needB = (stageIndex + 1) * PHASE_TRAIL.bossPerStage;
+  return phase.questions.length < needQ || phase.bossQuestions.length < needB;
+}
+
+/** Quantas faltam para cobrir esta etapa e a próxima (lote de 2 etapas por chamada). */
+export function missingForStage(
+  phase: QuestPhase,
+  stageIndex: number,
+): { desafio: number; boss: number } {
+  const upTo = Math.min(PHASE_TRAIL.stages, stageIndex + 2);
+  const desafio = Math.max(0, upTo * PHASE_TRAIL.questionsPerStage - phase.questions.length);
+  const boss = Math.max(0, upTo * PHASE_TRAIL.bossPerStage - phase.bossQuestions.length);
+  return { desafio: Math.min(15, desafio), boss: Math.min(4, boss) };
 }
 
 export function getTrailStageQuestions(

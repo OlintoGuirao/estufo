@@ -65,6 +65,8 @@ export type QuestPhaseAiMeta = {
   examples?: string;
   /** Lei seca recuperada (RAG) para fundamentar questões de direito. */
   legalContext?: string;
+  /** Começo dos enunciados que o aluno já tem — não repetir. */
+  avoid?: string[];
 };
 
 export type QuestPhaseAiBatchOpts = {
@@ -185,6 +187,12 @@ export function buildQuestPhaseAiMessages(
           : "",
         meta.legalContext
           ? `\nFONTE LEGAL (texto oficial — use para o gabarito e o legalBasis; cite so artigos daqui):\n${meta.legalContext}`
+          : "",
+        meta.avoid?.length
+          ? `\nO ALUNO JA RESPONDEU ESTAS (NAO repita o tema exato nem o texto — traga questoes NOVAS, outros textos de apoio e outros pontos do tema):\n${meta.avoid
+              .slice(0, 80)
+              .map((a) => `- ${a.slice(0, 110)}`)
+              .join("\n")}`
           : "",
       ]
         .filter((line) => line !== "")

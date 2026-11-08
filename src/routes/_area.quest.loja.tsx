@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ShoppingBag, Star } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
+import { GameHud, gameSound } from "@/components/tjsp-quest/game-ui";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { QuestCard, QuestShell } from "@/components/tjsp-quest/quest-shell";
@@ -23,6 +24,7 @@ function QuestShopPage() {
   const [player, refresh] = useTjspQuest();
   const shop = normalizeShop(player.shop);
   const [tab, setTab] = useState<QuestShopCategory>("personagem");
+  const coins = player.coins ?? player.xp;
 
   const equippedChar = getShopItem(shop.equippedCharacterId);
   const equippedSkin = getShopItem(shop.equippedSkinId);
@@ -48,11 +50,12 @@ function QuestShopPage() {
     const res = tjspQuestStore.purchase(itemId);
     refresh();
     if (!res.ok) {
-      if (res.reason === "no-xp") toast.error("XP insuficiente — continue nas fases!");
+      if (res.reason === "no-xp") toast.error("Moedas insuficientes — jogue mais fases ou a roleta do dia!");
       else if (res.reason === "owned") toast.message("Você já tem este item.");
       else toast.error("Não foi possível comprar.");
       return;
     }
+    gameSound.coin();
     toast.success("Compra feita! Boa sorte nas questões.");
   };
 
@@ -63,20 +66,19 @@ function QuestShopPage() {
   };
 
   return (
-    <QuestShell title="Loja" backTo="/quest">
+    <QuestShell title="Loja" backTo="/quest" top={<GameHud player={player} />}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-3xl">
+          <span className="q-bob flex h-16 w-16 items-center justify-center rounded-full bg-white text-4xl shadow-[0_5px_0_rgba(0,0,0,.2)]">
             {equippedChar?.emoji ?? "🧑‍💼"}
           </span>
           <div>
-            <p className="text-sm font-bold text-white">{equippedChar?.name ?? "Personagem"}</p>
-            <p className="text-xs text-white/70">Skin: {equippedSkin?.name ?? "—"}</p>
+            <p className="text-lg font-extrabold text-white">{equippedChar?.name ?? "Personagem"}</p>
+            <p className="text-xs font-bold text-white/80">Skin: {equippedSkin?.name ?? "—"}</p>
           </div>
         </div>
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-[#4cc9f0]/20 px-3 py-1.5 text-sm font-black text-[#4cc9f0]">
-          <Star className="h-4 w-4 fill-current" aria-hidden />
-          {player.xp}
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-[#ffd166] px-4 py-2 text-lg font-extrabold text-[#7a5c00] shadow-[0_4px_0_#c49a2c]">
+          🪙 {coins}
         </div>
       </div>
 
@@ -95,9 +97,8 @@ function QuestShopPage() {
             🎯 {shop.helps.fifty}
           </span>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Ganhe estrelas (XP) passando nas fases e gaste aqui em personagens, skins, ajudas e
-          vidas.
+        <p className="mt-3 text-xs font-bold text-[#5c677d]">
+          Cada XP ganho nas fases e na roleta vira 1 moeda 🪙. Gaste aqui — seu nível não diminui.
         </p>
       </QuestCard>
 
@@ -108,10 +109,10 @@ function QuestShopPage() {
             type="button"
             onClick={() => setTab(c.id)}
             className={cn(
-              "shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition",
+              "shrink-0 rounded-full px-4 py-2 text-sm font-extrabold transition-transform active:translate-y-0.5",
               tab === c.id
-                ? "bg-[#ff9f1c] text-[#0b132b]"
-                : "bg-white/10 text-white hover:bg-white/20",
+                ? "bg-white text-[#2b2d42] shadow-[0_4px_0_rgba(0,0,0,.2)]"
+                : "bg-black/20 text-white hover:bg-black/30",
             )}
           >
             {c.label}
@@ -129,7 +130,7 @@ function QuestShopPage() {
           return (
             <QuestCard key={item.id} className="bg-white/95">
               <div className="flex gap-3">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#0b132b]/5 text-3xl">
+                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#f1f3f9] text-4xl shadow-[0_4px_0_#d5d9e6]">
                   {item.emoji}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -140,9 +141,8 @@ function QuestShopPage() {
                         {item.description}
                       </p>
                     </div>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#4cc9f0]/15 px-2 py-1 text-xs font-black text-[#0077b6]">
-                      <Star className="h-3.5 w-3.5 fill-current" />
-                      {free ? "Grátis" : item.priceXp}
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#fff3c4] px-2.5 py-1 text-sm font-extrabold text-[#7a5c00]">
+                      {free ? "Grátis" : `🪙 ${item.priceXp}`}
                     </span>
                   </div>
 
@@ -165,7 +165,7 @@ function QuestShopPage() {
                         type="button"
                         size="sm"
                         className="rounded-full bg-[#e85d04] text-white hover:bg-[#d00000]"
-                        disabled={!free && player.xp < item.priceXp}
+                        disabled={!free && coins < item.priceXp}
                         onClick={() => buy(item.id)}
                       >
                         <ShoppingBag className="h-3.5 w-3.5" />
@@ -176,7 +176,7 @@ function QuestShopPage() {
                         type="button"
                         size="sm"
                         className="rounded-full bg-[#e85d04] text-white hover:bg-[#d00000]"
-                        disabled={player.xp < item.priceXp}
+                        disabled={coins < item.priceXp}
                         onClick={() => buy(item.id)}
                       >
                         <ShoppingBag className="h-3.5 w-3.5" />

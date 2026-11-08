@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Crown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -7,13 +7,16 @@ import { QuestCard, QuestShell } from "@/components/tjsp-quest/quest-shell";
 import {
   getTrailStageQuestions,
   isTrailStageUnlocked,
+  missingForStage,
   PHASE_TRAIL,
+  stageNeedsQuestions,
   phaseUsesInnerTrail,
   trailStageCount,
 } from "@/lib/tjsp-quest/phase-trail";
 import { useQuestPhaseContent } from "@/hooks/use-quest-phase-content";
 import { useTjspQuest } from "@/hooks/use-tjsp-quest";
 import { tjspQuestStore } from "@/services/tjsp-quest-store";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_area/quest/fase/$phaseId/trilha/$stage")({
   component: TrailStagePage,
@@ -22,7 +25,7 @@ export const Route = createFileRoute("/_area/quest/fase/$phaseId/trilha/$stage")
 function TrailStagePage() {
   const { phaseId, stage } = Route.useParams();
   const stageIndex = Math.max(0, Number.parseInt(stage, 10) || 0);
-  const { phase, loading, error, mocked } = useQuestPhaseContent(phaseId);
+  const { phase, loading, error, mocked, extend, extending } = useQuestPhaseContent(phaseId);
   const [player, refresh] = useTjspQuest();
   const nav = useNavigate();
   const [step, setStep] = useState<"practice" | "boss">("practice");
@@ -34,6 +37,56 @@ function TrailStagePage() {
     () => (phase ? getTrailStageQuestions(phase, stageIndex) : null),
     [phase, stageIndex],
   );
+
+  // Etapa sem questões no banco ainda → pede um lote novo à IA (esta + a próxima).
+  const needsMore = !!phase && phaseUsesInnerTrail(phase) && stageNeedsQuestions(phase, stageIndex);
+  const askedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!phase || loading || extending || !needsMore) return;
+    const key = `${phase.id}:${stageIndex}:${phase.questions.length}`;
+    if (askedFor.current === key) return; // não repete em loop se a IA falhar
+    askedFor.current = key;
+    void extend(missingForStage(phase, stageIndex));
+  }, [phase, stageIndex, loading, extending, needsMore, extend]);
+
+  if (loading || extending || (needsMore && !error)) {
+    return (
+      <QuestShell title={`Trilha ${stageIndex + 1}`} backTo={`/quest/fase/${phaseId}`}>
+        <QuestCard className="flex flex-col items-center gap-3 py-10 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#e85d04]" />
+          <p className="font-semibold">
+            {extending || needsMore
+              ? `Preparando as questões da trilha ${stageIndex + 1}…`
+              : "Carregando etapa…"}
+          </p>
+          {(extending || needsMore) && (
+            <p className="text-xs text-muted-foreground">
+              O professor está criando questões novas para você (leva alguns segundos).
+            </p>
+          )}
+        </QuestCard>
+      </QuestShell>
+    );
+  }
+
+  if (needsMore && error && phase) {
+    return (
+      <QuestShell title={`Trilha ${stageIndex + 1}`} backTo={`/quest/fase/${phaseId}`}>
+        <QuestCard className="space-y-3 text-center">
+          <p className="font-semibold">Não consegui gerar as questões desta trilha agora.</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <Button
+            onClick={() => {
+              askedFor.current = null;
+              void extend(missingForStage(phase, stageIndex));
+            }}
+          >
+            Tentar de novo
+          </Button>
+        </QuestCard>
+      </QuestShell>
+    );
+  }
 
   if (loading) {
     return (
@@ -77,7 +130,7 @@ function TrailStagePage() {
       : `Trilha ${stageIndex + 1} · ${pack.practice.length} questões`;
 
   return (
-    <QuestShell title={title} backTo={`/quest/fase/${phaseId}`}>
+    <QuestShell title={title} backTo={`/quest/fase/${phaseId}`} world={phase.subjectId}>
       {step === "boss" && (
         <p className="mb-3 flex items-center justify-center gap-2 text-sm font-black text-[#ffd60a]">
           <Crown className="h-4 w-4" />

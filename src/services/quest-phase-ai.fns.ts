@@ -21,6 +21,87 @@ function dedupeQuestions<T extends { id: string; statement: string }>(list: T[])
   return out;
 }
 
+/** Mais um lote de questões para a próxima etapa da trilha (sem repetir). */
+async function extendPhaseBank(data: {
+  phaseId: string;
+  subjectName: string;
+  title: string;
+  objective: string;
+  sources: { label: string; url?: string | undefined }[];
+  extend: { desafio: number; boss: number; avoid: string[] };
+}): Promise<{ content: QuestPhaseAiPayload; model: string; mocked: boolean }> {
+  try {
+    const { buildQuestPhaseAiMessages, parseQuestPhaseAiJson, mockQuestPhaseAiContent } =
+      await import("@/lib/tjsp-quest/ai-phase-content");
+    const { getQuestPhase } = await import("@/data/tjsp-quest-catalog");
+    const { tutorChat } = await import("@/server/tutor-llm");
+    const { pickVunespExamples, formatVunespExamples } = await import("@/server/vunesp-examples");
+    const { retrieveLegalContext } = await import("@/server/legal/retrieve");
+    const { verifyGeneratedQuestions } = await import("@/server/question-verify");
+
+    const base = getQuestPhase(data.phaseId);
+    const subjectId = base?.subjectId ?? data.phaseId.split("-")[0] ?? "geral";
+    const isPort = subjectId.startsWith("port");
+    const legal = isPort
+      ? { text: "" }
+      : await retrieveLegalContext(`${data.subjectName}\n${data.title}\n${data.objective}`, {
+          limit: 8,
+        });
+
+    const messages = buildQuestPhaseAiMessages(
+      {
+        phaseId: data.phaseId,
+        subjectId,
+        subjectName: data.subjectName,
+        title: data.title,
+        objective: data.objective,
+        sources: data.sources,
+        examples: formatVunespExamples(pickVunespExamples(data.subjectName, data.title, 2)),
+        ...(legal.text ? { legalContext: legal.text } : {}),
+        avoid: data.extend.avoid,
+      },
+      { desafioCount: data.extend.desafio, bossCount: data.extend.boss, batchIndex: 2, batchTotal: 2 },
+    );
+    const mock = base ? mockQuestPhaseAiContent(base) : null;
+    const result = await tutorChat(messages, {
+      task: "questions",
+      mockText: JSON.stringify({
+        lessonBlocks: [],
+        questions: (mock?.questions ?? []).slice(0, data.extend.desafio),
+        bossQuestions: (mock?.bossQuestions ?? []).slice(0, data.extend.boss),
+      }),
+    });
+    // Prefixo novo a cada lote: ids nunca colidem com os que o aluno já tem.
+    const payload = parseQuestPhaseAiJson(
+      result.text,
+      `${data.phaseId}-x${Date.now().toString(36)}`,
+    );
+    const avoid = new Set(data.extend.avoid.map((a) => a.toLowerCase().slice(0, 120)));
+    const fresh = (list: typeof payload.questions) =>
+      dedupeQuestions(list).filter(
+        (q) => !avoid.has(q.statement.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 120)),
+      );
+    let questions = fresh(payload.questions);
+    let bossQuestions = fresh(payload.bossQuestions);
+    if (!result.mocked) {
+      const v = await verifyGeneratedQuestions([...questions, ...bossQuestions], {
+        subject: data.subjectName,
+        ...(legal.text ? { legalContext: legal.text } : {}),
+      });
+      const ok = new Set(v.kept.map((x) => x.id));
+      questions = questions.filter((x) => ok.has(x.id));
+      bossQuestions = bossQuestions.filter((x) => ok.has(x.id));
+    }
+    return {
+      content: { lessonBlocks: [], questions, bossQuestions },
+      model: result.model,
+      mocked: !!result.mocked,
+    };
+  } catch (err) {
+    return await throwTutorError(err);
+  }
+}
+
 /** Gera aula + questões padrão VUNESP (A–E) para uma fase do /quest. */
 export const generateQuestPhaseContent = createServerFn({ method: "POST" })
   .validator(
@@ -34,9 +115,21 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
         .max(12),
       /** Conteúdo estático atual — usado só no mock/fallback. */
       fallbackLessonHint: z.boolean().optional(),
+      /**
+       * Trilha pedindo MAIS questões (a próxima etapa ainda não tem banco).
+       * Gera só o lote pedido, sem repetir os enunciados já existentes.
+       */
+      extend: z
+        .object({
+          desafio: z.number().int().min(1).max(15),
+          boss: z.number().int().min(0).max(4),
+          avoid: z.array(z.string().max(160)).max(150).optional().default([]),
+        })
+        .optional(),
     }),
   )
   .handler(async ({ data }) => {
+    if (data.extend) return extendPhaseBank(data as typeof data & { extend: NonNullable<typeof data.extend> });
     try {
       const ai = await import("@/lib/tjsp-quest/ai-phase-content");
       const {

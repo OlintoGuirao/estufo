@@ -1,28 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { QuestShell } from "@/components/tjsp-quest/quest-shell";
 import {
-  BookOpen,
-  Calculator,
-  Flame,
-  Gavel,
-  Globe,
-  Landmark,
-  Monitor,
-  PenLine,
-  Scale,
-  ShoppingBag,
-  Sparkles,
-  Star,
-  Swords,
-  Trophy,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { QuestModuleCard } from "@/components/tjsp-quest/quest-module-card";
-import { QuestCard, QuestShell, QuestStatPill } from "@/components/tjsp-quest/quest-shell";
+  GameHud,
+  GameLinkButton,
+  MascotSays,
+  Stars,
+  starsFromPct,
+  worldTheme,
+} from "@/components/tjsp-quest/game-ui";
 import { tjspQuestCatalog } from "@/data/tjsp-quest-catalog";
 import { dueReviews, levelProgress } from "@/lib/tjsp-quest/progress";
+import { DAILY_REWARD, DAILY_SIZE, todayKey } from "@/lib/tjsp-quest/daily";
 import { useTjspQuest } from "@/hooks/use-tjsp-quest";
-import type { QuestSubject } from "@/types/tjsp-quest";
+import type { QuestPhaseProgress } from "@/types/tjsp-quest";
 
 export const Route = createFileRoute("/_area/quest/")({
   head: () => ({
@@ -30,23 +20,22 @@ export const Route = createFileRoute("/_area/quest/")({
       { title: "TJSP Quest — Estufoo" },
       {
         name: "description",
-        content: "Estude a legislação em fases gamificadas, estilo perguntas e respostas.",
+        content: "Estude para o TJSP jogando: mundos por matéria, roleta diária e chefões.",
       },
     ],
   }),
   component: QuestHome,
 });
 
-const SUBJECT_ICONS: Record<QuestSubject["icon"], LucideIcon> = {
-  scale: Scale,
-  monitor: Monitor,
-  calculator: Calculator,
-  book: BookOpen,
-  gavel: Gavel,
-  landmark: Landmark,
-  pen: PenLine,
-  globe: Globe,
-};
+function bestPct(prog: QuestPhaseProgress | undefined): number {
+  if (!prog) return 0;
+  return Math.max(prog.chefaoBestPct ?? 0, prog.desafioBestPct ?? 0, ...(prog.trailStageBestPct ?? [0]));
+}
+
+function greeting(): string {
+  const h = new Date().getHours();
+  return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+}
 
 function QuestHome() {
   const [player] = useTjspQuest();
@@ -56,128 +45,158 @@ function QuestHome() {
     tjspQuestCatalog.phases.find(
       (p) => player.phases[p.id]?.unlocked && !player.phases[p.id]?.completed,
     ) ?? tjspQuestCatalog.phases[0];
-  const currentSubjectId = continuePhase?.subjectId;
+  const dailyDone = player.daily?.date === todayKey() && player.daily.done;
 
   return (
-    <QuestShell title="TJSP Quest" backTo="/painel">
-      <div className="mb-5 grid grid-cols-4 gap-2">
-        <QuestStatPill label="Nível" value={lp.level} />
-        <QuestStatPill label="XP" value={player.xp} accent="#00b4d8" />
-        <QuestStatPill label="Streak" value={`${player.streakDays}d`} accent="#ef476f" />
-        <QuestStatPill label="Revisões" value={pending.length} accent="#06d6a0" />
+    <QuestShell backTo="/painel" top={<GameHud player={player} />}>
+      {/* Boas-vindas + jogar */}
+      <div className="mb-5 text-center text-white">
+        <h1 className="text-4xl font-extrabold tracking-tight" style={{ textShadow: "0 4px 0 rgba(0,0,0,.2)" }}>
+          TJSP Quest
+        </h1>
+        <p className="text-sm font-bold text-white/85">
+          Nível {lp.level} · faltam {lp.need - lp.into} XP para o próximo
+        </p>
+        <div className="mx-auto mt-2 h-3 max-w-xs overflow-hidden rounded-full bg-black/25">
+          <div className="h-full rounded-full bg-[#ffd166]" style={{ width: `${lp.pct}%` }} />
+        </div>
       </div>
 
-      <div className="mb-5">
-        <Button
-          asChild
-          className="h-12 w-full rounded-2xl bg-gradient-to-r from-[#4cc9f0] to-[#0077b6] text-base font-black text-white hover:opacity-95"
-        >
-          <Link to="/quest/loja">
-            <ShoppingBag className="h-5 w-5" />
-            Loja
-            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-black/20 px-2.5 py-0.5 text-sm">
-              <Star className="h-3.5 w-3.5 fill-current" />
-              {player.xp}
-            </span>
-          </Link>
-        </Button>
-        <p className="mt-1.5 text-center text-[11px] text-white/65">
-          Personagens, skins, ajudas e vidas com o XP das fases
-        </p>
-      </div>
+      <MascotSays mood="wave" className="mb-4">
+        {greeting()}! {player.streakDays > 1 ? `🔥 ${player.streakDays} dias seguidos — não quebra!` : "Bora estudar jogando?"}
+      </MascotSays>
 
-      <QuestCard className="mb-5 overflow-hidden bg-gradient-to-br from-[#ff9f1c] to-[#e85d04] text-white">
-        <p className="text-xs font-bold uppercase tracking-widest text-white/80">
-          Continuar estudando
-        </p>
-        <h2 className="mt-1 font-display text-2xl font-black leading-tight">
-          {continuePhase?.title ?? "Escolha uma matéria"}
-        </h2>
-        <p className="mt-1 text-sm text-white/90">
-          {continuePhase
-            ? `Fase ${continuePhase.number} · ~${continuePhase.estimatedMinutes} min`
-            : "Comece pelo Constitucional"}
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {continuePhase && (
-            <Button asChild className="rounded-full bg-white font-bold text-[#e85d04] hover:bg-white/90">
-              <Link to="/quest/fase/$phaseId" params={{ phaseId: continuePhase.id }}>
-                <Swords className="h-4 w-4" />
-                Jogar agora
-              </Link>
-            </Button>
-          )}
-          <Button
-            asChild
-            variant="outline"
-            className="rounded-full border-white/40 bg-transparent font-bold text-white hover:bg-white/10"
+      {continuePhase && (
+        <div className="mb-6">
+          <GameLinkButton
+            to="/quest/fase/$phaseId"
+            params={{ phaseId: continuePhase.id }}
+            color="#06d6a0"
+            shadow="#04a37a"
+            className="!h-16 !text-xl"
           >
-            <Link to="/quest/revisao">
-              <BookOpen className="h-4 w-4" />
-              Revisões ({pending.length})
-            </Link>
-          </Button>
+            ▶ Jogar: {continuePhase.title.length > 22 ? `${continuePhase.title.slice(0, 22)}…` : continuePhase.title}
+          </GameLinkButton>
         </div>
-        <div className="mt-4">
-          <div className="mb-1 flex justify-between text-[11px] font-semibold text-white/80">
-            <span>Nível {lp.level}</span>
-            <span>
-              {lp.into}/{lp.need} XP
-            </span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-black/20">
-            <div className="h-full rounded-full bg-white" style={{ width: `${lp.pct}%` }} />
-          </div>
+      )}
+
+      {/* Roleta diária */}
+      <Link
+        to="/quest/diario"
+        className="mb-6 flex items-center gap-4 rounded-[28px] bg-gradient-to-r from-[#ff006e] to-[#fb5607] p-4 text-white shadow-[0_8px_0_#a3003f] transition-transform active:translate-y-1"
+      >
+        <span className={dailyDone ? "text-5xl" : "text-5xl q-bob"}>🎡</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-extrabold uppercase tracking-widest text-white/85">Desafio do dia</p>
+          <p className="text-xl font-extrabold leading-tight">
+            {dailyDone ? "Feito hoje! ✅" : "Gire a roleta"}
+          </p>
+          <p className="text-sm font-bold text-white/90">
+            {dailyDone
+              ? `${player.daily!.correct}/${player.daily!.total} acertos · +${player.daily!.coinsAwarded} 🪙`
+              : `${DAILY_SIZE} questões reais de prova · até ${DAILY_SIZE * DAILY_REWARD.perCorrect + DAILY_REWARD.perfectBonus} 🪙`}
+          </p>
         </div>
-      </QuestCard>
+      </Link>
 
-      <p className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
-        <Sparkles className="h-4 w-4 text-[#ff9f1c]" />
-        Matérias
-      </p>
-
-      <div className="flex flex-col gap-3">
+      {/* Mundos (matérias) */}
+      <h2 className="mb-3 text-xl font-extrabold text-white" style={{ textShadow: "0 2px 0 rgba(0,0,0,.2)" }}>
+        🗺️ Mundos
+      </h2>
+      <div className="grid grid-cols-2 gap-4">
         {tjspQuestCatalog.subjects.map((s) => {
+          const theme = worldTheme(s.id);
           const phases = tjspQuestCatalog.phases.filter((p) => p.subjectId === s.id);
           const done = phases.filter((p) => player.phases[p.id]?.completed).length;
-          const Icon = SUBJECT_ICONS[s.icon] ?? BookOpen;
+          const starTotal = phases.reduce((n, p) => n + starsFromPct(bestPct(player.phases[p.id])), 0);
+          const isCurrent = s.id === continuePhase?.subjectId;
           return (
-            <QuestModuleCard
+            <Link
               key={s.id}
-              title={s.name}
-              description={s.description}
-              icon={<Icon />}
-              accent={s.color}
-              progressFilled={done}
-              progressTotal={Math.max(phases.length, 1)}
-              isCurrent={s.id === currentSubjectId}
               to="/quest/materia/$subjectId"
               params={{ subjectId: s.id }}
-            />
+              className="relative flex flex-col items-center rounded-[26px] p-3 pb-4 text-center text-white transition-transform hover:-translate-y-0.5 active:translate-y-1"
+              style={{
+                background: `linear-gradient(160deg, ${theme.from}, ${theme.to})`,
+                boxShadow: "0 7px 0 rgba(0,0,0,.25)",
+              }}
+            >
+              {isCurrent && (
+                <span className="absolute -top-2 right-3 rounded-full bg-[#ffd166] px-2 py-0.5 text-[10px] font-extrabold text-[#2b2d42] shadow">
+                  VOCÊ ESTÁ AQUI
+                </span>
+              )}
+              <span className="text-5xl drop-shadow">{theme.emoji}</span>
+              <p className="mt-1 text-[15px] font-extrabold leading-tight">{s.shortName || s.name}</p>
+              <p className="text-[11px] font-bold leading-tight text-white/85">{theme.name}</p>
+              <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-black/25">
+                <div
+                  className="h-full rounded-full bg-white"
+                  style={{ width: `${phases.length ? (done / phases.length) * 100 : 0}%` }}
+                />
+              </div>
+              <p className="mt-1 text-xs font-extrabold">
+                {done}/{phases.length} fases · ⭐ {starTotal}
+              </p>
+            </Link>
           );
         })}
       </div>
 
-      <p className="mt-6 mb-2 flex items-center gap-2 text-sm font-bold text-white">
-        <Trophy className="h-4 w-4 text-[#ffd60a]" />
-        Conquistas
-      </p>
-      <QuestCard className="bg-white/95">
-        {player.achievements.length ? (
-          <ul className="space-y-2 text-sm">
-            {player.achievements.map((a) => (
-              <li key={a} className="flex items-center gap-2">
-                <Flame className="h-4 w-4 text-[#e85d04]" />
-                {a.startsWith("phase:") ? `Fase concluída: ${a.replace("phase:", "")}` : a}
-              </li>
+      {/* Atalhos */}
+      <div className="mt-6 grid grid-cols-3 gap-3">
+        <Tile to="/quest/loja" emoji="🛍️" label="Loja" color="#8338ec" shadow="#5a22a8" />
+        <Tile
+          to="/quest/revisao"
+          emoji="🧠"
+          label={`Revisões${pending.length ? ` (${pending.length})` : ""}`}
+          color="#3a86ff"
+          shadow="#2459b3"
+        />
+        <Tile to="/quest" emoji="🏆" label={`Medalhas (${player.achievements.length})`} color="#ffbe0b" shadow="#c48f00" />
+      </div>
+
+      {player.achievements.length > 0 && (
+        <div className="mt-4 rounded-[24px] bg-black/20 p-4 text-white">
+          <p className="mb-2 text-sm font-extrabold">🏆 Suas medalhas</p>
+          <div className="flex flex-wrap gap-2">
+            {player.achievements.slice(-12).map((a) => (
+              <span key={a} className="rounded-full bg-white/90 px-3 py-1 text-xs font-extrabold text-[#2b2d42]">
+                🏅 {a.startsWith("phase:") ? a.replace("phase:", "Fase ") : a}
+              </span>
             ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Complete o chefão de uma fase para ganhar sua primeira medalha.
-          </p>
-        )}
-      </QuestCard>
+          </div>
+        </div>
+      )}
+
+      <p className="mt-6 text-center text-xs font-bold text-white/70">
+        <Stars count={3} size={12} /> Ganhe 3 estrelas acertando 90% ou mais em cada fase.
+      </p>
     </QuestShell>
+  );
+}
+
+function Tile({
+  to,
+  emoji,
+  label,
+  color,
+  shadow,
+}: {
+  to: string;
+  emoji: string;
+  label: string;
+  color: string;
+  shadow: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="flex flex-col items-center justify-center gap-1 rounded-[22px] py-3 text-center text-white transition-transform active:translate-y-1"
+      style={{ background: color, boxShadow: `0 6px 0 ${shadow}` }}
+    >
+      <span className="text-3xl">{emoji}</span>
+      <span className="text-xs font-extrabold leading-tight">{label}</span>
+    </Link>
   );
 }

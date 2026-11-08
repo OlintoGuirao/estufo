@@ -34,7 +34,8 @@ export type QuestQuestion = {
   memoryTip?: string;
   difficulty: "facil" | "media" | "dificil";
   /** false = conteúdo didático de treino (não é questão oficial de banca). */
-  official: false;
+  /** true = questão real de prova (desafio do dia); false = treino gerado. */
+  official: boolean;
   /** Estilo da banca usado na geração (treino). */
   boardStyle?: "VUNESP";
 };
@@ -117,8 +118,23 @@ export type QuestShopInventory = {
   lives: number;
 };
 
+/** Desafio do dia (roleta). */
+export type QuestDailyChallenge = {
+  date: string;
+  subjectId: string;
+  correct: number;
+  total: number;
+  /** Já jogou hoje (recompensa entregue). */
+  done: boolean;
+  coinsAwarded: number;
+};
+
 export type QuestPlayerState = {
+  /** XP define o NÍVEL e nunca diminui. */
   xp: number;
+  /** Moedas: gastas na Loja (antes a loja gastava XP e o nível caía). */
+  coins?: number;
+  daily?: QuestDailyChallenge;
   level: number;
   streakDays: number;
   lastStudyDate: string | null;

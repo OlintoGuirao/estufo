@@ -53,6 +53,8 @@ function fromCachedEntry(
 
 export function useQuestPhaseContent(phaseId: string): State & {
   regenerate: () => void;
+  extending: boolean;
+  extend: (need: { desafio: number; boss: number }) => Promise<boolean>;
 } {
   const [state, setState] = useState<State>(() => {
     const cached = questPhaseAiService.peekCached(phaseId);
@@ -175,8 +177,47 @@ export function useQuestPhaseContent(phaseId: string): State & {
     };
   }, [phaseId, generate]);
 
+  const [extending, setExtending] = useState(false);
+  /** Busca mais questões para a etapa da trilha que ainda não tem banco. */
+  const extend = useCallback(
+    async (need: { desafio: number; boss: number }) => {
+      setExtending(true);
+      try {
+        const r = await withTimeout(
+          questPhaseAiService.extend(phaseId, need),
+          GENERATE_TIMEOUT_MS,
+          "Tempo esgotado ao gerar as questões desta trilha. Tente de novo.",
+        );
+        let added = true;
+        setState((s) => {
+          const before =
+            (s.phase?.questions.length ?? 0) + (s.phase?.bossQuestions.length ?? 0);
+          const after = r.phase.questions.length + r.phase.bossQuestions.length;
+          added = after > before;
+          return {
+            ...s,
+            phase: r.phase,
+            mocked: r.mocked,
+            error: added ? null : "A IA não trouxe questões novas desta vez.",
+          };
+        });
+        return added;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Falha ao gerar mais questões.";
+        setState((s) => ({ ...s, error: msg }));
+        toast.error(msg);
+        return false;
+      } finally {
+        setExtending(false);
+      }
+    },
+    [phaseId],
+  );
+
   return {
     ...state,
+    extending,
+    extend,
     regenerate: () => void generate(true),
   };
 }

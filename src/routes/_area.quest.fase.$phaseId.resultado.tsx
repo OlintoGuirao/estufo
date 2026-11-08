@@ -1,7 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
-import { Crown, RotateCcw, Swords } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import {
+  Confetti,
+  GameHud,
+  GameLinkButton,
+  Mascot,
+  Stars,
+  gameSound,
+  starsFromPct,
+} from "@/components/tjsp-quest/game-ui";
 import { QuestCard, QuestShell } from "@/components/tjsp-quest/quest-shell";
 import { getQuestPhase, getQuestSubject } from "@/data/tjsp-quest-catalog";
 import { PHASE_TRAIL, phaseUsesInnerTrail } from "@/lib/tjsp-quest/phase-trail";
@@ -67,16 +75,13 @@ function ResultPage() {
         }
       : null;
 
+  const stars = passed ? Math.max(1, starsFromPct(pct)) : starsFromPct(pct);
+
   return (
-    <QuestShell title="Resultado" backTo={`/quest/fase/${phaseId}`}>
-      <QuestCard
-        className={
-          passed
-            ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
-            : "bg-gradient-to-br from-rose-500 to-orange-600 text-white"
-        }
-      >
-        <p className="text-xs font-bold uppercase tracking-widest text-white/80">
+    <QuestShell backTo={`/quest/fase/${phaseId}`} world={subject.id} top={<GameHud player={player} />}>
+      <ResultCelebration passed={passed} />
+      <div className="flex flex-col items-center text-center text-white">
+        <p className="text-sm font-extrabold uppercase tracking-widest text-white/85">
           {trail
             ? `Trilha ${trail}${mode === "chefao" ? " · Chefe" : ""}`
             : mode === "chefao"
@@ -84,68 +89,76 @@ function ResultPage() {
               : "Desafio"}{" "}
           · {phase.title}
         </p>
-        <p className="mt-2 font-display text-5xl font-black">{pct}%</p>
-        <p className="mt-1 text-sm text-white/90">
+        <h1
+          className="q-pop mt-1 text-5xl font-extrabold"
+          style={{ textShadow: "0 4px 0 rgba(0,0,0,.2)" }}
+        >
+          {passed ? "Vitória!" : "Quase lá!"}
+        </h1>
+        <Stars count={stars} size={44} className="mt-3" animate />
+        <Mascot mood={passed ? "cheer" : "sad"} size={110} className="mt-2 drop-shadow-xl" />
+      </div>
+
+      <QuestCard className="mt-2 text-center">
+        <p className="text-6xl font-extrabold text-[#2b2d42]">{pct}%</p>
+        <p className="mt-1 text-sm font-bold text-[#5c677d]">
           {trail
             ? passed
               ? prog?.completed
-                ? "Fase concluída! Próxima matéria/fase liberada."
-                : `Trilha ${trail} concluída — próxima liberada.`
-              : `Meta ${PHASE_TRAIL.stagePassPct}% no chefe não atingida — tente de novo.`
+                ? "Fase concluída! Próxima fase liberada."
+                : `Trilha ${trail} concluída — a próxima foi liberada.`
+              : `Faltou pouco: a meta do chefe é ${PHASE_TRAIL.stagePassPct}%.`
             : mode === "chefao"
               ? passed
-                ? `Fase concluída! Próximas etapas desbloqueadas.`
+                ? "Fase concluída! Próximas etapas desbloqueadas."
                 : `Meta ${phase.bossPassPct}% não atingida — revise e tente de novo.`
               : passed
-                ? "Bom desempenho no desafio. Encara o chefão?"
+                ? "Bom desempenho! Encara o chefão?"
                 : "Revise os erros e jogue de novo."}
         </p>
-        <p className="mt-3 text-lg font-black text-[#ffd60a]">+{xp} XP nesta rodada</p>
-        <p className="text-xs text-white/80">
-          Total: {player.xp} XP · Nível {player.level} · Streak {player.streakDays}d
-        </p>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl bg-[#fff3c4] p-3">
+            <p className="text-3xl font-extrabold text-[#b8860b]">+{xp}</p>
+            <p className="text-xs font-extrabold uppercase text-[#7a5c00]">⭐ XP</p>
+          </div>
+          <div className="q-chest rounded-2xl bg-[#ffe0ec] p-3">
+            <p className="text-3xl font-extrabold text-[#c9184a]">+{xp}</p>
+            <p className="text-xs font-extrabold uppercase text-[#7a1037]">🪙 Moedas</p>
+          </div>
+        </div>
       </QuestCard>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <Button asChild className="h-12 rounded-2xl bg-white font-bold text-[#0b132b]">
-          <Link to={retryTo.to} params={retryTo.params}>
-            <RotateCcw className="h-4 w-4" />
-            Tentar de novo
-          </Link>
-        </Button>
+      <div className="mt-5 space-y-4">
         {nextTrail && !prog?.completed ? (
-          <Button asChild className="h-12 rounded-2xl bg-[#9b2226] font-bold text-white">
-            <Link to={nextTrail.to} params={nextTrail.params}>
-              <Crown className="h-4 w-4" />
-              Próxima trilha
-            </Link>
-          </Button>
+          <GameLinkButton to={nextTrail.to} params={nextTrail.params} color="#06d6a0" shadow="#04a37a">
+            Próxima trilha ➜
+          </GameLinkButton>
         ) : (
-          <Button asChild className="h-12 rounded-2xl bg-[#0077b6] font-bold text-white">
-            <Link to="/quest/fase/$phaseId" params={{ phaseId }}>
-              <Swords className="h-4 w-4" />
-              Ver trilha da fase
-            </Link>
-          </Button>
+          <GameLinkButton to="/quest/fase/$phaseId" params={{ phaseId }} color="#3a86ff" shadow="#2459b3">
+            Voltar ao mapa 🗺️
+          </GameLinkButton>
         )}
+        <GameLinkButton to={retryTo.to} params={retryTo.params} color="#ffffff" shadow="#d0d4dc" className="!text-[#2b2d42]">
+          Jogar de novo ↻
+        </GameLinkButton>
+        <GameLinkButton to="/quest/revisao" color="#8338ec" shadow="#5a22a8">
+          Revisar meus erros
+        </GameLinkButton>
       </div>
-
-      <QuestCard className="mt-4">
-        <p className="text-sm font-semibold">Desempenho nesta fase</p>
-        <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-          {usesTrail ? (
-            <li>
-              Trilhas concluídas: {prog?.trailCompletedCount ?? 0} / {PHASE_TRAIL.stages}
-            </li>
-          ) : null}
-          <li>Melhor desafio: {prog?.desafioBestPct ?? 0}%</li>
-          <li>Melhor chefão: {prog?.chefaoBestPct ?? 0}%</li>
-          <li>Status: {prog?.completed ? "Concluída" : "Em progresso"}</li>
-        </ul>
-        <Button asChild variant="outline" className="mt-3 w-full rounded-xl">
-          <Link to="/quest/revisao">Abrir revisão de erros</Link>
-        </Button>
-      </QuestCard>
     </QuestShell>
   );
+}
+
+/** Confete e som de vitória ao abrir o resultado. */
+function ResultCelebration({ passed }: { passed: boolean }) {
+  const [fire, setFire] = useState(0);
+  useEffect(() => {
+    if (passed) {
+      gameSound.win();
+      setFire(1);
+    } else {
+      gameSound.wrong();
+    }
+  }, [passed]);
+  return <Confetti fire={fire} pieces={90} />;
 }

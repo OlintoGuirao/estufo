@@ -60,11 +60,12 @@ export function purchaseShopItem(
     if (shop.ownedSkinIds.includes(item.id)) return { ok: false, reason: "owned" };
   }
 
-  if (item.priceXp > 0 && state.xp < item.priceXp) {
+  // Compra com MOEDAS — o XP (nível) não diminui mais ao comprar.
+  const coins = state.coins ?? state.xp;
+  if (item.priceXp > 0 && coins < item.priceXp) {
     return { ok: false, reason: "no-xp" };
   }
-
-  const xp = Math.max(0, state.xp - item.priceXp);
+  const nextCoins = Math.max(0, coins - item.priceXp);
   let nextShop = { ...shop, helps: { ...shop.helps } };
 
   if (item.category === "personagem") {
@@ -97,8 +98,7 @@ export function purchaseShopItem(
     ok: true,
     state: {
       ...state,
-      xp,
-      level: xpToLevel(xp),
+      coins: nextCoins,
       shop: nextShop,
       updatedAt: new Date().toISOString(),
     },

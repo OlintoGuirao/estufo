@@ -2,62 +2,76 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SkyDecor, worldTheme } from "@/components/tjsp-quest/game-ui";
 
-/** Visual estilo jogo (Trivia Crack / Perguntados): fundo vibrante, tipografia forte. */
+/**
+ * Moldura do TJSP Quest em "modo jogo": céu colorido (cor do mundo da
+ * matéria), nuvens flutuando e tipografia arredondada.
+ */
 export function QuestShell({
   children,
   title,
   backTo = "/quest",
   right,
   className,
+  world,
+  top,
 }: {
   children: ReactNode;
   title?: string;
   backTo?: string;
   right?: ReactNode;
   className?: string;
+  /** id da matéria → cores do "mundo". Sem isso: céu roxo padrão. */
+  world?: string;
+  /** Conteúdo fixo no topo (ex.: HUD). */
+  top?: ReactNode;
 }) {
+  const theme = worldTheme(world);
   return (
     <div
       className={cn(
-        "relative -mx-4 min-h-[calc(100vh-7rem)] overflow-hidden px-4 pb-10 sm:-mx-6 sm:px-6",
+        "font-game relative -mx-4 min-h-[calc(100vh-7rem)] overflow-hidden px-4 pb-10 sm:-mx-6 sm:px-6",
         className,
       )}
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,#ff9f1c33,transparent_55%),radial-gradient(ellipse_at_bottom_right,#0077b622,transparent_50%),linear-gradient(180deg,#0b132b_0%,#1c2541_45%,#3a506b_100%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        className="pointer-events-none absolute inset-0"
         style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M0 0h20v20H0V0zm20 20h20v20H20V20z'/%3E%3C/g%3E%3C/svg%3E\")",
+          background: `radial-gradient(ellipse at 50% -10%, rgba(255,255,255,.35), transparent 55%), linear-gradient(170deg, ${theme.from} 0%, ${theme.to} 100%)`,
         }}
       />
-      <div className="relative z-10 mx-auto max-w-3xl pt-2">
-        <div className="mb-4 flex items-center gap-3">
-          <Link
-            to={backTo}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
-            aria-label="Voltar"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          {title && (
-            <h1 className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl">
-              {title}
-            </h1>
-          )}
-          <div className="ml-auto">{right}</div>
-        </div>
+      <SkyDecor />
+      <div className="relative z-10 mx-auto max-w-3xl pt-3">
+        {top && <div className="mb-4">{top}</div>}
+        {(title || backTo || right) && (
+          <div className="mb-4 flex items-center gap-3">
+            <Link
+              to={backTo}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#2b2d42] shadow-[0_4px_0_rgba(0,0,0,.2)] transition-transform active:translate-y-1"
+              aria-label="Voltar"
+            >
+              <ArrowLeft className="h-5 w-5" strokeWidth={3} />
+            </Link>
+            {title && (
+              <h1
+                className="text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-3xl"
+                style={{ textShadow: "0 3px 0 rgba(0,0,0,.18)" }}
+              >
+                {title}
+              </h1>
+            )}
+            <div className="ml-auto">{right}</div>
+          </div>
+        )}
         {children}
       </div>
     </div>
   );
 }
 
+/** Cartão branco "de jogo": cantos bem redondos e sombra sólida embaixo. */
 export function QuestCard({
   children,
   className,
@@ -68,7 +82,7 @@ export function QuestCard({
   return (
     <div
       className={cn(
-        "rounded-3xl border border-white/15 bg-white p-5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.45)] sm:p-6",
+        "rounded-[28px] bg-white p-5 text-[#2b2d42] shadow-[0_8px_0_rgba(0,0,0,.14)] sm:p-6",
         className,
       )}
     >
@@ -80,16 +94,16 @@ export function QuestCard({
 export function QuestStatPill({
   label,
   value,
-  accent = "#ff9f1c",
+  accent = "#ffbe0b",
 }: {
   label: string;
   value: string | number;
   accent?: string;
 }) {
   return (
-    <div className="rounded-2xl bg-white/10 px-3 py-2 text-center backdrop-blur">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/70">{label}</p>
-      <p className="text-lg font-black text-white" style={{ color: accent }}>
+    <div className="rounded-2xl bg-black/20 px-3 py-2 text-center backdrop-blur">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-white/80">{label}</p>
+      <p className="text-xl font-extrabold" style={{ color: accent }}>
         {value}
       </p>
     </div>

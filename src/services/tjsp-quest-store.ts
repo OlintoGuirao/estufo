@@ -42,6 +42,8 @@ function read(): QuestPlayerState {
     return {
       ...base,
       ...parsed,
+      // Contas antigas: a loja usava XP como dinheiro — saldo vira moedas.
+      coins: typeof parsed.coins === "number" ? parsed.coins : parsed.xp ?? 0,
       phases: { ...base.phases, ...parsed.phases },
       attempts: parsed.attempts ?? [],
       reviews: parsed.reviews ?? [],
@@ -182,6 +184,40 @@ export const tjspQuestStore = {
     return write(
       recordTrailStageResult(read(), phase, stageIndex, pct, stageCount, bonusXp, stagePassPct),
     );
+  },
+
+  /** Já jogou o desafio do dia hoje? */
+  dailyDone(date: string): boolean {
+    const d = read().daily;
+    return !!d && d.date === date && d.done;
+  },
+
+  /**
+   * Fecha o desafio do dia: entrega XP + moedas (uma vez por dia) e conta
+   * para a sequência de dias.
+   */
+  finishDaily(input: {
+    date: string;
+    subjectId: string;
+    correct: number;
+    total: number;
+    reward: number;
+  }): QuestPlayerState {
+    const cur = read();
+    if (cur.daily?.date === input.date && cur.daily.done) return cur;
+    let state = applyXp(cur, input.reward);
+    state = {
+      ...state,
+      daily: {
+        date: input.date,
+        subjectId: input.subjectId,
+        correct: input.correct,
+        total: input.total,
+        done: true,
+        coinsAwarded: input.reward,
+      },
+    };
+    return write(state);
   },
 
   purchase(itemId: string): { state: QuestPlayerState; ok: boolean; reason?: string } {

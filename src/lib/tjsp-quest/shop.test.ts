@@ -3,18 +3,19 @@ import { createInitialPlayerState } from "./progress";
 import { purchaseShopItem, consumeHelp, consumeLife, equipShopCosmetic } from "./shop";
 
 describe("tjsp-quest shop", () => {
-  it("compra personagem com XP e equipa", () => {
+  it("compra personagem com moedas e equipa — XP/nível não caem", () => {
     let s = createInitialPlayerState();
-    s = { ...s, xp: 1000, level: 3 };
+    s = { ...s, xp: 1000, coins: 1000, level: 3 };
     const res = purchaseShopItem(s, "char-juiz");
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    expect(res.state.xp).toBe(1000 - 600);
+    expect(res.state.coins).toBe(1000 - 600);
+    expect(res.state.xp).toBe(1000);
     expect(res.state.shop.ownedCharacterIds).toContain("char-juiz");
     expect(res.state.shop.equippedCharacterId).toBe("char-juiz");
   });
 
-  it("recusa compra sem XP", () => {
+  it("recusa compra sem moedas", () => {
     const s = createInitialPlayerState();
     const res = purchaseShopItem(s, "char-juiz");
     expect(res.ok).toBe(false);
@@ -23,7 +24,7 @@ describe("tjsp-quest shop", () => {
   });
 
   it("compra vidas e consome", () => {
-    let s = { ...createInitialPlayerState(), xp: 500 };
+    let s = { ...createInitialPlayerState(), coins: 500 };
     const bought = purchaseShopItem(s, "life-1");
     expect(bought.ok).toBe(true);
     if (!bought.ok) return;
@@ -34,7 +35,7 @@ describe("tjsp-quest shop", () => {
   });
 
   it("compra ajudas e consome eliminate", () => {
-    let s = { ...createInitialPlayerState(), xp: 500 };
+    let s = { ...createInitialPlayerState(), coins: 500 };
     const bought = purchaseShopItem(s, "help-eliminate-3");
     expect(bought.ok).toBe(true);
     if (!bought.ok) return;
@@ -45,7 +46,7 @@ describe("tjsp-quest shop", () => {
   });
 
   it("equipa skin já possuída", () => {
-    let s = { ...createInitialPlayerState(), xp: 500 };
+    let s: ReturnType<typeof createInitialPlayerState> = { ...createInitialPlayerState(), coins: 500 };
     const bought = purchaseShopItem(s, "skin-sunset");
     expect(bought.ok).toBe(true);
     if (!bought.ok) return;

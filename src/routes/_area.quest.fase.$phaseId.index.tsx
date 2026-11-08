@@ -6,7 +6,6 @@ import { QuestCard, QuestShell } from "@/components/tjsp-quest/quest-shell";
 import {
   QuestModuleHeader,
   QuestPathNode,
-  QuestPathStats,
   QuestPathTrail,
   pathOffsetX,
   type PathNodeStatus,
@@ -15,7 +14,7 @@ import {
   getQuestPhase,
   getQuestSubject,
 } from "@/data/tjsp-quest-catalog";
-import { canStartChallenge, levelProgress } from "@/lib/tjsp-quest/progress";
+import { canStartChallenge } from "@/lib/tjsp-quest/progress";
 import {
   isTrailStageCompleted,
   isTrailStageUnlocked,
@@ -26,6 +25,7 @@ import {
 } from "@/lib/tjsp-quest/phase-trail";
 import { useQuestPhaseContent } from "@/hooks/use-quest-phase-content";
 import { useTjspQuest } from "@/hooks/use-tjsp-quest";
+import { characterEmoji, GameHud, starsFromPct } from "@/components/tjsp-quest/game-ui";
 
 export const Route = createFileRoute("/_area/quest/fase/$phaseId/")({
   component: PhaseHub,
@@ -47,7 +47,6 @@ function PhaseHub() {
   const subject = phase ? getQuestSubject(phase.subjectId) : undefined;
   const prog = phase ? player.phases[phase.id] : undefined;
   const challengeOk = phase ? canStartChallenge(player, phase) : false;
-  const lp = levelProgress(player.xp);
   const usesTrail = phase ? phaseUsesInnerTrail(phase) : false;
   const stages = phase && usesTrail ? trailStageCount(phase) : 0;
   const trailProg = normalizeTrailProgress(prog);
@@ -75,9 +74,12 @@ function PhaseHub() {
   }
 
   return (
-    <QuestShell backTo={`/quest/materia/${subject.id}`} className="!pb-4">
-      <QuestPathStats streak={player.streakDays} level={lp.level} xp={player.xp} />
-
+    <QuestShell
+      backTo={`/quest/materia/${subject.id}`}
+      className="!pb-4"
+      world={subject.id}
+      top={<GameHud player={player} />}
+    >
       <div className="mb-5">
         <QuestModuleHeader
           eyebrow={subject.name}
@@ -92,7 +94,7 @@ function PhaseHub() {
               : {})}
           accent={subject.color}
         />
-        <p className="mt-2 text-center text-[11px] font-semibold text-white/70">
+        <p className="mt-2 text-center text-xs font-bold text-white/85">
           {usesTrail
             ? `${stages} trilhas · ${PHASE_TRAIL.questionsPerStage} questões + chefe cada · banco ${phase.questions.length + phase.bossQuestions.length}`
             : `Banco: ${phase.questions.length + phase.bossQuestions.length} questões`}
@@ -153,7 +155,7 @@ function PhaseHub() {
       </div>
 
       {usesTrail ? (
-        <QuestPathTrail>
+        <QuestPathTrail doneCount={trailProg.completedCount}>
           {Array.from({ length: stages }, (_, i) => {
             const unlocked = isTrailStageUnlocked(prog, i);
             const completed = isTrailStageCompleted(prog, i);
@@ -174,15 +176,19 @@ function PhaseHub() {
                 key={`trail-${i}`}
                 icon={
                   completed && !isLast ? (
-                    <Check strokeWidth={3} />
+                    <Check strokeWidth={4} />
                   ) : isLast ? (
                     <Crown strokeWidth={2.5} />
                   ) : (
-                    <span className="text-2xl font-black tabular-nums leading-none">{i + 1}</span>
+                    <span className="text-3xl font-extrabold leading-none">{i + 1}</span>
                   )
                 }
-                label={isLast ? "Chefão" : String(i + 1)}
+                label={isLast ? "Chefão final" : `Trilha ${i + 1}`}
+                boss={isLast}
                 status={status}
+                stars={starsFromPct(trailProg.bestPct[i] ?? 0)}
+                current={isCurrent}
+                avatar={characterEmoji(player)}
                 {...(unlocked
                   ? {
                       to: "/quest/fase/$phaseId/trilha/$stage",
@@ -190,11 +196,6 @@ function PhaseHub() {
                     }
                   : {})}
                 offsetX={pathOffsetX(i)}
-                className={
-                  isCurrent
-                    ? "ring-2 ring-[#ffd60a] ring-offset-2 ring-offset-[#0b1020] rounded-3xl"
-                    : undefined
-                }
               />
             );
           })}

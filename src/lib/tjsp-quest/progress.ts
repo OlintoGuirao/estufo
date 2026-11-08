@@ -39,6 +39,7 @@ export function createInitialPlayerState(): QuestPlayerState {
   }
   return {
     xp: 0,
+    coins: 0,
     level: 1,
     streakDays: 0,
     lastStudyDate: null,
@@ -90,6 +91,8 @@ export function applyXp(state: QuestPlayerState, amount: number, now = new Date(
   return {
     ...touchStreak(state, now),
     xp,
+    // Cada ponto de XP ganho também vira 1 moeda para a Loja.
+    coins: (state.coins ?? 0) + awarded,
     level: xpToLevel(xp),
     dailyXp,
     dailyXpDate: today,

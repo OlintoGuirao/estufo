@@ -63,7 +63,7 @@ function ChefaoPage() {
   }
 
   return (
-    <QuestShell title="Chefão" backTo={`/quest/fase/${phaseId}`}>
+    <QuestShell title="Chefão" backTo={`/quest/fase/${phaseId}`} world={phase.subjectId}>
       <p className="mb-3 text-center text-sm font-bold text-[#ffd60a]">
         Meta: {phase.bossPassPct}% para liberar a próxima fase
       </p>
