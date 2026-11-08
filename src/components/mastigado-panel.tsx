@@ -46,43 +46,43 @@ const SECTION_META: {
     match: /contextualiza/i,
     icon: Map,
     accent: "border-l-[#5b7c99]",
-    chip: "bg-[#e8eef5] text-[#3d5a73]",
+    chip: "bg-[#e8eef5] text-[#3d5a73] dark:bg-sky-500/15 dark:text-sky-200",
   },
   {
     match: /conceito/i,
     icon: Lightbulb,
     accent: "border-l-[#c4a35a]",
-    chip: "bg-[#f5efe0] text-[#7a5c28]",
+    chip: "bg-[#f5efe0] text-[#7a5c28] dark:bg-amber-500/15 dark:text-amber-200",
   },
   {
     match: /resumo|did[aá]tico/i,
     icon: BookOpen,
     accent: "border-l-[#1a3d32]",
-    chip: "bg-[#e8f2ee] text-[#1a3d32]",
+    chip: "bg-[#e8f2ee] dark:bg-emerald-500/15 text-[#1a3d32] dark:text-emerald-300",
   },
   {
     match: /resolu[cç][aã]o|passo a passo|exemplo/i,
     icon: CheckCircle2,
     accent: "border-l-[#1a3d32]",
-    chip: "bg-[#e8f2ee] text-[#1a3d32]",
+    chip: "bg-[#e8f2ee] dark:bg-emerald-500/15 text-[#1a3d32] dark:text-emerald-300",
   },
   {
     match: /memoriz|mnem[oô]nico|associa/i,
     icon: Sparkles,
     accent: "border-l-[#c4a35a]",
-    chip: "bg-[#f5efe0] text-[#7a5c28]",
+    chip: "bg-[#f5efe0] text-[#7a5c28] dark:bg-amber-500/15 dark:text-amber-200",
   },
   {
     match: /pegadinha|banca|induz/i,
     icon: AlertTriangle,
     accent: "border-l-[#b56a3a]",
-    chip: "bg-[#f8eee8] text-[#8a4a28]",
+    chip: "bg-[#f8eee8] text-[#8a4a28] dark:bg-orange-500/15 dark:text-orange-200",
   },
   {
     match: /funda|norma|artigo|fonte|legal/i,
     icon: Scale,
     accent: "border-l-[#1a3d32]",
-    chip: "bg-[#e8f2ee] text-[#1a3d32]",
+    chip: "bg-[#e8f2ee] dark:bg-emerald-500/15 text-[#1a3d32] dark:text-emerald-300",
   },
 ];
 
@@ -193,7 +193,7 @@ function metaFor(title: string) {
     SECTION_META.find((m) => m.match.test(title)) ?? {
       icon: BookOpen,
       accent: "border-l-[#1a3d32]/60",
-      chip: "bg-[#eef2f0] text-[#1a3d32]",
+      chip: "bg-[#eef2f0] text-[#1a3d32] dark:bg-emerald-500/10 dark:text-emerald-300",
     }
   );
 }
@@ -218,9 +218,9 @@ function McqBlock({
   badge?: string;
 }) {
   return (
-    <div className="rounded-xl border border-[#ebe7df] bg-white p-4">
+    <div className="rounded-xl border border-border bg-card p-4">
       {badge && (
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#b56a3a]">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#b56a3a] dark:text-orange-300">
           {badge}
         </p>
       )}
@@ -238,9 +238,9 @@ function McqBlock({
               onClick={() => onPick(alt.key)}
               className={cn(
                 "flex w-full items-center gap-3 rounded-full border px-3 py-2.5 text-left transition-colors",
-                "border-[#e2ddd4] bg-white hover:border-[#c9c3b8]",
-                isSelected && !locked && "border-[#1a3d32] bg-[#1a3d32]/[0.04] ring-1 ring-[#1a3d32]/30",
-                isCorrect && "border-[#1a3d32]/50 bg-[#e8f2ee]",
+                "border-border bg-card hover:border-foreground/30",
+                isSelected && !locked && "border-[#1a3d32] bg-[#1a3d32]/[0.04] ring-1 ring-[#1a3d32]/30 dark:border-emerald-400 dark:bg-emerald-400/10 dark:ring-emerald-400/40",
+                isCorrect && "border-[#1a3d32]/50 bg-[#e8f2ee] dark:bg-emerald-500/15 dark:border-emerald-400/50",
                 isWrong && "border-destructive/40 bg-destructive/5",
                 locked && !isSelected && "opacity-55",
               )}
@@ -248,7 +248,7 @@ function McqBlock({
               <span
                 className={cn(
                   "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white",
-                  isWrong ? "bg-destructive" : "bg-[#1a3d32]",
+                  isWrong ? "bg-destructive" : "bg-[#1a3d32] dark:bg-emerald-700",
                 )}
               >
                 {alt.key}
@@ -271,7 +271,7 @@ function McqBlock({
         <p
           className={cn(
             "mt-4 text-center text-sm font-medium",
-            result?.correct ? "text-[#1a3d32]" : "text-destructive",
+            result?.correct ? "text-[#1a3d32] dark:text-emerald-300" : "text-destructive",
           )}
         >
           {result?.correct ? "Acertou." : "Errou — revise o raciocínio abaixo."}
@@ -386,17 +386,17 @@ export function MastigadoPanel({
   return (
     <aside
       className={cn(
-        "mt-4 overflow-hidden rounded-2xl border border-[#c5d4cc]/80 bg-gradient-to-b from-[#f6faf7] to-[#eef5f1] shadow-sm",
+        "mt-4 overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-[#f6faf7] to-[#eef5f1] dark:from-card dark:to-card shadow-sm",
         className,
       )}
     >
-      <header className="flex items-center justify-between gap-3 border-b border-[#c5d4cc]/60 px-4 py-3">
+      <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1a3d32] text-white">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1a3d32] dark:bg-emerald-700 text-white">
             <BookOpen className="h-4 w-4" aria-hidden />
           </span>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1a3d32]">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1a3d32] dark:text-emerald-300">
               Mastigado pela IA
             </p>
             <p className="text-[11px] text-muted-foreground">
@@ -409,7 +409,7 @@ export function MastigadoPanel({
             href={fonteUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 rounded-full border border-[#c5d4cc] bg-white/80 px-2.5 py-1 text-[11px] font-medium text-[#1a3d32] transition-colors hover:bg-white"
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-card/80 px-2.5 py-1 text-[11px] font-medium text-[#1a3d32] dark:text-emerald-300 transition-colors hover:bg-white"
           >
             Fonte
             <ExternalLink className="h-3 w-3" aria-hidden />
@@ -425,7 +425,7 @@ export function MastigadoPanel({
             <section
               key={section.title}
               className={cn(
-                "rounded-xl border border-white/70 bg-white/75 p-3 pl-3 shadow-[0_1px_0_rgba(26,61,50,0.04)] border-l-4",
+                "rounded-xl border border-white/70 bg-card/75 p-3 pl-3 shadow-[0_1px_0_rgba(26,61,50,0.04)] border-l-4",
                 meta.accent,
               )}
             >
@@ -452,7 +452,7 @@ export function MastigadoPanel({
             <Button
               type="button"
               variant="outline"
-              className="h-11 flex-1 rounded-xl border-[#6b7280]/35 bg-white text-[#374151] hover:bg-[#f3f4f6]"
+              className="h-11 flex-1 rounded-xl border-[#6b7280]/35 bg-card text-[#374151] dark:text-foreground hover:bg-[#f3f4f6] dark:hover:bg-muted"
               onClick={() => setTestOpen(true)}
             >
               <CircleHelp className="h-4 w-4" />
@@ -462,7 +462,7 @@ export function MastigadoPanel({
           <Button
             type="button"
             variant="outline"
-            className="h-11 flex-1 rounded-xl border-[#1a3d32]/30 bg-white text-[#1a3d32] hover:bg-[#e8f2ee]"
+            className="h-11 flex-1 rounded-xl border-[#1a3d32]/30 bg-card dark:border-emerald-400/40 text-[#1a3d32] dark:text-emerald-300 hover:bg-[#e8f2ee] dark:hover:bg-emerald-500/15"
             disabled={similarMut.isPending}
             onClick={() => similarMut.mutate()}
           >
@@ -482,8 +482,8 @@ export function MastigadoPanel({
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-[#ebe7df] bg-[#f7f5f0] p-0 sm:rounded-2xl">
-          <DialogHeader className="border-b border-[#ebe7df] bg-white px-5 py-4">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-border bg-[#f7f5f0] dark:bg-background p-0 sm:rounded-2xl">
+          <DialogHeader className="border-b border-border bg-card px-5 py-4">
             <DialogTitle className="font-serif text-lg text-foreground">Teste ativo</DialogTitle>
             <p className="text-xs text-muted-foreground">
               Responda como na prova — a correção só aparece depois de confirmar
@@ -525,8 +525,8 @@ export function MastigadoPanel({
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-[#ebe7df] bg-[#f7f5f0] p-0 sm:rounded-2xl">
-          <DialogHeader className="border-b border-[#ebe7df] bg-white px-5 py-4">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-border bg-[#f7f5f0] dark:bg-background p-0 sm:rounded-2xl">
+          <DialogHeader className="border-b border-border bg-card px-5 py-4">
             <DialogTitle className="font-serif text-lg text-foreground">
               Questão semelhante
             </DialogTitle>

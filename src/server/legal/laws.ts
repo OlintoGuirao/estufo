@@ -113,6 +113,35 @@ export const LEGAL_SOURCES: LegalSource[] = [
     format: "pdf",
     keywords: ["normas da corregedoria", "nscgj", "corregedoria", "cartório", "ofício judicial"],
   },
+  {
+    id: "sp-lc1111",
+    name: "Lei Complementar SP nº 1.111/2010 (Plano de Cargos e Carreiras do TJSP)",
+    url: "https://www.al.sp.gov.br/repositorio/legislacao/lei.complementar/2010/compilacao-lei.complementar-1111-25.05.2010.html",
+    format: "html",
+    keywords: ["1.111", "plano de cargos", "carreira", "escrevente técnico"],
+  },
+  {
+    id: "tjsp-regimento",
+    name: "Regimento Interno do Tribunal de Justiça de São Paulo",
+    url: "https://www.tjsp.jus.br/Download/Portal/Biblioteca/Biblioteca/Legislacao/RegimentoInternoTJSP.pdf",
+    format: "pdf",
+    keywords: ["regimento interno", "órgão especial", "câmaras", "presidente do tribunal"],
+  },
+  {
+    // Página do e-SAJ (Vue): se o ingest não conseguir ler o HTML, baixe o PDF e use --only.
+    id: "tjsp-res850",
+    name: "Resolução TJSP nº 850/2021 (teletrabalho)",
+    url: "https://esaj.tjsp.jus.br/gcn-frontend-vue/legislacao/find/196070",
+    format: "html",
+    keywords: ["teletrabalho", "850/2021", "trabalho remoto"],
+  },
+  {
+    id: "tjsp-res963",
+    name: "Resolução TJSP nº 963/2025 (eproc)",
+    url: "https://esaj.tjsp.jus.br/gcn-frontend-vue/legislacao/find/229313",
+    format: "html",
+    keywords: ["eproc", "963/2025", "processo eletrônico"],
+  },
 ];
 
 /** Escolhe leis prováveis pela pergunta (para filtrar a busca). */

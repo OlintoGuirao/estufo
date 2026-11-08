@@ -98,7 +98,7 @@ export function LinedEssayEditor({
   const sheet = (
     <div
       className={cn(
-        "relative flex overflow-hidden rounded-md border bg-[#fffdf8]",
+        "relative flex overflow-hidden rounded-md border bg-[#fffdf8] dark:bg-card",
         full ? "min-h-0 flex-1" : "",
         over ? "border-destructive/60" : "border-input",
       )}
@@ -107,7 +107,7 @@ export function LinedEssayEditor({
       <div
         ref={gutterRef}
         aria-hidden
-        className="absolute inset-y-0 left-0 w-10 select-none overflow-hidden border-r border-red-300/60 bg-[#fbf6ea] text-right text-[11px] tabular-nums text-muted-foreground"
+        className="absolute inset-y-0 left-0 w-10 select-none overflow-hidden border-r border-red-300/60 bg-[#fbf6ea] dark:bg-muted/40 text-right text-[11px] tabular-nums text-muted-foreground"
         style={{ paddingTop: PAD_TOP }}
       >
         {Array.from({ length: visibleLines }, (_, i) => (
@@ -137,7 +137,7 @@ export function LinedEssayEditor({
           paddingTop: PAD_TOP,
           paddingBottom: PAD_TOP,
           // Pauta: uma linha a cada LINE_PX, acompanhando o texto ao rolar.
-          backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${LINE_PX - 1}px, rgba(29,53,87,0.16) ${LINE_PX - 1}px, rgba(29,53,87,0.16) ${LINE_PX}px)`,
+          backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${LINE_PX - 1}px, rgba(100,116,150,0.24) ${LINE_PX - 1}px, rgba(100,116,150,0.24) ${LINE_PX}px)`,
           backgroundPosition: `0 ${PAD_TOP}px`,
           backgroundAttachment: "local",
         }}

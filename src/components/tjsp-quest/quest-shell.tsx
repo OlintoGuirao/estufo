@@ -31,7 +31,8 @@ export function QuestShell({
   return (
     <div
       className={cn(
-        "font-game relative -mx-4 min-h-[calc(100vh-7rem)] overflow-hidden px-4 pb-10 sm:-mx-6 sm:px-6",
+        // light-island: o jogo mantém o visual colorido mesmo no tema escuro.
+        "light-island font-game relative -mx-4 min-h-[calc(100vh-7rem)] overflow-hidden px-4 pb-10 sm:-mx-6 sm:px-6",
         className,
       )}
     >

@@ -54,7 +54,7 @@ function VideoAulasIndex() {
         <p className="text-xs text-muted-foreground">Fonte: Bunny CDN · {q.data.subjects.length} matéria(s)</p>
       )}
       {q.data?.warning && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <div className="rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
           {q.data.warning}
         </div>
       )}

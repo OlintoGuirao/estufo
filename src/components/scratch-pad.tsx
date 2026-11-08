@@ -124,7 +124,7 @@ export function ScratchPad({ className, resetKey }: Props) {
     <div className={cn("space-y-2", className)}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-serif text-lg font-semibold text-[#1a3d32]">Bloco de rascunho</h3>
+          <h3 className="font-serif text-lg font-semibold text-[#1a3d32] dark:text-emerald-300">Bloco de rascunho</h3>
           <p className="text-[11px] text-muted-foreground">
             {tool === "eraser"
               ? "Borracha ativa · passe por cima do traço para apagar"

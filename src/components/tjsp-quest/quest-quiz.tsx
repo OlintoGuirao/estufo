@@ -1,3 +1,4 @@
+import { splitSupportText } from "@/lib/official-question-clean";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { QuestCard } from "@/components/tjsp-quest/quest-shell";
@@ -232,9 +233,7 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish, grade }: Props) 
             </span>
           </div>
 
-          <p className="whitespace-pre-line font-sans text-[17px] font-semibold leading-relaxed text-[#2b2d42]">
-            {q.statement}
-          </p>
+          <Statement key={q.id} text={q.statement} />
 
           {tipOpen && (
             <p className="q-pop mt-3 rounded-2xl bg-[#fff3c4] px-3 py-2 text-sm font-bold text-[#7a5c00]">
@@ -383,5 +382,35 @@ function HelpBubble({
         {count}
       </span>
     </button>
+  );
+}
+
+/** Enunciado: se vier com texto de apoio, mostra o texto numa caixa rolável à parte. */
+function Statement({ text }: { text: string }) {
+  const { label, passage, question } = splitSupportText(text);
+  const [open, setOpen] = useState(true);
+  return (
+    <>
+      {passage && (
+        <div className="mb-4 rounded-2xl border-2 border-[#e9e4ff] bg-[#f7f5ff]">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm font-extrabold text-[#5a189a]"
+          >
+            <span>📖 {label}</span>
+            <span className="text-xs">{open ? "Esconder ▲" : "Ler texto ▼"}</span>
+          </button>
+          {open && (
+            <div className="max-h-72 overflow-y-auto whitespace-pre-line px-4 pb-4 font-serif text-[15px] leading-relaxed text-[#2b2d42]">
+              {passage}
+            </div>
+          )}
+        </div>
+      )}
+      <p className="whitespace-pre-line font-sans text-[17px] font-semibold leading-relaxed text-[#2b2d42]">
+        {question}
+      </p>
+    </>
   );
 }

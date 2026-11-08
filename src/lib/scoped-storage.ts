@@ -23,7 +23,8 @@ const GLOBAL_EXACT = new Set([
   "estufoo.migrated-from-aprovamind.v2",
   "estufoo.storage-scoped.v1",
 ]);
-const GLOBAL_PREFIX = ["estufoo.study-claimed.", SCOPE_MARK];
+// "estufoo.theme." = tema de cada conta (estufoo.theme.<conta>); não é apagado na troca.
+const GLOBAL_PREFIX = ["estufoo.study-claimed.", "estufoo.theme.", SCOPE_MARK];
 
 function isGlobal(key: string): boolean {
   if (!key.startsWith("estufoo.")) return true;

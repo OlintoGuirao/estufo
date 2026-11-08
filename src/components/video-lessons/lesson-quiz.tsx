@@ -211,7 +211,7 @@ export function VideoLessonQuiz({ lessonId, subjectName, lessonTitle }: Props) {
               className={cn(
                 "flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
                 selected && !locked && "border-primary bg-primary/5",
-                showCorrect && "border-emerald-600 bg-emerald-50",
+                showCorrect && "border-emerald-600 bg-emerald-50 dark:bg-emerald-500/15",
                 showWrong && "border-destructive bg-destructive/5",
                 !selected && !locked && "hover:bg-muted/60",
               )}
@@ -224,12 +224,12 @@ export function VideoLessonQuiz({ lessonId, subjectName, lessonTitle }: Props) {
       </div>
 
       {locked && lastCorrect && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+        <p className="rounded-md bg-emerald-50 dark:bg-emerald-500/15 px-3 py-2 text-sm text-emerald-900 dark:text-emerald-200">
           Certo. {q.explanation}
         </p>
       )}
       {locked && lastCorrect === false && (
-        <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+        <div className="space-y-2 rounded-md border border-amber-200 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
           <p className="font-medium">Como resolver (sem gabarito)</p>
           <p>{tipLoading ? "Gerando orientação com IA..." : tip}</p>
         </div>

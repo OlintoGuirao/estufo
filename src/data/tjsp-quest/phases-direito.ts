@@ -489,7 +489,7 @@ export const direitoPhases: QuestPhase[] = [
     number: 1,
     title: "Estatuto do servidor estadual",
     objective:
-      "Dominar o Estatuto dos Funcionários Públicos Civis do Estado de São Paulo (Lei 10.261/68 — arts. do edital).",
+      "Dominar o Estatuto dos Funcionários Públicos Civis do Estado de São Paulo (Lei 10.261/68 — arts. 1º a 86; 171 a 175; 239 a 323).",
     estimatedMinutes: 12,
     conceptsCount: 4,
     unlockRequiresPhaseIds: [],

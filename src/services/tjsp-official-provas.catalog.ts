@@ -1,5 +1,6 @@
 import catalog from "@/data/tjsp-official-provas.json";
 import { localQuestionState } from "@/services/local-question-state";
+import { cleanOfficialProva } from "@/lib/official-question-clean";
 import { ApiError } from "@/services/api";
 import type { Question } from "@/types";
 
@@ -43,7 +44,11 @@ type RawProva = {
   questions: RawQ[];
 };
 
-const provas = (catalog as { provas: RawProva[] }).provas;
+// Texto de apoio reposto nas questões certas + marcas "(Nº parágrafo)" remontadas.
+const provas = (catalog as { provas: RawProva[] }).provas.map((p) => ({
+  ...p,
+  questions: cleanOfficialProva(p.questions),
+}));
 const byId = new Map<string, RawQ>();
 for (const p of provas) {
   for (const q of p.questions) byId.set(q.id, q);

@@ -315,7 +315,7 @@ export const geraisPhases: QuestPhase[] = [
     number: 2,
     title: "Equações e geometria básica",
     objective:
-      "Resolver equações do 1º/2º grau, sistemas e problemas de perímetro, área e Pitágoras.",
+      "Resolver equações do 1º/2º grau, sistemas do 1º grau e geometria: forma, perímetro, área, volume, ângulo e Pitágoras.",
     estimatedMinutes: 12,
     conceptsCount: 4,
     unlockRequiresPhaseIds: ["mat-1"],

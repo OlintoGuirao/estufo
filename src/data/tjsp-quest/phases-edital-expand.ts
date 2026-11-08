@@ -186,7 +186,7 @@ export const editalExpandPhases: QuestPhase[] = [
     number: 3,
     title: "Normas da Corregedoria (CGJ)",
     objective:
-      "Aplicar o recorte do Tomo I das Normas da CGJ (Caps. II, III e XI nas seções do edital).",
+      "Aplicar as Normas da CGJ, Tomo I: Cap. II (Seção I, Subs. I e II); Cap. III (Seções I, II, V, VI, VII; Seção VIII, Subs. I a III; Seções IX a XIX); Cap. XI (Seções I a VII).",
     unlockRequiresPhaseIds: ["legis-2"],
     sources: [
       {
@@ -241,9 +241,9 @@ export const editalExpandPhases: QuestPhase[] = [
     number: 3,
     title: "Médias, medidas e situações-problema",
     objective:
-      "Resolver médias aritmética simples/ponderada, sistemas de medidas usuais e situações-problema do edital.",
+      "Resolver médias aritmética simples/ponderada, relação entre grandezas em tabelas e gráficos, sistemas de medidas usuais e situações-problema.",
     unlockRequiresPhaseIds: ["mat-2"],
-    sources: [{ label: "Edital TJSP — Matemática itens 6, 11 e 13" }],
+    sources: [{ label: "Edital TJSP — Matemática itens 6, 10, 11 e 13" }],
   }),
   editalPhase({
     id: "mat-4",
@@ -251,7 +251,7 @@ export const editalExpandPhases: QuestPhase[] = [
     number: 4,
     title: "Chefão — Matemática integrada",
     objective:
-      "Integrar operações, MMC/MDC, proporção, %, juros, equações, gráficos, geometria e problemas.",
+      "Integrar os 13 itens: reais, MMC/MDC, razão/proporção, %, regra de três, médias, juros simples, equações, sistemas, tabelas/gráficos, medidas, geometria e situações-problema.",
     unlockRequiresPhaseIds: ["mat-3"],
     sources: [{ label: "Edital TJSP — Bloco III Matemática (itens 1–13)" }],
     estimatedMinutes: 16,

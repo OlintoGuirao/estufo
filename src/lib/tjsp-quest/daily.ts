@@ -4,6 +4,7 @@
  * de novo" até sair fácil).
  */
 import type { QuestAltKey, QuestQuestion } from "@/types/tjsp-quest";
+import { cleanOfficialProva, isCleanOfficialQuestion } from "@/lib/official-question-clean";
 
 export type WheelSlice = {
   id: string;
@@ -95,9 +96,13 @@ async function loadPool(): Promise<RawQ[]> {
     import("@/data/tjsp-official-provas.json"),
     import("@/data/tjsp-banco-400.json"),
   ]);
-  const o = (official.default as { provas: { questions: RawQ[] }[] }).provas.flatMap((p) => p.questions);
+  // Limpa a extração do PDF (texto de apoio no lugar certo, marcas de parágrafo)
+  // e deixa de fora as que continuam quebradas — no desafio a questão tem que fazer sentido sozinha.
+  const o = (official.default as { provas: { questions: RawQ[] }[] }).provas.flatMap((p) =>
+    cleanOfficialProva(p.questions),
+  );
   const b = (banco.default as { questions: RawQ[] }).questions;
-  return [...o, ...b];
+  return [...o, ...b].filter(isCleanOfficialQuestion);
 }
 
 export async function buildDailyQuestions(slice: WheelSlice, date = todayKey()): Promise<QuestQuestion[]> {

@@ -166,7 +166,7 @@ export function PracticeQuestionReview({ questions, mapId }: Props) {
                 className={cn(
                   "flex w-full items-start gap-2 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
                   selected && !showAnswer && "border-primary bg-primary/5",
-                  showAnswer && isRight && "border-emerald-600 bg-emerald-50",
+                  showAnswer && isRight && "border-emerald-600 bg-emerald-50 dark:bg-emerald-500/15",
                   showAnswer && selected && !isRight && "border-destructive bg-destructive/5",
                   !selected && !showAnswer && "hover:bg-muted/50",
                 )}
@@ -183,7 +183,7 @@ export function PracticeQuestionReview({ questions, mapId }: Props) {
             className={cn(
               "rounded-lg border px-3 py-2 text-sm",
               isCorrect
-                ? "border-emerald-600/40 bg-emerald-50 text-emerald-900"
+                ? "border-emerald-600/40 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-900 dark:text-emerald-200"
                 : "border-destructive/40 bg-destructive/5",
             )}
           >

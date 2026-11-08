@@ -13,7 +13,7 @@ export const constExtraPhases: QuestPhase[] = [
     number: 3,
     title: "Administração Pública",
     objective:
-      "Dominar Título III, Cap. VII, Seções I e II da CF (princípios e servidores da Administração Pública).",
+      "Dominar Título III, Cap. VII, Seções I e II da CF (arts. 37 a 41 — Administração Pública e servidores) e o art. 92 (órgãos do Poder Judiciário).",
     estimatedMinutes: 14,
     conceptsCount: 6,
     unlockRequiresPhaseIds: ["const-2"],

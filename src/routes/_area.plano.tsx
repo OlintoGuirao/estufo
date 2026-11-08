@@ -331,7 +331,7 @@ function TopicStudyCard({
 
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
         <div
-          className={cn("h-full rounded-full transition-all", high ? "bg-destructive" : "bg-[#1a3d32]")}
+          className={cn("h-full rounded-full transition-all", high ? "bg-destructive" : "bg-[#1a3d32] dark:bg-emerald-700")}
           style={{ width: `${Math.min(100, disp.errorPct)}%` }}
         />
       </div>

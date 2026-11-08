@@ -67,6 +67,10 @@ export type QuestPhaseAiMeta = {
   legalContext?: string;
   /** Começo dos enunciados que o aluno já tem — não repetir. */
   avoid?: string[];
+  /** Itens do edital que esta fase cobra (todos devem aparecer ao longo da trilha). */
+  editalItems?: string[];
+  /** Itens do edital em foco NESTE lote (rodízio por etapa). */
+  editalFocus?: string[];
 };
 
 export type QuestPhaseAiBatchOpts = {
@@ -124,7 +128,8 @@ export function buildQuestPhaseAiMessages(
         "PROIBIDO: perguntar o que o edital lista, quantos itens tem o programa, ou 'conforme o edital'.",
         "OBRIGATORIO nas questoes:",
         "- Interpretacao: texto de apoio curto (3–8 linhas) + pergunta sobre sentido, inferencia, coesao, ponto de vista.",
-        "- Gramatica/ortografia/concordancia/regencia/colocacao pronominal/crase/pontuacao/classes de palavras: enunciado com frase ou trecho concreto.",
+        "- Gramatica (classes de palavras, concordancia, regencia, colocacao pronominal, crase, pontuacao): enunciado com frase ou trecho concreto.",
+        "- NAO cobre ortografia nem acentuacao isoladas (fora do edital TJSP).",,
         "- Alternativas testam CONTEUDO de portugues, nao o roteiro do edital.",
         "Varie os temas e os textos de apoio — NAO repita enunciados.",
         `Pelo menos ${Math.min(4, desafioCount)} questoes de desafio devem ter texto de apoio no enunciado.`,
@@ -173,6 +178,12 @@ export function buildQuestPhaseAiMessages(
         `Materia: ${meta.subjectName}`,
         `Titulo do tema: ${meta.title}`,
         `Objetivo do tema (so referencia do assunto — NAO virar pergunta sobre edital): ${meta.objective}`,
+        meta.editalItems?.length
+          ? `CONTEUDO DO EDITAL DESTA FASE (cobre SO isto; nao saia do recorte de artigos):\n${meta.editalItems.map((t) => `- ${t}`).join("\n")}`
+          : "",
+        meta.editalFocus?.length
+          ? `FOCO DESTE LOTE (pelo menos metade das questoes sobre estes itens):\n${meta.editalFocus.map((t) => `- ${t}`).join("\n")}`
+          : "",
         "Referencias (contexto interno; nao citar como enunciado):",
         fontes || "(programa TJSP Escrevente — VUNESP)",
         "",

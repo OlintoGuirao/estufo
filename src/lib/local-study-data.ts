@@ -9,6 +9,7 @@
  */
 import { idbKv } from "@/lib/idb-kv";
 import { clearScope, moveScope } from "@/lib/scoped-storage";
+import { applyTheme } from "@/lib/theme";
 
 const OWNER_KEY = "estufoo.local-owner";
 const IDB_KEYS = ["trail-week-lessons.v3", "trail-week-lessons.meta", "approval-trail.v1"];
@@ -28,6 +29,8 @@ export function setLocalDataOwner(userId: string | null): void {
   } catch {
     /* ignore */
   }
+  // Cada conta tem o próprio tema: troca junto com a conta.
+  applyTheme();
 }
 
 async function resetInMemoryMock(): Promise<void> {

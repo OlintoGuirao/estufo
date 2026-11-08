@@ -215,7 +215,7 @@ export function QuestionPractice({
             aria-label="Questão anterior"
             disabled={idx === 0}
             onClick={() => goTo(idx - 1)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#ddd9d1] bg-white disabled:opacity-40"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card disabled:opacity-40"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -224,23 +224,23 @@ export function QuestionPractice({
             aria-label="Próxima questão"
             disabled={idx >= items.length - 1}
             onClick={() => goTo(idx + 1)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#ddd9d1] bg-white disabled:opacity-40"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card disabled:opacity-40"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[#ebe7df] bg-white p-5 shadow-sm sm:p-7">
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
         <div className="flex items-start justify-between gap-3">
-          <p className="font-serif text-sm font-semibold tracking-wide text-[#b56a3a]">
+          <p className="font-serif text-sm font-semibold tracking-wide text-[#b56a3a] dark:text-orange-300">
             QUESTÃO {idx + 1}
           </p>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="shrink-0 rounded-lg border-[#c5d4cc] text-[#1a3d32]"
+            className="shrink-0 rounded-lg border-border text-[#1a3d32] dark:text-emerald-300"
             disabled={!canMastigar || mastigadoMut.isPending}
             title={
               canMastigar
@@ -282,9 +282,9 @@ export function QuestionPractice({
                 onClick={() => setDraft(alt.key)}
                 className={cn(
                   "flex w-full items-center gap-3 rounded-full border px-3 py-2.5 text-left transition-colors",
-                  "border-[#e2ddd4] bg-white hover:border-[#c9c3b8]",
-                  isSelected && !locked && "border-[#1a3d32] bg-[#1a3d32]/[0.04] ring-1 ring-[#1a3d32]/30",
-                  isCorrect && "border-[#1a3d32]/50 bg-[#e8f2ee]",
+                  "border-border bg-card hover:border-foreground/30",
+                  isSelected && !locked && "border-[#1a3d32] bg-[#1a3d32]/[0.04] ring-1 ring-[#1a3d32]/30 dark:border-emerald-400 dark:bg-emerald-400/10 dark:ring-emerald-400/40",
+                  isCorrect && "border-[#1a3d32]/50 bg-[#e8f2ee] dark:bg-emerald-500/15 dark:border-emerald-400/50",
                   isWrong && "border-destructive/40 bg-destructive/5",
                   locked && !isSelected && "opacity-55",
                 )}
@@ -292,7 +292,7 @@ export function QuestionPractice({
                 <span
                   className={cn(
                     "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white",
-                    isWrong ? "bg-destructive" : "bg-[#1a3d32]",
+                    isWrong ? "bg-destructive" : "bg-[#1a3d32] dark:bg-emerald-700",
                   )}
                 >
                   {alt.key}
@@ -317,7 +317,7 @@ export function QuestionPractice({
             <p
               className={cn(
                 "text-center text-sm font-medium",
-                q.answered?.correct ? "text-[#1a3d32]" : "text-destructive",
+                q.answered?.correct ? "text-[#1a3d32] dark:text-emerald-300" : "text-destructive",
               )}
             >
               {q.answered?.correct ? "Acertou." : "Errou — revise o gabarito e tente de novo depois."}
@@ -333,7 +333,7 @@ export function QuestionPractice({
             ) : (
               <Button
                 type="button"
-                className="h-11 w-full rounded-xl bg-[#1a3d32] text-base text-white hover:bg-[#143229]"
+                className="h-11 w-full rounded-xl bg-[#1a3d32] dark:bg-emerald-700 text-base text-white hover:bg-[#143229] dark:hover:bg-emerald-600"
                 disabled={!allAnswered}
                 onClick={onDone}
               >
@@ -343,7 +343,7 @@ export function QuestionPractice({
           </div>
         )}
 
-        <div className="mt-8 border-t border-[#ebe7df] pt-6">
+        <div className="mt-8 border-t border-border pt-6">
           <ScratchPad resetKey={q.id} />
         </div>
       </div>

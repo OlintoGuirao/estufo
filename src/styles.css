@@ -2,7 +2,8 @@
 @source "../src";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* `.light-island` (TJ Quest) fica sempre no visual claro, mesmo no tema escuro. */
+@custom-variant dark (&:is(.dark *):not(:is(.light-island, .light-island *)));
 
 @theme inline {
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
@@ -59,7 +60,8 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-:root {
+:root,
+.dark .light-island {
   --radius: 0.75rem;
   --background: oklch(0.985 0.004 250);
   --foreground: oklch(0.22 0.05 262);
@@ -107,7 +109,7 @@
   --sidebar-ring: oklch(0.62 0.15 158);
 }
 
-.dark {
+.dark:not(.light-island) {
   --background: oklch(0.17 0.03 262);
   --foreground: oklch(0.95 0.01 255);
   --card: oklch(0.21 0.04 262);
@@ -180,4 +182,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .q-bob, .q-pop, .q-shake, .q-twinkle, .q-slide-up, .q-glow, .q-chest { animation: none !important; }
+}
+
+.dark .light-island {
+  color-scheme: light;
+  color: var(--foreground);
 }

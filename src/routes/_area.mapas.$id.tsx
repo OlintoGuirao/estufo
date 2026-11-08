@@ -408,7 +408,8 @@ function Editor() {
 
       {tab === "mapa" && (
         <div
-          className="min-h-0 flex-1 overflow-hidden rounded-xl border"
+          // light-island: o caderno do mapa mental fica sempre claro (papel), mesmo no tema escuro.
+          className="light-island min-h-0 flex-1 overflow-hidden rounded-xl border"
           style={{
             background:
               "repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(29,53,87,0.06) 28px), #fbf7ef",

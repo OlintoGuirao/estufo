@@ -38,15 +38,19 @@ async function extendPhaseBank(data: {
     const { pickVunespExamples, formatVunespExamples } = await import("@/server/vunesp-examples");
     const { retrieveLegalContext } = await import("@/server/legal/retrieve");
     const { verifyGeneratedQuestions } = await import("@/server/question-verify");
+    const { editalItemsForPhase, editalFocusForPhase } = await import("@/data/tjsp-quest/edital-topics");
 
     const base = getQuestPhase(data.phaseId);
     const subjectId = base?.subjectId ?? data.phaseId.split("-")[0] ?? "geral";
     const isPort = subjectId.startsWith("port");
+    const editalItems = editalItemsForPhase(data.phaseId).map((i) => i.text);
+    const editalFocus = editalFocusForPhase(data.phaseId, data.extend.avoid.length, 3).map((i) => i.text);
     const legal = isPort
       ? { text: "" }
-      : await retrieveLegalContext(`${data.subjectName}\n${data.title}\n${data.objective}`, {
-          limit: 8,
-        });
+      : await retrieveLegalContext(
+          `${data.subjectName}\n${data.title}\n${editalFocus.join("\n") || data.objective}`,
+          { limit: 8 },
+        );
 
     const messages = buildQuestPhaseAiMessages(
       {
@@ -59,6 +63,7 @@ async function extendPhaseBank(data: {
         examples: formatVunespExamples(pickVunespExamples(data.subjectName, data.title, 2)),
         ...(legal.text ? { legalContext: legal.text } : {}),
         avoid: data.extend.avoid,
+        ...(editalItems.length ? { editalItems, editalFocus } : {}),
       },
       { desafioCount: data.extend.desafio, bossCount: data.extend.boss, batchIndex: 2, batchTotal: 2 },
     );
@@ -170,6 +175,8 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
       const { pickVunespExamples, formatVunespExamples } = await import("@/server/vunesp-examples");
       const { retrieveLegalContext } = await import("@/server/legal/retrieve");
       const { verifyGeneratedQuestions } = await import("@/server/question-verify");
+      const { editalItemsForPhase, editalFocusForPhase } = await import("@/data/tjsp-quest/edital-topics");
+      const editalItems = editalItemsForPhase(data.phaseId).map((i) => i.text);
       const isPort = subjectId.startsWith("port");
       const legal = isPort
         ? { text: "" }
@@ -186,6 +193,7 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
         sources: data.sources,
         examples: formatVunespExamples(pickVunespExamples(data.subjectName, data.title, 2)),
         ...(legal.text ? { legalContext: legal.text } : {}),
+        ...(editalItems.length ? { editalItems } : {}),
       };
       let droppedByVerify = 0;
 
@@ -217,8 +225,13 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
         );
         if (needDesafio <= 0 && needBoss <= 0) break;
 
+        const editalFocus = editalFocusForPhase(
+          data.phaseId,
+          i * 5,
+          3,
+        ).map((x) => x.text);
         const result = await tutorChat(
-          buildQuestPhaseAiMessages(meta, {
+          buildQuestPhaseAiMessages(editalFocus.length ? { ...meta, editalFocus } : meta, {
             desafioCount: needDesafio > 0 ? needDesafio : needBoss > 0 ? 0 : 3,
             bossCount: needBoss,
             batchIndex: i + 1,

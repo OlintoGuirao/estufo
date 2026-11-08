@@ -14,6 +14,7 @@ import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { migrateLegacyStorageKeys } from "@/lib/legacy-storage-migrate";
+import { installThemeWatcher, THEME_BOOT_SCRIPT } from "@/lib/theme";
 
 if (typeof window !== "undefined") {
   migrateLegacyStorageKeys();
@@ -120,8 +121,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        {/* Aplica claro/escuro antes da 1ª pintura (sem flash branco). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <HeadContent />
       </head>
       <body>
@@ -148,6 +151,7 @@ function CloudAuthBootstrap() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useEffect(() => installThemeWatcher(), []);
 
   return (
     <QueryClientProvider client={queryClient}>
