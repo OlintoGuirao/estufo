@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { extractText, getDocumentProxy } from "unpdf";
+import { extractText, extractTextItems, getDocumentProxy } from "unpdf";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = "C:/Users/xuniim/Downloads/Provas tjsp";
@@ -38,18 +38,96 @@ function cleanPdfNoise(text) {
     .replace(/\u0000/g, " ");
 }
 
-async function pdfPages(rel) {
+/**
+ * Cadernos Vunesp são 2 colunas. extractText “puro” lê em Z (05 → 10 e
+ * pula 06–09). Aqui: detecta o vão entre colunas e lê esquerda↓ depois direita↓.
+ */
+function pageTextFromItems(items) {
+  if (!items?.length) return "";
+  const usable = items.filter((it) => String(it.str ?? "").trim());
+  if (!usable.length) return "";
+
+  const xs = usable.map((it) => it.x);
+  const xMin = Math.min(...xs);
+  const xMax = Math.max(...xs);
+  // Corte fixo no meio da página: histogramas “inteligentes” erravam o vão
+  // e misturavam colunas (05 → 10). Vunesp é bem simétrico.
+  const splitX = xMin + (xMax - xMin) * 0.48;
+  const left = usable.filter((it) => it.x < splitX);
+  const right = usable.filter((it) => it.x >= splitX);
+  const twoCol = xMax - xMin > 180 && left.length > 8 && right.length > 8;
+
+  const lineTol = 3.5;
+  const columns = twoCol ? [left, right] : [usable];
+
+  const parts = [];
+  for (const col of columns) {
+    if (!col.length) continue;
+    // PDF: y cresce para cima → ordenar y decrescente.
+    const sorted = [...col].sort((a, b) => b.y - a.y || a.x - b.x);
+    let lineY = sorted[0].y;
+    let line = [];
+    const flush = () => {
+      if (!line.length) return;
+      line.sort((a, b) => a.x - b.x);
+      // Letras soltas do PDF (L í N g U A) — só põe espaço se o vão for real.
+      let s = line[0].str;
+      for (let i = 1; i < line.length; i++) {
+        const prev = line[i - 1];
+        const cur = line[i];
+        const gap = cur.x - (prev.x + (prev.width || 0));
+        s += gap > 1.2 ? ` ${cur.str}` : cur.str;
+      }
+      parts.push(s.replace(/\s+/g, " ").trim());
+      line = [];
+    };
+    for (const it of sorted) {
+      if (Math.abs(it.y - lineY) > lineTol) {
+        flush();
+        lineY = it.y;
+      }
+      line.push(it);
+      if (it.hasEOL) {
+        flush();
+        lineY = it.y - lineTol - 1;
+      }
+    }
+    flush();
+  }
+  return parts.filter(Boolean).join("\n");
+}
+
+/**
+ * @param {string} rel
+ * @param {{ twoColumn?: boolean }} [opts] twoColumn só no caderno (gabarito é 1 coluna).
+ */
+async function pdfPages(rel, opts = {}) {
   const path = resolve(SRC, rel);
   if (!existsSync(path)) throw new Error(`Arquivo não encontrado: ${path}`);
   const bytes = new Uint8Array(readFileSync(path));
   const pdf = await getDocumentProxy(bytes);
+
+  if (opts.twoColumn) {
+    try {
+      const positioned = await extractTextItems(pdf);
+      if (positioned?.items?.length) {
+        return positioned.items.map((items, i) => {
+          const raw = pageTextFromItems(items);
+          const text = cleanPdfNoise(raw);
+          return { page: i + 1, text, charCount: text.length };
+        });
+      }
+    } catch {
+      /* cai no extractText */
+    }
+  }
+
   const r = await extractText(pdf, { mergePages: false });
-  const pages = (Array.isArray(r.text) ? r.text : [String(r.text ?? "")]).map((t, i) => ({
+  return (Array.isArray(r.text) ? r.text : [String(r.text ?? "")]).map((t, i) => ({
     page: i + 1,
     text: cleanPdfNoise(String(t ?? "")),
     charCount: String(t ?? "").length,
   }));
-  return pages;
 }
 
 function joinPages(pages) {
@@ -132,7 +210,7 @@ function fixPdfText(s) {
 function matchSubjectHeader(line) {
   const t = line.replace(/\s+/g, " ").trim();
   if (t.length < 8 || t.length > 70) return null;
-  if (/\(A\)|\(B\)|\d+\.|Leia o texto|quest/i.test(t)) return null;
+  if (/\(A\)|\(B\)|\d+\.|Leia o (?:texto|poema)|quest/i.test(t)) return null;
   // Quase só o nome da matéria (poucas palavras).
   if (t.split(/\s+/).length > 6) return null;
   const compact = t
@@ -173,11 +251,11 @@ function subjectAt(ranges, index) {
 }
 
 /**
- * "Leia o texto para responder às questões de 01 a 05." + texto até a 1ª questão do bloco.
+ * "Leia o texto/poema para responder às questões de 01 a 05." + corpo até a 1ª questão.
  */
 function extractStimuli(plain, questionStarts) {
   const re =
-    /Leia o texto para responder [^\n]*?(?:quest[oõ]es?\s+)?(?:de\s+)?(?:n[uú]meros?\s+)?(\d{1,3})\s*a\s*(\d{1,3})/gi;
+    /Leia o (?:texto|poema|charge|quadrinho|infogr[aá]fico|trecho) para responder [^\n]*?(?:quest[oõ]es?\s+)?(?:de\s+)?(?:n[uú]meros?\s+)?(\d{1,3})\s*(?:a|e)\s*(\d{1,3})/gi;
   /** @type {Map<number, string>} */
   const byQ = new Map();
   let m;
@@ -196,8 +274,10 @@ function extractStimuli(plain, questionStarts) {
       .replace(/confidential[^\n]*/gi, "")
       .trim();
     text = fixPdfText(text);
-    if (text.length < 40) continue;
-    const block = `Texto de apoio (questões ${String(from).padStart(2, "0")} a ${String(to).padStart(2, "0")}):\n\n${text}`;
+    // Poemas curtos (~80–200 chars) também entram.
+    if (text.length < 25) continue;
+    const kind = /poema/i.test(m[0]) ? "Poema" : "Texto";
+    const block = `${kind} de apoio (questões ${String(from).padStart(2, "0")} a ${String(to).padStart(2, "0")}):\n\n${text}`;
     for (let n = from; n <= to; n++) byQ.set(n, block);
   }
   return byQ;
@@ -205,7 +285,7 @@ function extractStimuli(plain, questionStarts) {
 
 /** Corta lixo depois da última alternativa (próximo texto / matéria / rascunho / redação). */
 const NEXT_BLOCK_RE =
-  /\n\s*Leia o texto para responder|\n\s*L[IÍ]Ng?UA\s+PORTUg?UESA|\n\s*DIREITO\s+(?:PENAL|PROCESSUAL|CONSTITUCIONAL|ADMINISTRATIVO)|\n\s*ATUALIDADES|\n\s*MATEM[AÁ]TICA|\n\s*INFORM[AÁ]TICA|\n\s*RACI[OÓ]C[IÍ]NIO|\n\s*LEGISLA|\n\s*R\s*A\s*S\s*C\s*U\s*N\s*H\s*O|\n\s*REDA[CÇ][AÃ]O\b/i;
+  /\n\s*Leia o (?:texto|poema|charge|quadrinho|infogr[aá]fico|trecho) para responder|\n\s*L[IÍ]Ng?UA\s+PORTUg?UESA|\n\s*DIREITO\s+(?:PENAL|PROCESSUAL|CONSTITUCIONAL|ADMINISTRATIVO)|\n\s*ATUALIDADES|\n\s*MATEM[AÁ]TICA|\n\s*INFORM[AÁ]TICA|\n\s*RACI[OÓ]C[IÍ]NIO|\n\s*LEGISLA|\n\s*R\s*A\s*S\s*C\s*U\s*N\s*H\s*O|\n\s*REDA[CÇ][AÃ]O\b/i;
 
 function trimBodyToQuestion(body, currentNumber) {
   let cut = body.length;
@@ -380,8 +460,8 @@ const SPECS = [
 const provas = [];
 for (const spec of SPECS) {
   console.log("\n==", spec.year, "==");
-  const examPages = await pdfPages(spec.exam);
-  const gabPages = await pdfPages(spec.gab);
+  const examPages = await pdfPages(spec.exam, { twoColumn: true });
+  const gabPages = await pdfPages(spec.gab, { twoColumn: false });
   let parsedGab = parseGabarito(gabPages, spec.gabVersion ?? 1);
   let gabarito = parsedGab.answers;
   let annulled = parsedGab.annulled;
