@@ -167,6 +167,22 @@ async function ensureRemoteHydrated() {
 
 const CLOUD_USER_KEY = "estufoo.cloud-user";
 
+/** Troca de conta no mesmo aparelho: limpa da memória os dados do aluno anterior. */
+export function resetMockStudyData(): void {
+  load();
+  db.sessions = [];
+  db.exams = [];
+  db.examResults = {};
+  db.mindMaps = [];
+  db.reviews = [];
+  db.errorNotes = [];
+  db.notifications = [];
+  db.questions = (db.questions ?? []).map((q) => ({ ...q, answered: null }));
+  remoteHydrated = false;
+  remoteHydratePromise = null;
+  persistLocal();
+}
+
 /** Espelha o usuário Supabase no mock local (progresso / simulados no browser). */
 export function syncCloudUserIntoMock(user: User): void {
   load();

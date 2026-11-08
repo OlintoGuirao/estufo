@@ -32,13 +32,15 @@ export function useAuthActions() {
     markAuthReady();
     qc.setQueryData(["me"], r.user);
     if (authService.isCloud()) {
+      // A troca de conta (gaveta + limpeza) é feita em syncAccountStudyData,
+      // antes de qualquer envio ao banco.
       const { syncCloudUserIntoMock } = await import("@/services/mock/handlers");
       syncCloudUserIntoMock(r.user);
       const { setStudyOwnerUserId } = await import("@/lib/study-owner");
       setStudyOwnerUserId(r.user.id);
       const { syncAccountStudyData } = await import("@/lib/study-account-sync");
       try {
-        await syncAccountStudyData(r.user.id);
+        await syncAccountStudyData(r.user.id, { willNavigate: true });
       } catch (err) {
         console.warn("[auth] sync estudo → conta falhou", err);
       }
@@ -64,7 +66,23 @@ export function useAuthActions() {
     },
   });
   const logout = () => {
-    void authService.logoutCloud().finally(() => {
+    // Antes de sair: garante que o que só estava no aparelho subiu para o banco.
+    void import("@/lib/study-account-sync")
+      .then(({ flushAllStudyDataToCloud }) => flushAllStudyDataToCloud())
+      .catch(() => undefined)
+      .finally(() => doLogout());
+  };
+  const doLogout = () => {
+    void authService.logoutCloud().finally(async () => {
+      // Sair = limpar o aparelho: o próximo a entrar não vê os dados desta conta.
+      // (Tudo continua salvo no banco e volta quando esta conta entrar de novo.)
+      try {
+        const { wipeLocalStudyData, setLocalDataOwner } = await import("@/lib/local-study-data");
+        await wipeLocalStudyData();
+        setLocalDataOwner(null);
+      } catch (err) {
+        console.warn("[auth] limpar dados locais falhou", err);
+      }
       tokenStore.clear();
       resetAuthReadyGate();
       try {

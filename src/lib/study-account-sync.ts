@@ -58,17 +58,41 @@ async function runLimited(tasks: (() => Promise<unknown>)[], limit = 4): Promise
  * último envio — antes cada carregamento do Painel esperava dezenas de
  * requisições em fila (trilha inteira + cada aula + cada progresso).
  */
-export async function syncAccountStudyData(userId: string): Promise<void> {
+export async function syncAccountStudyData(
+  userId: string,
+  opts?: {
+    /** O chamador já vai recarregar/navegar a página (ex.: login). */
+    willNavigate?: boolean;
+  },
+): Promise<void> {
   if (!userId || !isSupabaseConfigured || typeof window === "undefined") return;
   if (inflight && lastUserId === userId) return inflight;
 
   lastUserId = userId;
   inflight = (async () => {
     setStudyOwnerUserId(userId);
-    try {
-      await claimDeviceStudyDataToAccount(userId);
-    } catch (err) {
-      console.warn("[study-sync] claim falhou", err);
+
+    // O cache do aparelho é de outra conta? Apaga antes de qualquer envio —
+    // senão os dados da conta antiga iam parar na conta nova.
+    const { ensureLocalDataBelongsTo } = await import("@/lib/local-study-data");
+    const own = await ensureLocalDataBelongsTo(userId);
+    if (own.switched) {
+      writeSyncMark(userId, 0);
+      if (!opts?.willNavigate) {
+        // Recarrega para limpar o que ainda está na memória das telas.
+        window.location.reload();
+        return;
+      }
+      return; // nada local para enviar: a conta nova carrega do banco
+    }
+
+    // Só "adota" os dados criados sem login neste aparelho no 1º login dele.
+    if (own.firstOwner) {
+      try {
+        await claimDeviceStudyDataToAccount(userId);
+      } catch (err) {
+        console.warn("[study-sync] claim falhou", err);
+      }
     }
     const last = readSyncMark(userId);
     const startedAt = Date.now();
@@ -96,6 +120,25 @@ export async function waitForAccountStudySync(): Promise<void> {
     return;
   }
   if (inflight) await inflight;
+}
+
+/**
+ * Envia ao banco tudo que está só no aparelho (antes de sair da conta).
+ * Espera no máximo `timeoutMs` para não travar o botão Sair.
+ */
+export async function flushAllStudyDataToCloud(timeoutMs = 8_000): Promise<void> {
+  const uid = getStudyOwnerUserId();
+  if (!uid || !isSupabaseConfigured || typeof window === "undefined") return;
+  const work = (async () => {
+    await uploadLocalStudyPayloads(0).catch(() => undefined);
+    try {
+      const { redacaoStore } = await import("@/services/redacao-store");
+      await redacaoStore.syncDraftNow();
+    } catch {
+      /* ignore */
+    }
+  })();
+  await Promise.race([work, new Promise((r) => setTimeout(r, timeoutMs))]);
 }
 
 /** Para quem precisa do upload completo (ex.: trocar de aparelho manualmente). */

@@ -3,7 +3,14 @@
  * As aulas da trilha são grandes; no localStorage a gravação estourava a cota
  * em silêncio, a aula sumia ao recarregar e o app gerava tudo de novo.
  */
+import { currentScope } from "@/lib/scoped-storage";
+
 const DB_NAME = "estufoo";
+
+/** Cada conta tem suas próprias chaves (mesma regra do localStorage). */
+function scoped(key: string, scope = currentScope()): string {
+  return `@${scope}:${key}`;
+}
 const STORE = "kv";
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -44,13 +51,28 @@ export const idbKv = {
   available(): boolean {
     return typeof indexedDB !== "undefined";
   },
-  get<T>(key: string): Promise<T | undefined> {
-    return tx<T | undefined>("readonly", (s) => s.get(key) as IDBRequest<T | undefined>);
+  async get<T>(key: string): Promise<T | undefined> {
+    const k = scoped(key);
+    const hit = await tx<T | undefined>("readonly", (s) => s.get(k) as IDBRequest<T | undefined>);
+    if (hit !== undefined) return hit;
+    // Migração: chave antiga sem conta → gaveta da conta atual.
+    const legacy = await tx<T | undefined>("readonly", (s) => s.get(key) as IDBRequest<T | undefined>);
+    if (legacy !== undefined) {
+      await tx("readwrite", (s) => s.put(legacy, k));
+      await tx("readwrite", (s) => s.delete(key));
+    }
+    return legacy;
   },
   set(key: string, value: unknown): Promise<void> {
-    return tx("readwrite", (s) => s.put(value, key)).then(() => undefined);
+    return tx("readwrite", (s) => s.put(value, scoped(key))).then(() => undefined);
   },
   del(key: string): Promise<void> {
-    return tx("readwrite", (s) => s.delete(key)).then(() => undefined);
+    return tx("readwrite", (s) => s.delete(scoped(key))).then(() => undefined);
+  },
+  /** Apaga as chaves de uma conta específica. */
+  delForScope(scope: string, keys: string[]): Promise<void> {
+    return Promise.all(
+      keys.map((k) => tx("readwrite", (s) => s.delete(scoped(k, scope))).catch(() => undefined)),
+    ).then(() => undefined);
   },
 };

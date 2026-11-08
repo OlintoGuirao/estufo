@@ -89,9 +89,9 @@ export function getStudyOwnerId(): string {
 
 /** Conta + aparelho atual — para hidratar e depois reivindicar dados antigos. */
 export function studyOwnerQueryIds(): string[] {
-  const owner = getStudyOwnerId();
-  const device = getDeviceId();
-  return owner === device ? [device] : [owner, device];
+  // Logado: só a conta. Ler também o id do aparelho misturava dados de outra
+  // pessoa que usou este celular sem login (o 1º login já "adota" esses dados).
+  return [getStudyOwnerId()];
 }
 
 function claimFlagKey(userId: string): string {
