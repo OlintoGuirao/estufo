@@ -108,13 +108,14 @@ export const tjspOfficialProvasCatalog = {
   get(id: string): { id: string; title: string; year: number; timeLimitMin: number; questions: Question[]; raw: RawQ[] } {
     const p = provas.find((x) => x.id === id);
     if (!p) throw new ApiError(`Prova oficial ${id} não encontrada.`, 404);
+    const ordered = [...p.questions].sort((a, b) => a.number - b.number);
     return {
       id: p.id,
       title: p.title,
       year: p.year,
       timeLimitMin: p.timeLimitMin,
-      questions: p.questions.map(toQuestion),
-      raw: p.questions,
+      questions: ordered.map(toQuestion),
+      raw: ordered,
     };
   },
 

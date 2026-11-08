@@ -33,6 +33,8 @@ function cleanPdfNoise(text) {
     .replace(/Confidencial até o momento da aplicação\.?/gi, " ")
     .replace(/\d*tjsp\d+\s*\/\s*\S+/gi, " ")
     .replace(/\/?\s*001-escrevente[^\n]*/gi, " ")
+    // Rodapé "RASCUNHO" colado no número da questão: "hO93. Alguns…"
+    .replace(/R\s*A\s*S\s*c?\s*U\s*N\s*h\s*O(?=\d{1,3}\.\s)/gi, "\n")
     .replace(/\u0000/g, " ");
 }
 
@@ -321,6 +323,8 @@ function parseQuestions(pages, year, gabarito, annulled = new Set()) {
     });
   }
 
+  // PDF às vezes extrai fora de ordem; o simulado precisa 1…N.
+  questions.sort((a, b) => a.number - b.number);
   return { questions, warnings };
 }
 
@@ -343,12 +347,16 @@ const SPECS = [
   },
   {
     year: 2023,
-    title: "TJSP Escrevente 2023 — Prova objetiva",
+    title: "TJSP Escrevente 2023 — Capital (prova objetiva)",
     exam: "2023/escrevente_tecnico_judiciario2023.pdf",
     gab: "2023/gabarito2023.pdf",
-    /** Caderno público + gabarito definitivo Vunesp (versão 1; Q47/53/66/69 anuladas). */
+    /**
+     * Caderno TJSP2201 (Capital) + gabarito definitivo da Capital.
+     * Versão 1: Q1 correta = B no caderno público (texto “se espalhou…”).
+     * Q47/53/66/69 anuladas. NÃO usar caderno TJSP2301 (Grande SP) com este gabarito.
+     */
     gabVersion: 1,
-    expected: 94,
+    expected: 96,
     timeLimitMin: 300,
   },
   {
