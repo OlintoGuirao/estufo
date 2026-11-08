@@ -28,6 +28,7 @@ import { trailWeekLessonStore } from "@/services/trail-week-lesson-store";
 import { trailProgressService } from "@/services/trail-progress.service";
 import { EXAM_IMPORT_MAX_BYTES } from "@/lib/exam-import/validate";
 import { cn } from "@/lib/utils";
+import { ProfessorText } from "@/components/professor-text";
 import type {
   TrailPhaseStatus,
   TrailSubject,
@@ -195,12 +196,26 @@ function TrilhaPage() {
       setBatchIndex(i + 1);
       setBatchCurrent(subject.name);
       try {
-        const next = await approvalTrailService.generateSubjectMaterial(subject.id);
+        // Cronograma só no fim (antes era remontado e reenviado a cada matéria).
+        const next = await approvalTrailService.generateSubjectMaterial(subject.id, {
+          skipSchedule: true,
+        });
         ok += 1;
         setBatchDone(ok);
         qc.setQueryData(["approval-trail"], next);
       } catch (e) {
         errors.push({ name: subject.name, message: errMsg(e) });
+        setBatchErrors([...errors]);
+      }
+    }
+
+    if (ok > 0) {
+      setBatchCurrent("Montando o cronograma…");
+      try {
+        const scheduled = await approvalTrailService.rebuildScheduleFromMaterial();
+        qc.setQueryData(["approval-trail"], scheduled);
+      } catch (e) {
+        errors.push({ name: "Cronograma", message: errMsg(e) });
         setBatchErrors([...errors]);
       }
     }
@@ -832,9 +847,7 @@ function TopicItem({
             </p>
           )}
           {t.explanation ? (
-            <p className="whitespace-pre-wrap leading-relaxed text-foreground/90">
-              {t.explanation}
-            </p>
+            <ProfessorText text={t.explanation} className="text-foreground/90" />
           ) : (
             <p className="text-xs text-muted-foreground">
               {t.custom

@@ -19,26 +19,89 @@ function explanationCount(trail: ApprovalTrail): number {
   return n;
 }
 
+let loadedFromStorage = false;
+const IDB_KEY = "approval-trail.v1";
+
+/**
+ * Lê a trilha. Antes fazia JSON.parse de vários MB do localStorage a CADA
+ * chamada (dezenas por tela) e, se a gravação tivesse estourado a cota,
+ * devolvia a versão ANTIGA — o material gerado no lote anterior "sumia".
+ * Agora a memória é a fonte da verdade depois da primeira leitura.
+ */
 function read(): ApprovalTrail | null {
-  if (typeof window === "undefined") return memory;
+  if (typeof window === "undefined" || loadedFromStorage) return memory;
+  loadedFromStorage = true;
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return memory;
-    return JSON.parse(raw) as ApprovalTrail;
+    if (raw) memory = JSON.parse(raw) as ApprovalTrail;
   } catch {
-    return memory;
+    /* mantém memória */
   }
+  // Se o localStorage encheu, a cópia local está no IndexedDB.
+  void import("@/lib/idb-kv").then(async ({ idbKv }) => {
+    if (!idbKv.available()) return;
+    try {
+      const backup = await idbKv.get<ApprovalTrail>(IDB_KEY);
+      // Só existe cópia no IndexedDB quando o localStorage estava cheio.
+      if (backup && (!memory || backup.updatedAt > memory.updatedAt)) memory = backup;
+    } catch {
+      /* ignore */
+    }
+  });
+  return memory;
+}
+
+if (typeof window !== "undefined") {
+  // Outra aba mudou a trilha: relê na próxima chamada.
+  window.addEventListener("storage", (e) => {
+    if (e.key === KEY) loadedFromStorage = false;
+  });
+}
+
+let diskTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Grava no aparelho. JSON de vários MB trava celular fraco — então é feito
+ * fora do caminho do clique (agrupado) e só UMA cópia: localStorage, ou
+ * IndexedDB se o localStorage estiver cheio. A cópia oficial é a do banco. */
+function flushToDisk(): void {
+  if (diskTimer) clearTimeout(diskTimer);
+  diskTimer = null;
+  if (typeof window === "undefined") return;
+  const trail = memory;
+  try {
+    if (!trail) localStorage.removeItem(KEY);
+    else localStorage.setItem(KEY, JSON.stringify(trail));
+    void import("@/lib/idb-kv").then(({ idbKv }) =>
+      idbKv.available() ? idbKv.del(IDB_KEY).catch(() => undefined) : undefined,
+    );
+  } catch {
+    // localStorage cheio: guarda no IndexedDB e libera o localStorage.
+    try {
+      localStorage.removeItem(KEY);
+    } catch {
+      /* ignore */
+    }
+    void import("@/lib/idb-kv").then(({ idbKv }) => {
+      if (!idbKv.available() || !trail) return;
+      idbKv.set(IDB_KEY, trail).catch(() => undefined);
+    });
+  }
+}
+
+if (typeof window !== "undefined") {
+  // Garante a gravação se o aluno fechar/trocar de app logo depois de salvar.
+  window.addEventListener("pagehide", flushToDisk);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && diskTimer) flushToDisk();
+  });
 }
 
 function write(trail: ApprovalTrail | null): void {
   memory = trail;
+  loadedFromStorage = true;
   if (typeof window === "undefined") return;
-  try {
-    if (!trail) localStorage.removeItem(KEY);
-    else localStorage.setItem(KEY, JSON.stringify(trail));
-  } catch {
-    /* quota */
-  }
+  if (diskTimer) clearTimeout(diskTimer);
+  diskTimer = setTimeout(flushToDisk, 800);
 }
 
 export const approvalTrailStore = {
@@ -198,6 +261,22 @@ export const approvalTrailStore = {
       /* ignore */
     }
     const local = read();
+    // Atalho: se o banco tem a MESMA trilha com a mesma data, não baixa o plano
+    // inteiro (vários MB) nem sobe de novo — era o que deixava a Agenda lenta.
+    if (local) {
+      try {
+        const meta = await approvalTrailDb.loadLatestTrailMeta();
+        if (
+          meta &&
+          meta.id === local.id &&
+          Math.abs(new Date(meta.updatedAt).getTime() - new Date(local.updatedAt).getTime()) < 1000
+        ) {
+          return local;
+        }
+      } catch {
+        /* segue o caminho completo */
+      }
+    }
     try {
       const remote = await approvalTrailDb.loadLatestTrail();
       if (remote) {
@@ -212,18 +291,15 @@ export const approvalTrailStore = {
           write(remote);
           return remote;
         }
-        await syncApprovalTrailNow(local);
+        // Local mais novo: sobe em segundo plano (não trava a tela).
+        syncApprovalTrail(local);
         return local;
       }
     } catch (err) {
       console.warn("[approval-trail] hydrate falhou", err);
     }
     if (local) {
-      try {
-        await syncApprovalTrailNow(local);
-      } catch {
-        syncApprovalTrail(local);
-      }
+      syncApprovalTrail(local);
       return local;
     }
     return null;

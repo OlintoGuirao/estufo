@@ -140,6 +140,21 @@ export const approvalTrailDb = {
     if (error) throw error;
   },
 
+  /** Só id + data (sem o plano, que pode ter vários MB). */
+  async loadLatestTrailMeta(): Promise<{ id: string; updatedAt: string } | null> {
+    if (!isSupabaseConfigured) return null;
+    const sb = requireSupabase();
+    const { data, error } = await sb
+      .from("approval_trails")
+      .select("id, updated_at")
+      .in("device_id", studyOwnerQueryIds())
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    const row = data?.[0] as { id?: string; updated_at?: string } | undefined;
+    return row?.id && row.updated_at ? { id: row.id, updatedAt: row.updated_at } : null;
+  },
+
   async loadLatestTrail(): Promise<ApprovalTrail | null> {
     if (!isSupabaseConfigured) return null;
     const sb = requireSupabase();
@@ -190,9 +205,10 @@ export const approvalTrailDb = {
     const { data, error } = await sb
       .from("trail_week_lessons")
       .select("lesson, updated_at")
+      // trail_id + week já é a chave da aula. Filtrar por device_id escondia a aula
+      // gerada antes do login (ou em outro aparelho) e o app gerava de novo.
       .eq("trail_id", trailId)
       .eq("week", week)
-      .in("device_id", studyOwnerQueryIds())
       .order("updated_at", { ascending: false })
       .limit(1);
     if (error) throw error;
@@ -282,16 +298,36 @@ export const approvalTrailDb = {
   },
 };
 
+let pendingTrail: ApprovalTrail | null = null;
+let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Envia a trilha ao banco com atraso de 2 s, juntando várias gravações em uma.
+ * A trilha tem vários MB; ao gerar material, cada lote disparava um upload
+ * completo — dezenas de envios pesados competindo com as chamadas à IA.
+ */
 export function syncApprovalTrail(trail: ApprovalTrail | null): void {
   if (!trail || !isSupabaseConfigured) return;
-  void approvalTrailDb.upsertTrail(trail).catch((err) => {
-    console.warn("[approval-trail-db] falha ao sync trilha", err);
-  });
+  pendingTrail = trail;
+  if (pendingTimer) clearTimeout(pendingTimer);
+  pendingTimer = setTimeout(() => {
+    const t = pendingTrail;
+    pendingTrail = null;
+    pendingTimer = null;
+    if (!t) return;
+    void approvalTrailDb.upsertTrail(t).catch((err) => {
+      console.warn("[approval-trail-db] falha ao sync trilha", err);
+    });
+  }, 2_000);
 }
 
 /** Aguarda persistência do plano (material gerado) no banco. */
 export async function syncApprovalTrailNow(trail: ApprovalTrail | null): Promise<void> {
   if (!trail || !isSupabaseConfigured) return;
+  // O envio imediato substitui qualquer envio atrasado pendente.
+  if (pendingTimer) clearTimeout(pendingTimer);
+  pendingTimer = null;
+  pendingTrail = null;
   await approvalTrailDb.upsertTrail(trail);
 }
 

@@ -29,9 +29,11 @@ import {
   tjspOfficialProvasCatalog,
 } from "@/services/tjsp-official-provas.catalog";
 import { DEMO_AUTH } from "./demo-auth";
+import { deleteMindMapRemote, pullMindMaps, pushMindMap } from "@/services/mind-pack-sync";
 
 const STORAGE = "estufoo.mockdb";
-const delay = () => new Promise((r) => setTimeout(r, 250 + Math.random() * 250));
+// Era 250–500 ms de espera artificial em TODA chamada (herança do mock). Removido.
+const delay = () => Promise.resolve();
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 let loaded = false;
@@ -246,7 +248,32 @@ export async function mockRequest(method: string, fullPath: string, body: any, t
   const [path, query = ""] = fullPath.split("?");
   const q = Object.fromEntries(new URLSearchParams(query));
   const seg = path.split("/").filter(Boolean);
+
+  // Mapas mentais: traz do banco o que foi feito em outro aparelho.
+  if (seg[0] === "mind-maps" && method === "GET") {
+    const changed = await Promise.race([
+      pullMindMaps(db, { force: !seg[1] }),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 4000)),
+    ]);
+    if (changed) persistLocal();
+  }
+
   const res = route(method, seg, q, body, token);
+
+  // Qualquer mudança em mapa mental vai para o banco.
+  if (seg[0] === "mind-maps" && method !== "GET") {
+    const id = seg[1] ?? (res && typeof res === "object" ? (res as { id?: string }).id : undefined);
+    if (method === "DELETE" && seg[1] && !seg[2]) {
+      deleteMindMapRemote(seg[1]);
+    } else if (id) {
+      const m = db.mindMaps.find((x) => x.id === id);
+      if (m) {
+        m.updatedAt = new Date().toISOString();
+        pushMindMap(m);
+      }
+    }
+  }
+
   persist();
   return res;
 }

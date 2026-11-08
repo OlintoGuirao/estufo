@@ -1,3 +1,4 @@
+import { balanceCorrectKeys } from "@/lib/quiz/balance-keys";
 import type { StudyPackAi } from "@/lib/tutor/study-pack";
 
 /** Questão objetiva gerada pela IA (treino — não é item oficial de banca). */
@@ -39,7 +40,8 @@ export function buildAiQuestionsMessages(input: {
         "explanation: diga por que a correta e por que 1–2 erradas falham (sem inventar).",
         "",
         "Responda SOMENTE JSON:",
-        '{"questions":[{"statement":"...","alternatives":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."},{"key":"E","text":"..."}],"correctKey":"B","explanation":"...","topic":"Art. 293","nodeId":"a293"}]}',
+        '{"questions":[{"statement":"...","alternatives":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."},{"key":"E","text":"..."}],"correctKey":"D","explanation":"...","topic":"Art. 293","nodeId":"a293"}]}',
+        "Varie a posicao da correta entre A, B, C, D e E (nao concentre em A/B).",
       ].join("\n"),
     },
     {
@@ -112,7 +114,8 @@ export function parseAiQuestionsJson(raw: string): StudyPackQuestion[] {
     });
   }
 
-  return out.slice(0, 16);
+  // A IA vicia a correta em A/B — redistribui entre A–E.
+  return balanceCorrectKeys(out.slice(0, 16));
 }
 
 export function mockAiQuestions(pack: StudyPackAi): StudyPackQuestion[] {

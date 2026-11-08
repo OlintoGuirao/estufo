@@ -1,22 +1,83 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, RotateCcw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState, Panel } from "@/components/common";
 import type { MindPracticeQuestion } from "@/types";
 import { cn } from "@/lib/utils";
+import { balanceCorrectKeys } from "@/lib/quiz/balance-keys";
+
+/** Onde o aluno parou (por mapa). Pequeno: fica no aparelho. */
+type SavedProgress = {
+  idx: number;
+  correctCount: number;
+  done: boolean;
+  /** Resposta já confirmada da questão atual (para reabrir mostrando o gabarito). */
+  lockedChoice: string | null;
+  signature: string;
+};
+
+const KEY = "estufoo.mind-practice.v1";
+
+function loadProgress(mapId: string, signature: string): SavedProgress | null {
+  try {
+    const all = JSON.parse(localStorage.getItem(KEY) || "{}") as Record<string, SavedProgress>;
+    const p = all[mapId];
+    return p && p.signature === signature ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveProgress(mapId: string, p: SavedProgress | null) {
+  try {
+    const all = JSON.parse(localStorage.getItem(KEY) || "{}") as Record<string, SavedProgress>;
+    if (p) all[mapId] = p;
+    else delete all[mapId];
+    localStorage.setItem(KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
 
 type Props = {
   questions: MindPracticeQuestion[];
+  /** Id do mapa — guarda em qual questão o aluno parou. */
+  mapId?: string;
 };
 
-export function PracticeQuestionReview({ questions }: Props) {
-  const list = useMemo(() => questions, [questions]);
-  const [idx, setIdx] = useState(0);
-  const [draft, setDraft] = useState<string | null>(null);
-  const [locked, setLocked] = useState(false);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [done, setDone] = useState(false);
+export function PracticeQuestionReview({ questions, mapId }: Props) {
+  // Mesmas questões ⇒ mesma assinatura (se o mapa for regerado, recomeça do zero).
+  const signature = useMemo(
+    () => `${questions.length}:${questions.map((q) => q.statement.slice(0, 40)).join("|")}`,
+    [questions],
+  );
+  // Redistribui a letra correta entre A–E (questões antigas vinham quase sempre em A/B).
+  // Semente fixa por mapa: a questão não muda de letra ao voltar.
+  const list = useMemo(
+    () => balanceCorrectKeys(questions, `${mapId ?? ""}:${signature}`),
+    [questions, mapId, signature],
+  );
+  const saved = useMemo(
+    () => (mapId && typeof window !== "undefined" ? loadProgress(mapId, signature) : null),
+    [mapId, signature],
+  );
+  const [idx, setIdx] = useState(() => Math.min(saved?.idx ?? 0, Math.max(0, questions.length - 1)));
+  const [draft, setDraft] = useState<string | null>(saved?.lockedChoice ?? null);
+  const [locked, setLocked] = useState(!!saved?.lockedChoice);
+  const [correctCount, setCorrectCount] = useState(saved?.correctCount ?? 0);
+  const [done, setDone] = useState(saved?.done ?? false);
+
+  useEffect(() => {
+    if (!mapId) return;
+    saveProgress(mapId, {
+      idx,
+      correctCount,
+      done,
+      lockedChoice: locked ? draft : null,
+      signature,
+    });
+  }, [mapId, idx, correctCount, done, locked, draft, signature]);
 
   const q = list[idx];
   const total = list.length;

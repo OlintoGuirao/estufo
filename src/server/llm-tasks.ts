@@ -51,7 +51,7 @@ export const TASK_PROFILES: Record<TutorTask, TaskProfile> = {
   "study-pack": { tier: "smart", temperature: 0.3, json: true, thinking: false },
   flashcards: { tier: "fast", temperature: 0.3, json: true, thinking: false },
   "mind-map": { tier: "fast", temperature: 0.3, json: true, thinking: false },
-  material: { tier: "smart", temperature: 0.3, json: true, thinking: false },
+  material: { tier: "smart", temperature: 0.5, json: true, thinking: false },
   "redacao-temas": {
     tier: "smart",
     temperature: 0.75,

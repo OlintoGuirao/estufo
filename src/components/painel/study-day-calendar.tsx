@@ -1,12 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState, type ComponentProps } from "react";
 import { FileText, PenLine, Swords } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/common";
 import { approvalTrailService } from "@/services/approval-trail.service";
 import { trailProgressService } from "@/services/trail-progress.service";
+import { approvalTrailStore } from "@/services/approval-trail-store";
+import { trailProgressStore } from "@/services/trail-progress-store";
 import { studyScheduleStore } from "@/services/study-schedule-store";
 import {
   buildMonthDayInfos,
@@ -39,21 +41,63 @@ function infosToModifierDates(infos: CalendarDayInfo[], tone: DayTone): Date[] {
   return infos.filter((i) => i.tone === tone).map((i) => i.date);
 }
 
+/** byKey via contexto: o DayButton fica estável (antes era recriado a cada render e o calendário inteiro remontava). */
+const DayInfoContext = createContext<Map<string, CalendarDayInfo>>(new Map());
+
+type DayButtonProps = ComponentProps<"button"> & {
+  day: { date: Date };
+  modifiers?: unknown;
+};
+
+function CalendarDayButton({ day, className, modifiers: _modifiers, ...props }: DayButtonProps) {
+  const byKey = useContext(DayInfoContext);
+  const info = byKey.get(dateKey(day.date));
+  const tone = info?.tone ?? "idle";
+  return (
+    <button
+      type="button"
+      {...props}
+      className={cn(
+        "relative flex h-full w-full flex-col items-center justify-center rounded-md text-sm",
+        TONE_CLASS[tone],
+        className,
+      )}
+    >
+      <span>{day.date.getDate()}</span>
+      {(info?.isRedacao || info?.isExam) && (
+        <span className="mt-0.5 flex gap-0.5">
+          {info.isRedacao && (
+            <span className="h-1 w-1 rounded-full bg-violet-500" title="Redação" />
+          )}
+          {info.isExam && <span className="h-1 w-1 rounded-full bg-sky-500" title="Prova" />}
+        </span>
+      )}
+    </button>
+  );
+}
+
+const CALENDAR_COMPONENTS = { DayButton: CalendarDayButton };
+
 export function StudyDayCalendar() {
   const [month, setMonth] = useState(() => new Date());
 
   const scheduleQ = useQuery({
     queryKey: ["study-schedule"],
     queryFn: () => studyScheduleStore.hydrate(),
+    // Mostra na hora o que já está no aparelho; o banco atualiza em segundo plano.
+    placeholderData: () => studyScheduleStore.get(),
   });
   const trailQ = useQuery({
     queryKey: ["approval-trail"],
     queryFn: () => approvalTrailService.hydrate(),
+    placeholderData: () => approvalTrailStore.get(),
   });
   const progressQ = useQuery({
     queryKey: ["trail-progress-all", trailQ.data?.id],
     queryFn: () => trailProgressService.hydrateAll(trailQ.data!.id),
     enabled: !!trailQ.data?.id,
+    placeholderData: () =>
+      trailQ.data?.id ? trailProgressStore.listLocal(trailQ.data.id) : undefined,
   });
 
   const schedule = scheduleQ.data ?? studyScheduleStore.get();
@@ -100,51 +144,25 @@ export function StudyDayCalendar() {
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <Panel title="Calendário de estudos">
-        <Calendar
-          mode="single"
-          month={month}
-          onMonthChange={setMonth}
-          locale={ptBR}
-          className="w-full [--cell-size:2.4rem]"
-          classNames={{ today: "rounded-md" }}
-          modifiers={{
-            overdue: overdueDates,
-            dueToday: todayDates,
-            done: doneDates,
-            upcoming: upcomingDates,
-            redacao: redacaoDates,
-            exam: examDates,
-          }}
-          components={{
-            DayButton: ({ day, className, ...props }) => {
-              const info = byKey.get(dateKey(day.date));
-              const tone = info?.tone ?? "idle";
-              return (
-                <button
-                  type="button"
-                  {...props}
-                  className={cn(
-                    "relative flex h-full w-full flex-col items-center justify-center rounded-md text-sm",
-                    TONE_CLASS[tone],
-                    className,
-                  )}
-                >
-                  <span>{day.date.getDate()}</span>
-                  {(info?.isRedacao || info?.isExam) && (
-                    <span className="mt-0.5 flex gap-0.5">
-                      {info.isRedacao && (
-                        <span className="h-1 w-1 rounded-full bg-violet-500" title="Redação" />
-                      )}
-                      {info.isExam && (
-                        <span className="h-1 w-1 rounded-full bg-sky-500" title="Prova" />
-                      )}
-                    </span>
-                  )}
-                </button>
-              );
-            },
-          }}
-        />
+        <DayInfoContext.Provider value={byKey}>
+          <Calendar
+            mode="single"
+            month={month}
+            onMonthChange={setMonth}
+            locale={ptBR}
+            className="w-full [--cell-size:2.4rem]"
+            classNames={{ today: "rounded-md" }}
+            modifiers={{
+              overdue: overdueDates,
+              dueToday: todayDates,
+              done: doneDates,
+              upcoming: upcomingDates,
+              redacao: redacaoDates,
+              exam: examDates,
+            }}
+            components={CALENDAR_COMPONENTS}
+          />
+        </DayInfoContext.Provider>
         <ul className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
           <li className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-sm bg-red-500/50" /> Atrasado

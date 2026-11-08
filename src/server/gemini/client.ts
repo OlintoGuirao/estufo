@@ -91,8 +91,14 @@ export async function geminiChat(
 
   const fetchImpl = rawOpts?.fetchImpl ?? fetch;
   let model = wantedModel;
+  // Modelos Flash recentes "pensam" por padrão. Em tarefas sem raciocínio
+  // (material em lote, resumos) pedimos nível baixo — bem mais rápido.
   let thinkingLevel: string | null =
-    opts.thinking && opts.tier === "smart" && cfg.thinking ? cfg.thinkingLevel : null;
+    opts.tier !== "smart"
+      ? null
+      : opts.thinking && cfg.thinking
+        ? cfg.thinkingLevel
+        : "low";
   let lastErr: unknown = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -141,7 +147,13 @@ export async function geminiChat(
         }
         if (RETRY_STATUS.has(res.status) && attempt < MAX_ATTEMPTS) {
           lastErr = new OllamaError("offline", msg, 503);
-          await sleep(800 * 2 ** (attempt - 1) + Math.random() * 300);
+          // 429 = limite por minuto: espera mais (respeita "retry in Xs" se vier).
+          const hinted = /retry in ([\d.]+)s/i.exec(msg)?.[1];
+          const wait =
+            res.status === 429
+              ? Math.min(20_000, hinted ? Number(hinted) * 1000 : 2_500 * attempt)
+              : 800 * 2 ** (attempt - 1);
+          await sleep(wait + Math.random() * 300);
           continue;
         }
         throw new OllamaError(

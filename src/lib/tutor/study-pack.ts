@@ -34,9 +34,20 @@ export function buildStudyPackMessages(input: {
       : input.detail === "detalhado"
         ? "Mapa rico: cubra a faixa citada (ate ~14 arts) com tipificacao + pena."
         : "Mapa equilibrado: faixa + arts mais cobrados no material (ate ~12).";
+  // Listas explicadas item a item geram mais cards: o limite de arts nao vale para eles.
 
   const systemContent = [
     "Voce e professor de concursos (Brasil). Monte um MAPA MENTAL hierarquico a partir do MATERIAL.",
+    "O aluno pode estar comecando do ZERO: escreva cada summary em linguagem simples, frases curtas, explicando termo tecnico entre parenteses.",
+    "",
+    "REGRA DAS LISTAS (vale para QUALQUER materia — Portugues, Direito, Informatica…):",
+    "- Sempre que um card citar tipos, classes, especies ou categorias (ex.: 'dividem-se em pessoais, possessivos, demonstrativos…'),",
+    "  crie UM card filho (kind explicacao, parentTempId = esse card) PARA CADA item da lista.",
+    "- Cada filho: title = nome do item; summary = o que e + para que serve + 1 EXEMPLO concreto (frase ou caso real).",
+    '  Ex.: title "Pronomes possessivos", summary "Indicam a quem algo pertence. Ex.: \"meu\" carro, \"sua\" casa."',
+    "- Nunca deixe um item de lista sem explicacao.",
+    "",
+    "Se o MATERIAL for de LEI (artigos), siga tambem a hierarquia abaixo. Se for de outra materia (gramatica, informatica, matematica), use: tema → conceitos → tipos/regras → exemplos.",
     "",
     "HIERARQUIA OBRIGATORIA (como um resumo em arvore):",
     "",

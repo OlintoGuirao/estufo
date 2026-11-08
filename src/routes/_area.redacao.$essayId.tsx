@@ -1,13 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Loader2, Target } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader, Panel } from "@/components/common";
 import { VunespProposal } from "@/components/redacao/vunesp-proposal";
+import { LinedEssayEditor } from "@/components/redacao/lined-essay-editor";
 import { countWords } from "@/lib/redacao/ai";
 import { approvalTrailService } from "@/services/approval-trail.service";
 import { correctRedacaoFn } from "@/services/redacao.fns";
@@ -37,22 +37,89 @@ function RedacaoEssayPage() {
 
   const essay = redacaoStore.getEssay(essayId);
 
-  useEffect(() => {
-    if (essay) setBody(essay.body);
-  }, [essay?.id, essay?.body]);
+  // ---- Progresso salvo automaticamente --------------------------------------
+  // 1) No aparelho: ~0,4 s depois de parar de digitar (não perde nada ao sair).
+  // 2) No banco: ~3 s depois (agrupa), e na hora ao sair/trocar de aba/app.
+  const dirtyRef = useRef(false);
+  const loadedIdRef = useRef<string | null>(null);
+  const bodyRef = useRef(body);
+  bodyRef.current = body;
+  const [saveState, setSaveState] = useState<
+    "idle" | "local" | "saving" | "cloud" | "offline"
+  >("idle");
+  const [savedAt, setSavedAt] = useState<string | null>(null);
 
+  // Carrega o texto salvo. Só sobrescreve o que está na tela se o aluno ainda
+  // não digitou (o banco pode chegar depois e não pode apagar o que ele escreveu).
   useEffect(() => {
     if (!essay) return;
-    if (essay.status === "corrigida") return;
-    const t = window.setTimeout(() => {
-      try {
-        redacaoStore.saveDraft(essayId, body);
-      } catch {
-        /* ignore */
-      }
-    }, 800);
-    return () => window.clearTimeout(t);
-  }, [body, essayId, essay?.status]);
+    if (loadedIdRef.current !== essay.id) {
+      loadedIdRef.current = essay.id;
+      dirtyRef.current = false;
+      setBody(essay.body);
+      return;
+    }
+    if (!dirtyRef.current && essay.body !== bodyRef.current) setBody(essay.body);
+  }, [essay?.id, essay?.body]);
+
+  const canSave = !!essay && essay.status !== "corrigida";
+
+  const flushLocal = useCallback(() => {
+    if (!canSave || !dirtyRef.current) return false;
+    redacaoStore.saveDraftLocal(essayId, bodyRef.current);
+    return true;
+  }, [canSave, essayId]);
+
+  const syncCloud = useCallback(async () => {
+    if (!canSave) return;
+    setSaveState("saving");
+    const ok = await redacaoStore.syncDraftNow();
+    setSaveState(ok ? "cloud" : "offline");
+    setSavedAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+  }, [canSave]);
+
+  useEffect(() => {
+    if (!canSave || !dirtyRef.current) return;
+    const local = window.setTimeout(() => {
+      if (flushLocal()) setSaveState((st) => (st === "saving" ? st : "local"));
+    }, 400);
+    const cloud = window.setTimeout(() => void syncCloud(), 3000);
+    return () => {
+      window.clearTimeout(local);
+      window.clearTimeout(cloud);
+    };
+  }, [body, canSave, flushLocal, syncCloud]);
+
+  // Saiu da página, trocou de aba ou fechou o app: grava tudo na hora.
+  useEffect(() => {
+    const flushAll = () => {
+      if (flushLocal()) void redacaoStore.syncDraftNow();
+    };
+    const onHidden = () => document.visibilityState === "hidden" && flushAll();
+    window.addEventListener("pagehide", flushAll);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => {
+      window.removeEventListener("pagehide", flushAll);
+      document.removeEventListener("visibilitychange", onHidden);
+      flushAll(); // saindo da tela pelo menu / botão Voltar
+    };
+  }, [flushLocal]);
+
+  const onChangeBody = (v: string) => {
+    dirtyRef.current = true;
+    setBody(v);
+  };
+
+  const saveLabel =
+    saveState === "saving"
+      ? "Salvando…"
+      : saveState === "cloud"
+        ? `Salvo na nuvem${savedAt ? ` às ${savedAt}` : ""}`
+        : saveState === "offline"
+          ? "Salvo neste aparelho (sem conexão com o banco)"
+          : saveState === "local"
+            ? "Salvo neste aparelho"
+            : null;
 
   const correct = useMutation({
     mutationFn: async () => {
@@ -160,42 +227,52 @@ function RedacaoEssayPage() {
         </Panel>
       )}
 
-      <Panel
-        title="Seu texto"
-        action={<span className="text-xs text-muted-foreground">{words} palavras</span>}
-      >
-        <Textarea
+      <Panel title="Seu texto">
+        <LinedEssayEditor
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={onChangeBody}
           disabled={done || correct.isPending}
           placeholder="Escreva sua dissertação argumentativa aqui…"
-          className="min-h-[320px] resize-y text-base leading-relaxed"
-        />
-        {!done && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              onClick={() => {
-                try {
-                  redacaoStore.saveDraft(essayId, body);
-                  toast.success("Rascunho salvo.");
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
-                }
-              }}
-              variant="outline"
-            >
-              Salvar rascunho
-            </Button>
-            <Button onClick={() => correct.mutate()} disabled={correct.isPending || words < 80}>
-              {correct.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4" />
+          status={
+            <span className="text-xs text-muted-foreground">
+              {words} palavras
+              {saveLabel && (
+                <span className={saveState === "offline" ? "ml-2 text-amber-600" : "ml-2"}>
+                  · {saveLabel}
+                </span>
               )}
-              Concluir e corrigir
-            </Button>
-          </div>
-        )}
+            </span>
+          }
+          actions={
+            !done ? (
+              <>
+                <Button
+                  onClick={() => {
+                    try {
+                      dirtyRef.current = true;
+                      flushLocal();
+                      void syncCloud();
+                      toast.success("Rascunho salvo.");
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Erro ao salvar.");
+                    }
+                  }}
+                  variant="outline"
+                >
+                  Salvar rascunho
+                </Button>
+                <Button onClick={() => correct.mutate()} disabled={correct.isPending || words < 80}>
+                  {correct.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
+                  )}
+                  Concluir e corrigir
+                </Button>
+              </>
+            ) : undefined
+          }
+        />
       </Panel>
 
       {done && correction && (

@@ -49,7 +49,27 @@ export function htmlToPlain(html: string): string {
   return text.slice(0, MAX_CHARS);
 }
 
-export async function fetchPublicLawText(
+/**
+ * Cache em memória do servidor: o edital repete os MESMOS links (Normas da
+ * Corregedoria, Regimento) em dezenas de itens — antes cada item baixava de
+ * novo, um por vez, com timeout de 12 s cada.
+ */
+const SOURCE_TTL_MS = 60 * 60 * 1000;
+const sourceCache = new Map<string, { at: number; value: Promise<{ url: string; text: string } | null> }>();
+
+export function fetchPublicLawText(url: string): Promise<{ url: string; text: string } | null> {
+  const hit = sourceCache.get(url);
+  if (hit && Date.now() - hit.at < SOURCE_TTL_MS) return hit.value;
+  const value = fetchPublicLawTextUncached(url);
+  sourceCache.set(url, { at: Date.now(), value });
+  // Falha não fica em cache (tenta de novo na próxima).
+  void value.then((v) => {
+    if (!v) sourceCache.delete(url);
+  });
+  return value;
+}
+
+async function fetchPublicLawTextUncached(
   url: string,
 ): Promise<{ url: string; text: string } | null> {
   let parsed: URL;
@@ -63,7 +83,7 @@ export async function fetchPublicLawText(
 
   try {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 12_000);
+    const timer = setTimeout(() => ctrl.abort(), 8_000);
     const res = await fetch(parsed.toString(), {
       signal: ctrl.signal,
       headers: {
@@ -103,13 +123,14 @@ export async function enrichNotesWithSources(notes: string): Promise<string> {
   if (!urls.length) return notes;
 
   const parts: string[] = [notes];
-  for (const u of urls) {
-    const got = await fetchPublicLawText(u);
+  const results = await Promise.all(urls.map((u) => fetchPublicLawText(u)));
+  urls.forEach((u, i) => {
+    const got = results[i];
     if (!got) {
       parts.push(`\n[Fonte não carregada automaticamente] ${u}`);
-      continue;
+      return;
     }
     parts.push(`\n\n--- Texto obtido de ${got.url} ---\n${got.text}`);
-  }
+  });
   return parts.join("").slice(0, 14_000);
 }

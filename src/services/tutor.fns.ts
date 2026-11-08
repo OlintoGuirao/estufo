@@ -619,6 +619,38 @@ export const generateStudyPack = createServerFn({ method: "POST" })
 
       pack = scrubRemainingStubs(pack);
 
+      // Passagem extra: cards que citam tipos/classes sem explicar cada um
+      // ("dividem-se em pessoais, possessivos…") ganham um filho por item.
+      {
+        const { findListsToExpand, buildExpandListsMessages, applyExpandedLists } = await import(
+          "@/lib/mind-map/expand-lists"
+        );
+        const lists = findListsToExpand(pack);
+        if (lists.length) {
+          try {
+            const { tutorChatJson } = await import("@/server/tutor-llm");
+            const { data: expanded, result: exp } = await tutorChatJson<unknown>(
+              buildExpandListsMessages({ subject: data.subject, material, lists }),
+              {
+                task: "material",
+                mockText: JSON.stringify({
+                  groups: lists.map((l) => ({
+                    parentId: l.tempId,
+                    items: l.items.map((it) => ({
+                      title: it,
+                      summary: `${it}: explicação demonstrativa (mock). Ex.: exemplo do item.`,
+                    })),
+                  })),
+                }),
+              },
+            );
+            if (!exp.mocked || result.mocked) pack = applyExpandedLists(pack, expanded);
+          } catch (expandErr) {
+            console.warn("[tutor] explicar listas falhou", expandErr);
+          }
+        }
+      }
+
       // 3ª passagem: questões objetivas de treino pela IA
       const {
         applyAiQuestions,
@@ -668,6 +700,61 @@ export const generateStudyPack = createServerFn({ method: "POST" })
         mocked: !!result.mocked,
         materialChars: material.length,
       };
+    } catch (err) {
+      return await throwTutorError(err);
+    }
+  });
+
+/** Explica, item a item, a lista citada num card do mapa (mapas já existentes). */
+export const explainMindNodeItems = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      subject: z.string().max(200),
+      mapTitle: z.string().max(200),
+      nodeTitle: z.string().min(1).max(300),
+      nodeSummary: z.string().max(2000),
+      existingChildren: z.array(z.string().max(300)).max(40).optional().default([]),
+      material: z.string().max(20_000).optional().default(""),
+    }),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { extractEnumeration, buildExpandListsMessages, parseExpandedGroups } = await import(
+        "@/lib/mind-map/expand-lists"
+      );
+      const { tutorChatJson } = await import("@/server/tutor-llm");
+      const have = data.existingChildren.map((c) => c.toLowerCase());
+      let items = extractEnumeration(data.nodeSummary).filter(
+        (it) => !have.some((h) => h.includes(it.toLowerCase().replace(/s$/, ""))),
+      );
+      // Card sem lista explícita: pede os subtópicos essenciais do conceito.
+      const freeForm = items.length === 0;
+      if (freeForm) items = ["(liste você os 3 a 6 tipos/partes essenciais deste conceito)"];
+      const { data: out, result } = await tutorChatJson<unknown>(
+        buildExpandListsMessages({
+          subject: data.subject || data.mapTitle,
+          material: data.material,
+          lists: [{ tempId: "node", title: data.nodeTitle, summary: data.nodeSummary, items }],
+        }),
+        {
+          task: "material",
+          mockText: JSON.stringify({
+            groups: [
+              {
+                parentId: "node",
+                items: (freeForm ? ["Parte 1", "Parte 2"] : items).map((it) => ({
+                  title: it,
+                  summary: `${it}: explicação demonstrativa (mock). Ex.: exemplo.`,
+                })),
+              },
+            ],
+          }),
+        },
+      );
+      const groups = parseExpandedGroups(out);
+      const children = groups.find((g) => g.parentId === "node")?.items ?? groups[0]?.items ?? [];
+      if (!children.length) throw new Error("A IA não devolveu itens para este card. Tente de novo.");
+      return { items: children, mocked: !!result.mocked };
     } catch (err) {
       return await throwTutorError(err);
     }

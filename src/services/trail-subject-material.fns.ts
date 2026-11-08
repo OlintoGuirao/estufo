@@ -34,24 +34,26 @@ export const generateSubjectStudyMaterialFn = createServerFn({ method: "POST" })
       ? (await import("@/lib/approval-trail/fetch-edital-source")).enrichNotesWithSources
       : null;
 
-    // Busca textos oficiais (TJSP/eSAJ) quando o edital traz link.
-    const items = [];
-    for (const it of data.items) {
-      const rawNotes = it.notes ?? "";
-      const notes =
-        enrichNotesWithSources &&
-        (/https?:\/\//i.test(rawNotes) ||
-          /legisla|resolu|regimento|corregedoria/i.test(data.subjectName))
-          ? await enrichNotesWithSources(rawNotes)
-          : rawNotes;
-      items.push({
-        id: it.id,
-        name: it.name,
-        notes,
-        ...(it.articleRef ? { articleRef: it.articleRef } : {}),
-        ...(it.kind ? { kind: it.kind } : {}),
-      });
-    }
+    // Busca textos oficiais (TJSP/eSAJ) quando o edital traz link — todos os
+    // itens em paralelo (antes era um por vez, até 12 s cada).
+    const items = await Promise.all(
+      data.items.map(async (it) => {
+        const rawNotes = it.notes ?? "";
+        const notes =
+          enrichNotesWithSources &&
+          (/https?:\/\//i.test(rawNotes) ||
+            /legisla|resolu|regimento|corregedoria/i.test(data.subjectName))
+            ? await enrichNotesWithSources(rawNotes)
+            : rawNotes;
+        return {
+          id: it.id,
+          name: it.name,
+          notes,
+          ...(it.articleRef ? { articleRef: it.articleRef } : {}),
+          ...(it.kind ? { kind: it.kind } : {}),
+        };
+      }),
+    );
 
     const mock = mockSubjectMaterial(items, data.subjectName);
     const result = await tutorChat(

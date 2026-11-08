@@ -18,16 +18,32 @@ const colors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--cha
 
 function Dashboard() {
   const q = useQuery({ queryKey: ["dashboard"], queryFn: dashboardService.get });
-  if (q.isLoading) return <GridSkeleton count={8} />;
-  if (q.error) return <ErrorState error={q.error} onRetry={q.refetch} />;
+  // A Agenda não depende das métricas: aparece na hora, sem esperar o painel.
+  const calendar = (
+    <div className="mb-6">
+      <StudyDayCalendar />
+    </div>
+  );
+  if (q.isLoading)
+    return (
+      <>
+        {calendar}
+        <GridSkeleton count={8} />
+      </>
+    );
+  if (q.error)
+    return (
+      <>
+        {calendar}
+        <ErrorState error={q.error} onRetry={q.refetch} />
+      </>
+    );
   const d = q.data!;
   return (
     <>
       {d.dataNote && <p className="mb-4 text-xs text-muted-foreground">{d.dataNote}</p>}
 
-      <div className="mb-6">
-        <StudyDayCalendar />
-      </div>
+      {calendar}
 
       <TrailResumeCard className="mb-6" />
       <VideoLessonResumeCard className="mb-6" />

@@ -2,6 +2,7 @@ import {
   buildTutorRecommendations,
   generateFlashcardsFromNodes,
   generateMindMapOutline,
+  explainMindNodeItems,
   generatePracticeQuestion,
   generateStudyPack,
   generateWeeklyReinforce,
@@ -96,6 +97,21 @@ export const tutorService = {
   }) {
     try {
       return await requestTutorMastigado({ data: await withProfile(data) });
+    } catch (e) {
+      return parseErr(e);
+    }
+  },
+
+  async explainNodeItems(data: {
+    subject: string;
+    mapTitle: string;
+    nodeTitle: string;
+    nodeSummary: string;
+    existingChildren?: string[];
+    material?: string;
+  }) {
+    try {
+      return await explainMindNodeItems({ data });
     } catch (e) {
       return parseErr(e);
     }

@@ -57,7 +57,9 @@ describe("parseAiQuestionsJson", () => {
       }),
     );
     expect(qs).toHaveLength(1);
-    expect(qs[0]!.correctKey).toBe("A");
+    // A letra pode mudar (balanceamento A–E), mas a correta continua sendo o mesmo texto.
+    const right = qs[0]!.alternatives.find((a) => a.key === qs[0]!.correctKey);
+    expect(right?.text).toBe("Falsificação de papéis públicos");
     expect(qs[0]!.alternatives).toHaveLength(5);
   });
 

@@ -189,6 +189,54 @@ function Editor() {
     onError: (e) => toast.error(errMsg(e)),
   });
 
+  /** Cria um card-filho por item da lista do card selecionado (pessoais, possessivos…). */
+  const explainItems = useMutation({
+    mutationFn: async () => {
+      const parent = nodes.find((n) => n.id === sel);
+      if (!parent) throw new Error("Clique primeiro no card que você quer detalhar.");
+      const childIds = new Set(edges.filter((e) => e.source === parent.id).map((e) => e.target));
+      const existingChildren = nodes.filter((n) => childIds.has(n.id)).map((n) => n.data.title);
+      const r = await tutorService.explainNodeItems({
+        subject: q.data?.subject ?? "",
+        mapTitle: q.data?.title ?? "",
+        nodeTitle: parent.data.title,
+        nodeSummary: parent.data.summary ?? parent.data.description ?? "",
+        existingChildren,
+        material: (q.data?.material ?? "").slice(0, 20_000),
+      });
+      return { parent, ...r };
+    },
+    onSuccess: ({ parent, items, mocked }) => {
+      const gapX = 260;
+      const startX = parent.position.x - ((items.length - 1) * gapX) / 2;
+      const created: MindFlowNode[] = items.map((it, i) => ({
+        id: uid(),
+        type: "topic",
+        position: { x: startX + i * gapX, y: parent.position.y + 260 },
+        data: {
+          title: it.title,
+          summary: it.summary,
+          keywords: it.keywords,
+          kind: "explicacao",
+          mastery: "nao-estudado",
+        },
+      }));
+      for (const n of created) {
+        mindMapsService.addNode(id, { id: n.id, position: n.position, data: n.data });
+      }
+      setNodes((x) => [...x, ...created]);
+      for (const n of created) {
+        onConnect({ source: parent.id, target: n.id, sourceHandle: null, targetHandle: null });
+      }
+      toast.success(
+        mocked
+          ? `${created.length} cards (demonstração) criados.`
+          : `${created.length} cards explicando cada item foram criados.`,
+      );
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+
   const addTopic = (kind: MindNodeKind = "topico") => {
     const parent = nodes.find((n) => n.id === sel) ?? nodes.find((n) => n.data.root);
     const n: MindFlowNode = {
@@ -259,6 +307,20 @@ function Editor() {
             <Plus /> Conceito
           </Button>
           <Button
+            variant="outline"
+            size="sm"
+            disabled={!sel || explainItems.isPending}
+            title={
+              sel
+                ? "A IA cria um card explicando cada tipo/item citado neste card"
+                : "Clique num card do mapa primeiro"
+            }
+            onClick={() => explainItems.mutate()}
+          >
+            <Sparkles className="h-4 w-4" />
+            {explainItems.isPending ? "Explicando…" : "Explicar itens do card"}
+          </Button>
+          <Button
             variant="secondary"
             size="sm"
             disabled={genCards.isPending}
@@ -322,7 +384,7 @@ function Editor() {
 
       {tab === "questoes" && (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <PracticeQuestionReview questions={practiceQs} />
+          <PracticeQuestionReview questions={practiceQs} mapId={id} />
           <p className="mt-2 text-xs text-muted-foreground">
             Questões de treino geradas por IA a partir do material — não substituem itens oficiais de
             banca. Mapas antigos: gere um projeto novo para obter questões.

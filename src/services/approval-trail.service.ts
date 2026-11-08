@@ -192,7 +192,14 @@ export const approvalTrailService = {
    * Gera material didático (o que cada artigo/assunto significa) para uma matéria,
    * em lotes — sem resumir a lista do edital.
    */
-  async generateSubjectMaterial(subjectId: string): Promise<ApprovalTrail> {
+  async generateSubjectMaterial(
+    subjectId: string,
+    opts?: {
+      /** Em lote (Gerar tudo): monta o cronograma uma vez só no fim. */
+      skipSchedule?: boolean;
+      onProgress?: (done: number, total: number) => void;
+    },
+  ): Promise<ApprovalTrail> {
     const trail = approvalTrailStore.get();
     if (!trail) throw new ApiError("Nenhuma trilha encontrada.", 404);
     const subject = trail.subjects.find((s) => s.id === subjectId);
@@ -200,10 +207,15 @@ export const approvalTrailService = {
 
     const pending = subject.topics.filter((t) => !t.explanation?.trim());
     const queue = pending.length ? pending : subject.topics;
-    const chunkSize = 10;
+    // Lotes menores em paralelo (3 por vez): antes eram lotes de 10 um atrás do
+    // outro — 40 etapas = 4 esperas longas em fila.
+    const chunkSize = 6;
+    const chunks: (typeof queue)[] = [];
+    for (let i = 0; i < queue.length; i += chunkSize) chunks.push(queue.slice(i, i + chunkSize));
+    let doneTopics = 0;
+    let firstError: unknown = null;
 
-    for (let i = 0; i < queue.length; i += chunkSize) {
-      const chunk = queue.slice(i, i + chunkSize);
+    const runChunk = async (chunk: typeof queue) => {
       try {
         const res = await generateSubjectStudyMaterialFn({
           data: {
@@ -224,12 +236,35 @@ export const approvalTrailService = {
             }),
           },
         });
+        // Grava a cada lote: se algo falhar depois, o que já veio não se perde.
         approvalTrailStore.applyTopicExplanations(subjectId, res.items);
       } catch (e) {
-        return parseErr(e);
+        firstError ??= e;
+      } finally {
+        doneTopics += chunk.length;
+        opts?.onProgress?.(doneTopics, queue.length);
       }
-    }
+    };
 
+    let next = 0;
+    const workers = Array.from({ length: Math.min(3, chunks.length) }, async () => {
+      while (next < chunks.length) await runChunk(chunks[next++]!);
+    });
+    await Promise.all(workers);
+
+    const afterMaterial = approvalTrailStore.get();
+    if (!afterMaterial) throw new ApiError("Falha ao salvar material.", 500);
+    if (firstError) {
+      // Salva o que deu certo antes de avisar o erro.
+      await approvalTrailStore.saveNow(afterMaterial);
+      return parseErr(firstError);
+    }
+    if (opts?.skipSchedule) return afterMaterial;
+    return approvalTrailService.rebuildScheduleFromMaterial();
+  },
+
+  /** Monta o cronograma pelos dias de estudo × matérias com material. */
+  async rebuildScheduleFromMaterial(): Promise<ApprovalTrail> {
     const afterMaterial = approvalTrailStore.get();
     if (!afterMaterial) throw new ApiError("Falha ao salvar material.", 500);
 

@@ -129,11 +129,11 @@ async function fetchRemote(): Promise<RedacaoState | null> {
   }
 }
 
-async function upsertRemote(state: RedacaoState): Promise<void> {
-  if (!isSupabaseConfigured) return;
+async function upsertRemote(state: RedacaoState): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
   try {
     const sb = requireSupabase();
-    await sb.from("user_redacao_state").upsert(
+    const { error } = await sb.from("user_redacao_state").upsert(
       {
         device_id: getStudyOwnerId(),
         payload: state,
@@ -141,8 +141,11 @@ async function upsertRemote(state: RedacaoState): Promise<void> {
       },
       { onConflict: "device_id" },
     );
+    if (error) throw error;
+    return true;
   } catch (err) {
     console.warn("[redacao] sync falhou", err);
+    return false;
   }
 }
 
@@ -150,29 +153,33 @@ async function upsertRemote(state: RedacaoState): Promise<void> {
  * Grava local sempre; no remoto faz merge com o que já existe
  * para nunca apagar temas só porque a agenda foi atualizada.
  */
-async function persist(state: RedacaoState, opts?: { replaceThemes?: boolean }): Promise<void> {
+async function persist(
+  state: RedacaoState,
+  opts?: { replaceThemes?: boolean },
+): Promise<boolean> {
   writeLocal(state);
-  if (!isSupabaseConfigured) return;
+  if (!isSupabaseConfigured) return false;
   const remote = await fetchRemote();
+  // Relê o aparelho DEPOIS da espera: o aluno pode ter digitado mais nesse meio
+  // tempo — usar o `state` antigo apagaria essas palavras.
+  const latest = read();
   if (!remote) {
-    await upsertRemote(state);
-    return;
+    return upsertRemote(latest);
   }
   // Evita wipe: local sem temas + remoto com temas → mantém os remotos (salvo replace explícito).
   if (
     !opts?.replaceThemes &&
-    state.themes.length === 0 &&
+    latest.themes.length === 0 &&
     remote.themes.length > 0
   ) {
-    const merged = mergeStates({ ...state, themes: remote.themes }, remote);
+    const merged = mergeStates({ ...latest, themes: remote.themes }, remote);
     writeLocal(merged);
-    await upsertRemote(merged);
-    return;
+    return upsertRemote(merged);
   }
-  const merged = mergeStates(state, remote);
+  const merged = mergeStates(latest, remote);
   // Se o botão Gerar pediu troca, os temas de `state` (mais novos) já estão no merge pelo createdAt.
   writeLocal(merged);
-  await upsertRemote(merged);
+  return upsertRemote(merged);
 }
 
 let hydratePromise: Promise<RedacaoState> | null = null;
@@ -293,6 +300,34 @@ export const redacaoStore = {
     writeLocal(state);
     void persist(state);
     return essay;
+  },
+
+  /**
+   * Salva o texto só no aparelho (instantâneo, a cada pausa na digitação).
+   * O envio ao banco é feito por `syncDraftNow` (agrupado, a cada poucos segundos).
+   */
+  saveDraftLocal(id: string, body: string): RedacaoEssay | null {
+    const state = read();
+    const idx = state.essays.findIndex((e) => e.id === id);
+    if (idx < 0) return null;
+    const essay = state.essays[idx]!;
+    if (essay.status === "corrigida") return essay;
+    if (essay.body === body) return essay;
+    essay.body = body;
+    essay.updatedAt = new Date().toISOString();
+    state.essays[idx] = essay;
+    writeLocal(state);
+    return essay;
+  },
+
+  /** Envia ao banco o estado atual (com merge). Resolve true se salvou na nuvem. */
+  async syncDraftNow(): Promise<boolean> {
+    if (!isSupabaseConfigured) return false;
+    try {
+      return await persist(read());
+    } catch {
+      return false;
+    }
   },
 
   saveDraft(id: string, body: string): RedacaoEssay {
