@@ -86,4 +86,35 @@ describe("study-calendar dias", () => {
     const overdue = tasks.find((x) => x.tone === "overdue");
     expect(overdue?.title).toBe("Em atraso · Terça");
   });
+
+  it("dia de hoje concluído aparece como concluído (verde), não como pendente", () => {
+    const created = new Date(2026, 10, 3, 12, 0, 0).toISOString();
+    const t = trail(created, [
+      session({ week: 1, weekday: 1, dayLabel: "Segunda" }),
+      session({ week: 2, weekday: 2, dayLabel: "Terça" }),
+    ]);
+    const tasks = buildTodayTasks({
+      today: new Date(2026, 10, 3),
+      trail: t,
+      schedule,
+      progressByWeek: new Map([
+        [
+          1,
+          {
+            trailId: "t1",
+            week: 1,
+            status: "concluida",
+            activeModuleId: null,
+            completedModuleIds: [],
+            practiceAnswers: {},
+            chat: [],
+            updatedAt: created,
+          },
+        ],
+      ]),
+    });
+    const today = tasks.find((x) => x.id === "today-1");
+    expect(today?.tone).toBe("done");
+    expect(today?.title).toBe("Hoje · Terça (concluído)");
+  });
 });

@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   GraduationCap,
   Loader2,
-  MessageCircle,
   RefreshCw,
   Scale,
   Sparkles,
@@ -17,9 +16,9 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, ErrorState, ListSkeleton, PageHeader, Panel } from "@/components/common";
 import { ProfessorText } from "@/components/professor-text";
+import { ProfessorChatWidget } from "@/components/trail/professor-chat-widget";
 import { errMsg } from "@/components/forms";
 import { approvalTrailService } from "@/services/approval-trail.service";
 import { trailWeekLessonService } from "@/services/trail-week-lesson.service";
@@ -58,7 +57,6 @@ function WeekLessonPage() {
   const week = Number(weekParam);
   const { m: moduleFromSearch } = Route.useSearch();
   const qc = useQueryClient();
-  const [doubt, setDoubt] = useState("");
   const [searchApplied, setSearchApplied] = useState(false);
 
   useEffect(() => {
@@ -110,11 +108,11 @@ function WeekLessonPage() {
   });
 
   const ask = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (question: string) => {
       const mod = lessonQ.data?.modules.find((m) => m.id === progress?.activeModuleId);
       return trailWeekLessonService.askProfessor({
         week,
-        question: doubt.trim(),
+        question,
         ...(mod?.title ? { moduleTitle: mod.title } : {}),
         lessonContext: [lessonQ.data?.professorIntro, mod?.body]
           .filter(Boolean)
@@ -124,14 +122,13 @@ function WeekLessonPage() {
         history: (progress?.chat ?? []).slice(-10),
       });
     },
-    onSuccess: (r) => {
+    onSuccess: (r, question) => {
       if (!trailId) return;
       const p = trailProgressService.appendChat(trailId, week, [
-        { role: "aluno", text: doubt.trim() },
+        { role: "aluno", text: question },
         { role: "professor", text: r.answer },
       ]);
       qc.setQueryData(["trail-week-progress", trailId, week], p);
-      setDoubt("");
     },
     onError: (e) => toast.error(errMsg(e)),
   });
@@ -580,42 +577,6 @@ function WeekLessonPage() {
               </div>
             </Panel>
 
-            <Panel title="Tire dúvida com o professor">
-              <div className="mb-3 space-y-2">
-                {chat.map((m, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "rounded-lg px-3 py-2 text-sm",
-                      m.role === "professor" ? "bg-highlight-soft/50" : "ml-6 bg-muted/60",
-                    )}
-                  >
-                    <p className="mb-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-                      {m.role === "professor" ? "Professor" : "Você"}
-                    </p>
-                    <ProfessorText text={m.text} />
-                  </div>
-                ))}
-              </div>
-              <Textarea
-                rows={3}
-                placeholder="Ex.: Não entendi a diferença entre concussão e corrupção passiva…"
-                value={doubt}
-                onChange={(e) => setDoubt(e.target.value)}
-              />
-              <Button
-                className="mt-2"
-                disabled={doubt.trim().length < 3 || ask.isPending}
-                onClick={() => ask.mutate()}
-              >
-                {ask.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <MessageCircle className="h-4 w-4" />
-                )}
-                Perguntar ao professor
-              </Button>
-            </Panel>
 
             {!!lesson.warnings.length && (
               <ul className="list-disc pl-5 text-xs text-amber-700 dark:text-amber-400">
@@ -626,6 +587,16 @@ function WeekLessonPage() {
             )}
           </div>
         </div>
+      )}
+
+      {lesson && (
+        <ProfessorChatWidget
+          messages={chat}
+          pending={ask.isPending}
+          pendingQuestion={ask.isPending ? ask.variables : null}
+          onSend={(q) => ask.mutate(q)}
+          {...(active?.title ? { contextLabel: active.title } : {})}
+        />
       )}
     </>
   );

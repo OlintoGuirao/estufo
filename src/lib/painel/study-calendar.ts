@@ -227,9 +227,10 @@ export function buildTodayTasks(input: {
       const [y, m, d] = key.split("-").map(Number);
       const date = startOfDay(new Date(y!, m! - 1, d!));
       const status = input.progressByWeek.get(session.week)?.status ?? "pendente";
+      // O dia de hoje entra mesmo concluído (aparece verde, "concluído").
+      if (date.getTime() === today.getTime()) todaySession = session;
       if (status === "concluida") continue;
       if (date.getTime() < today.getTime()) overdue.push({ session, date });
-      if (date.getTime() === today.getTime()) todaySession = session;
     }
 
     overdue.sort((a, b) => a.session.week - b.session.week);

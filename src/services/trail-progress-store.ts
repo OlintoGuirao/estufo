@@ -1,5 +1,6 @@
 import type { TrailWeekProgress } from "@/types/trail-progress";
 import { syncTrailProgress, approvalTrailDb } from "./approval-trail-db";
+import { mergeTrailProgress, sameTrailProgress } from "@/lib/trail-progress-merge";
 
 const KEY = "estufoo.trail-week-progress.v1";
 
@@ -150,6 +151,11 @@ export const trailProgressStore = {
     return nextBag;
   },
 
+  /**
+   * Abre a semana juntando a cópia do aparelho com a do banco. Antes, se o
+   * aparelho já tinha qualquer progresso, o banco era ignorado — e a conversa
+   * com o professor feita no celular não aparecia no computador.
+   */
   async hydrate(trailId: string, week: number): Promise<TrailWeekProgress> {
     const local = trailProgressStore.get(trailId, week);
     const hasLocalWork =
@@ -157,21 +163,21 @@ export const trailProgressStore = {
       local.completedModuleIds.length > 0 ||
       local.chat.length > 0 ||
       Object.keys(local.practiceAnswers).length > 0;
-    if (hasLocalWork) {
-      syncTrailProgress(local);
-      return local;
-    }
     try {
       const remote = await approvalTrailDb.loadProgress(trailId, week);
       if (remote) {
+        const merged = hasLocalWork ? mergeTrailProgress(local, remote) : remote;
         const bag = read();
-        bag[progressKey(trailId, week)] = remote;
+        bag[progressKey(trailId, week)] = merged;
         write(bag);
-        return remote;
+        // O banco ainda não tem o que só existia neste aparelho → envia.
+        if (!sameTrailProgress(merged, remote)) syncTrailProgress(merged);
+        return merged;
       }
     } catch (err) {
       console.warn("[trail-progress] hydrate falhou", err);
     }
+    if (hasLocalWork) syncTrailProgress(local);
     return local;
   },
 
@@ -191,9 +197,14 @@ export const trailProgressStore = {
         for (const p of local) byWeek.set(p.week, p);
         for (const r of remote) {
           const cur = byWeek.get(r.week);
-          if (!cur || new Date(r.updatedAt) > new Date(cur.updatedAt)) {
+          if (!cur) {
             byWeek.set(r.week, r);
+            continue;
           }
+          // Junta os dois aparelhos em vez de "o mais novo apaga o outro".
+          const merged = mergeTrailProgress(cur, r);
+          byWeek.set(r.week, merged);
+          if (!sameTrailProgress(merged, r)) syncTrailProgress(merged);
         }
         for (const p of byWeek.values()) {
           bag[progressKey(p.trailId, p.week)] = p;

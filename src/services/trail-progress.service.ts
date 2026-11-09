@@ -120,7 +120,9 @@ export const trailProgressService = {
     return trailProgressStore.save({
       ...cur,
       completedModuleIds: [...set],
-      status: "em-andamento",
+      // Não "desconclui" o dia: rever um módulo depois de concluir mantinha o
+      // dia como "em andamento" e a Visão geral não mostrava como concluído.
+      status: cur.status === "concluida" ? "concluida" : "em-andamento",
     });
   },
 
