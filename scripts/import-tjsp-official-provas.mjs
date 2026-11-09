@@ -1,10 +1,13 @@
 /**
- * Lê PDFs em C:/Users/xuniim/Downloads/Provas tjsp e gera
+ * Lê PDFs/DOCX em C:/Users/xuniim/Downloads/Provas tjsp e gera
  * src/data/tjsp-official-provas.json para /simulados.
+ * DOCX (texto linear) é preferível ao PDF de 2 colunas quando disponível.
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
 import { extractText, extractTextItems, getDocumentProxy } from "unpdf";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -38,9 +41,58 @@ function cleanPdfNoise(text) {
     .replace(/\u0000/g, " ");
 }
 
+/** Quebra "(A) … (B) …" colados na mesma linha (comum em DOCX). */
+function normalizeAltBreaks(text) {
+  return String(text ?? "").replace(/[ \t]+(\([A-Ea-e]\))\s+/g, "\n$1 ");
+}
+
+/**
+ * Extrai texto linear de um .docx (ZIP + word/document.xml).
+ * @param {string} absPath
+ */
+function readDocxPlain(absPath) {
+  const tmp = mkdtempSync(join(tmpdir(), "tjsp-docx-"));
+  try {
+    const zipPath = join(tmp, "doc.zip");
+    writeFileSync(zipPath, readFileSync(absPath));
+    execFileSync(
+      "powershell",
+      ["-NoProfile", "-Command", `Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${tmp.replace(/'/g, "''")}' -Force`],
+      { stdio: "pipe" },
+    );
+    const xml = readFileSync(join(tmp, "word", "document.xml"), "utf8");
+    const paras = [...xml.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)].map((m) => {
+      const texts = [...m[0].matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map((t) =>
+        t[1]
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'"),
+      );
+      return texts.join("");
+    });
+    return normalizeAltBreaks(cleanPdfNoise(paras.join("\n")));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/** @param {string} rel */
+function examPagesFromDocx(rel) {
+  const path = resolve(SRC, rel);
+  if (!existsSync(path)) throw new Error(`DOCX não encontrado: ${path}`);
+  const text = readDocxPlain(path);
+  return [{ page: 1, text, charCount: text.length }];
+}
+
 /**
  * Cadernos Vunesp são 2 colunas. extractText “puro” lê em Z (05 → 10 e
  * pula 06–09). Aqui: detecta o vão entre colunas e lê esquerda↓ depois direita↓.
+ *
+ * O cabeçalho “Leia… números 04 a 10.” parte no vão: “04 a” à esquerda e
+ * “10 .” à direita, colado no “04.” da questão — virava “10. 04.” e sumia a Q4.
+ * Fragmentos do intervalo (dígitos / “a” / “.”) no gutter vão para a esquerda.
  */
 function pageTextFromItems(items) {
   if (!items?.length) return "";
@@ -53,12 +105,31 @@ function pageTextFromItems(items) {
   // Corte fixo no meio da página: histogramas “inteligentes” erravam o vão
   // e misturavam colunas (05 → 10). Vunesp é bem simétrico.
   const splitX = xMin + (xMax - xMin) * 0.48;
-  const left = usable.filter((it) => it.x < splitX);
-  const right = usable.filter((it) => it.x >= splitX);
+  // Questões da coluna direita começam ~304 (“04.”); o “04 a 10.” do Leia fica ~250–290.
+  const questionNumX = Math.min(splitX + 55, 302);
+  const isHeaderRangeTail = (it) => {
+    const s = String(it.str ?? "").trim();
+    if (it.y < 40) return false; // rodapé (nº da página)
+    if (it.x < splitX - 35 || it.x >= questionNumX) return false;
+    return /^\d{1,3}$/.test(s) || s === "a" || s === ".";
+  };
+  // Rodapé central “4” / “10” etc.
+  const isFooterPageNum = (it) => {
+    const s = String(it.str ?? "").trim();
+    return it.y < 40 && /^\d{1,3}$/.test(s) && it.x > splitX - 40 && it.x < splitX + 40;
+  };
+
+  const left = [];
+  const right = [];
+  for (const it of usable) {
+    if (isFooterPageNum(it)) continue;
+    if (isHeaderRangeTail(it) || it.x < splitX) left.push(it);
+    else right.push(it);
+  }
   const twoCol = xMax - xMin > 180 && left.length > 8 && right.length > 8;
 
   const lineTol = 3.5;
-  const columns = twoCol ? [left, right] : [usable];
+  const columns = twoCol ? [left, right] : [usable.filter((it) => !isFooterPageNum(it))];
 
   const parts = [];
   for (const col of columns) {
@@ -141,13 +212,14 @@ function joinPages(pages) {
  */
 function parseGabarito(pages, preferredVersion = 1) {
   const text = joinPages(pages);
-  const versionBlocks = [...text.matchAll(/VERS[AÃ]O\s*(\d)\b/gi)];
+  const versionBlocks = [...text.matchAll(/Vers[aã]o\s*(\d)\b|VERS[AÃ]O\s*(\d)\b/gi)];
   let slice = text;
   let version = null;
   if (versionBlocks.length > 0) {
+    const verOf = (m) => Number(m[1] || m[2]);
     const wanted =
-      versionBlocks.find((m) => Number(m[1]) === preferredVersion) ?? versionBlocks[0];
-    version = Number(wanted[1]);
+      versionBlocks.find((m) => verOf(m) === preferredVersion) ?? versionBlocks[0];
+    version = verOf(wanted);
     const start = wanted.index + wanted[0].length;
     const next = versionBlocks.find((m) => m.index > wanted.index);
     const end = next ? next.index : text.length;
@@ -209,10 +281,10 @@ function fixPdfText(s) {
  */
 function matchSubjectHeader(line) {
   const t = line.replace(/\s+/g, " ").trim();
-  if (t.length < 8 || t.length > 70) return null;
-  if (/\(A\)|\(B\)|\d+\.|Leia o (?:texto|poema)|quest/i.test(t)) return null;
-  // Quase só o nome da matéria (poucas palavras).
-  if (t.split(/\s+/).length > 6) return null;
+  if (t.length < 8 || t.length > 80) return null;
+  if (/\(A\)|\(B\)|\d+\.|Leia (?:o |a )?(?:texto|poema|tira)|quest[oõ]es de/i.test(t)) return null;
+  // Quase só o nome da matéria (DOCX: "Conhecimentos em Direito Direito Penal").
+  if (t.split(/\s+/).length > 8) return null;
   const compact = t
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
@@ -220,10 +292,18 @@ function matchSubjectHeader(line) {
     .replace(/[^A-Z\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+  const stripped = t.replace(/^Conhecimentos\s+em\s+Direito\s+/i, "").trim();
+  const strippedCompact = compact.replace(/^CONHECIMENTOS\s+EM\s+DIREITO\s+/i, "").trim();
   for (const [re, name] of SUBJECT_HINTS) {
-    // Âncora no começo/fim da linha para não pegar palavra no meio do texto.
-    const anchored = new RegExp(`^\\s*${re.source}\\s*$`, re.flags.includes("i") ? "i" : "i");
-    if (anchored.test(t) || anchored.test(compact)) return name;
+    const anchored = new RegExp(`^\\s*${re.source}\\s*$`, "i");
+    if (
+      anchored.test(t) ||
+      anchored.test(compact) ||
+      anchored.test(stripped) ||
+      anchored.test(strippedCompact)
+    ) {
+      return name;
+    }
   }
   return null;
 }
@@ -251,11 +331,12 @@ function subjectAt(ranges, index) {
 }
 
 /**
- * "Leia o texto/poema para responder às questões de 01 a 05." + corpo até a 1ª questão.
+ * "Leia o texto/poema/tira/trecho para responder às questões de 01 a 05." + corpo até a 1ª questão.
  */
 function extractStimuli(plain, questionStarts) {
+  // Intervalo pode quebrar de linha: “números 01\na 03.”
   const re =
-    /Leia o (?:texto|poema|charge|quadrinho|infogr[aá]fico|trecho) para responder [^\n]*?(?:quest[oõ]es?\s+)?(?:de\s+)?(?:n[uú]meros?\s+)?(\d{1,3})\s*(?:a|e)\s*(\d{1,3})/gi;
+    /Leia (?:o |a )?(?:texto|poema|charge|quadrinho|infogr[aá]fico|trecho|tira)\b[^\n]*?para responder [^\n]*?(?:quest[oõ]es?\s+)?(?:de\s+)?(?:n[uú]meros?\s+)?(\d{1,3})\s*(?:a|e)\s*(\d{1,3})/gi;
   /** @type {Map<number, string>} */
   const byQ = new Map();
   let m;
@@ -285,7 +366,7 @@ function extractStimuli(plain, questionStarts) {
 
 /** Corta lixo depois da última alternativa (próximo texto / matéria / rascunho / redação). */
 const NEXT_BLOCK_RE =
-  /\n\s*Leia o (?:texto|poema|charge|quadrinho|infogr[aá]fico|trecho) para responder|\n\s*L[IÍ]Ng?UA\s+PORTUg?UESA|\n\s*DIREITO\s+(?:PENAL|PROCESSUAL|CONSTITUCIONAL|ADMINISTRATIVO)|\n\s*ATUALIDADES|\n\s*MATEM[AÁ]TICA|\n\s*INFORM[AÁ]TICA|\n\s*RACI[OÓ]C[IÍ]NIO|\n\s*LEGISLA|\n\s*R\s*A\s*S\s*C\s*U\s*N\s*H\s*O|\n\s*REDA[CÇ][AÃ]O\b/i;
+  /\n\s*Leia o (?:texto|poema|charge|quadrinho|infogr[aá]fico|trecho) para responder|\n\s*L[IÍ]Ng?UA\s+PORTUg?UESA|\n\s*DIREITO\s+(?:PENAL|PROCESSUAL|CONSTITUCIONAL|ADMINISTRATIVO)|\n\s*ATUALIDADES|\n\s*MATEM[AÁ]TICA|\n\s*INFORM[AÁ]TICA|\n\s*RACI[OÓ]C[IÍ]NIO|\n\s*LEGISLA|\n\s*R\s*A\s*S\s*C\s*U\s*N\s*H\s*O(?!\p{L})|\n\s*REDA[CÇ][AÃ]O\b/iu;
 
 function trimBodyToQuestion(body, currentNumber) {
   let cut = body.length;
@@ -309,6 +390,7 @@ function splitStatementAndAlts(rawBody, currentNumber = 0) {
   const altRe = /(?:^|\n)\s*\(([A-Ea-e])\)\s*/g;
   const matches = [...body.matchAll(altRe)];
   const use = matches.length >= 2 ? matches : [...body.matchAll(/(?:^|\n)\s*([A-Ea-e])\s*[\)\.\-\–\:]\s+/g)];
+  // Questões só com figura: “(A)\n(B)\n…” sem texto — ainda valem 5 alts vazias.
   if (use.length < 2) return { statement: fixPdfText(body), alternatives: [] };
 
   const statement = fixPdfText(body.slice(0, use[0].index));
@@ -320,8 +402,23 @@ function splitStatementAndAlts(rawBody, currentNumber = 0) {
     let end = i + 1 < use.length ? use[i + 1].index : body.length;
     // Só as 5 primeiras alternativas A–E.
     if (alternatives.length >= 5) break;
-    alternatives.push({ key, text: fixPdfText(body.slice(start, end)) });
+    const text = fixPdfText(body.slice(start, end));
+    alternatives.push({
+      key,
+      text: text || `(Figura da alternativa ${key} — consulte o caderno oficial.)`,
+    });
   }
+  // Diagrama Vunesp: às vezes só (A)(B)(C) vêm no texto; completa D/E.
+  for (const key of ["A", "B", "C", "D", "E"]) {
+    if (alternatives.some((a) => a.key === key)) continue;
+    if (alternatives.length >= 3) {
+      alternatives.push({
+        key,
+        text: `(Figura da alternativa ${key} — consulte o caderno oficial.)`,
+      });
+    }
+  }
+  alternatives.sort((a, b) => a.key.localeCompare(b.key));
   return { statement, alternatives };
 }
 
@@ -329,8 +426,9 @@ function parseQuestions(pages, year, gabarito, annulled = new Set()) {
   const plain = joinPages(pages);
   const subjectRanges = buildSubjectRanges(plain);
 
-  // Vunesp: "01." … "70." / "100." — evita "001. PROVA OBJETIVA".
-  const startRe = /(?:^|\n)\s*(\d{2,3})\.\s+(?![A-Za-z]*PROVA)/gi;
+  // Vunesp: "01." … "70." / "100." — DOCX às vezes vem "7." sem zero.
+  // Evita "001. PROVA OBJETIVA".
+  const startRe = /(?:^|\n)\s*(\d{1,3})\.\s+(?![A-Za-z]*PROVA)/gi;
   const rawStarts = [];
   let sm;
   while ((sm = startRe.exec(plain))) {
@@ -427,31 +525,35 @@ const SPECS = [
   },
   {
     year: 2023,
-    title: "TJSP Escrevente 2023 — Capital (prova objetiva)",
+    title: "TJSP Escrevente 2023 — Grande SP (prova objetiva)",
     exam: "2023/escrevente_tecnico_judiciario2023.pdf",
     gab: "2023/gabarito2023.pdf",
     /**
-     * Caderno TJSP2201 (Capital) + gabarito definitivo da Capital.
-     * Versão 1: Q1 correta = B no caderno público (texto “se espalhou…”).
-     * Q47/53/66/69 anuladas. NÃO usar caderno TJSP2301 (Grande SP) com este gabarito.
+     * Caderno TJSP2301 (Grande São Paulo, 02/07/2023) + gabarito oficial DJE.
+     * Versão 1: Q1 = B (“O relatório da OMS mostra…”). Sem anulações.
      */
     gabVersion: 1,
-    expected: 96,
+    expected: 100,
     timeLimitMin: 300,
   },
   {
     year: 2024,
     title: "TJSP Escrevente 2024 — Prova objetiva",
+    /** DOCX linear (evita perda da Q44 no PDF 2 colunas). */
+    examDocx: "2024/escrevente_tecnico_judiciario2024.docx",
     exam: "2024/escrevente_tecnico_judiciario2024.pdf",
     gab: "2024/gabarito2024.pdf",
+    gabVersion: 1,
     expected: 100,
     timeLimitMin: 300,
   },
   {
     year: 2025,
     title: "TJSP Escrevente 2025 — Prova objetiva",
+    examDocx: "2025/escrevente_tecnico_judiciario2025.docx",
     exam: "2025/escrevente_tecnico_judiciario2025.pdf",
     gab: "2025/gabarito2025.pdf",
+    gabVersion: 1,
     expected: 70,
     timeLimitMin: 300,
   },
@@ -460,7 +562,10 @@ const SPECS = [
 const provas = [];
 for (const spec of SPECS) {
   console.log("\n==", spec.year, "==");
-  const examPages = await pdfPages(spec.exam, { twoColumn: true });
+  const examPages = spec.examDocx
+    ? examPagesFromDocx(spec.examDocx)
+    : await pdfPages(spec.exam, { twoColumn: true });
+  if (spec.examDocx) console.log("  fonte caderno: DOCX");
   const gabPages = await pdfPages(spec.gab, { twoColumn: false });
   let parsedGab = parseGabarito(gabPages, spec.gabVersion ?? 1);
   let gabarito = parsedGab.answers;
@@ -506,7 +611,7 @@ writeFileSync(
       meta: {
         generatedAt: new Date().toISOString(),
         source: SRC,
-        note: "Provas oficiais TJSP Escrevente (PDF local). Gabarito 2021 pode estar vazio se PDF for imagem.",
+        note: "Provas oficiais TJSP Escrevente. Caderno 2024/2025 via DOCX quando disponível; gabarito via PDF. Gabarito 2021 pode estar vazio se PDF for imagem.",
       },
       provas,
     },

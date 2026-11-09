@@ -28,7 +28,9 @@ const LEAKED_PASSAGE =
 const ORD = (n: string) => `(${n}º parágrafo)`;
 
 /** Remonta "(Nº parágrafo)" e tira os "o" soltos que a extração deixou. */
-export function fixParagraphMarks(input: string): string {
+export function fixParagraphMarks(raw: string): string {
+  // Rodapé do caderno ("16 confidencial até o momento da aplicação. CONHECIMENTOS…") grudado no fim
+  const input = raw.replace(/\s*\d{0,3}\s*confidencial até o m\s*omento da aplicação\.[\s\S]*$/i, "").trimEnd();
   if (!/par[aá]grafo|\(\d+\s*(?:–|$)/.test(input)) return input;
   let s = input;
   s = s.replace(/(\w)- -(\w)/g, "$1-$2");
@@ -60,6 +62,14 @@ export function fixParagraphMarks(input: string): string {
   // número sozinho no fim do trecho: "… pularem... (5 –" / "… grandes rios... (2"
   s = s.replace(/\((\d{1,2})(?=\s*–)/g, (_, n: string) => `${ORD(n)} `);
   s = s.replace(/\((\d{1,2})\s*$/g, (_, n: string) => ORD(n));
+  // "… importação... (7 Os termos destacados" → número órfão antes do comando
+  s = s.replace(/(\.\.\.|…)\s*\((\d{1,2})\s+(?=[A-ZÀ-Ú])/g, (_, dots: string, n: string) => `${dots} ${ORD(n)} `);
+  // "(3 paráo grafo)" → marca com o "o" no meio da palavra
+  s = s.replace(/\((\d{1,2}) par[aá]\s*o\s*grafo\)/g, (_, n: string) => ORD(n));
+  // sobra no fim: "… (1º parágrafo) 4 o" / "… (4º parágrafo) o"
+  s = s.replace(/(º parágrafo\))\s+(?:\d{1,2}\s+)?o\s*$/g, "$1");
+  // "(5º parágrafo) o • …" → "o" do º que sobrou depois da marca
+  s = s.replace(/(º parágrafo\)) o (?=•|$)/g, "$1 ");
   s = s.replace(/\)\s+ –/g, ") –").replace(/[ \t]{2,}/g, " ");
   return s;
 }
@@ -106,6 +116,13 @@ export function cleanOfficialProva<T extends RawOfficialQ>(questions: T[]): T[] 
   for (const q of out) {
     q.statement = fixParagraphMarks(q.statement);
     for (const a of q.alternatives) a.text = fixParagraphMarks(a.text);
+    const { passage } = splitSupportText(q.statement);
+    if (passage) {
+      const sp = splitSupportText(q.statement);
+      const fixedQ = repairQuotes(sp.question, passage);
+      if (fixedQ !== sp.question) q.statement = q.statement.slice(0, q.statement.length - sp.question.length) + fixedQ;
+      for (const a of q.alternatives) a.text = repairQuotes(a.text, passage);
+    }
   }
   return out as T[];
 }
@@ -140,4 +157,41 @@ export function isCleanOfficialQuestion(q: RawOfficialQ): boolean {
   // Alternativa com texto vazado gigante
   if (q.alternatives.some((a) => a.text.length > 600)) return false;
   return q.statement.trim().length >= 20;
+}
+
+/** Passagens em lista ("• … • …") ficam uma por linha. */
+export function formatQuestionText(question: string): string {
+  return question.replace(/\s+•\s+/g, "\n• ").replace(/^•\s+/, "• ").trim();
+}
+
+/** Separa a referência final do texto: "(Editorial. Folha de S.Paulo, 29.03.2023. Adaptado)". */
+export function splitPassageSource(passage: string): { body: string; source: string | null } {
+  const m = /\s*\(([^()]{6,160}(?:\d{4}|Adaptado)[^()]{0,40})\)\s*$/.exec(passage);
+  if (!m || m.index === undefined) return { body: passage, source: null };
+  return { body: passage.slice(0, m.index).trim(), source: m[1]!.trim() };
+}
+
+function escapeRe(c: string): string {
+  return c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Trechos citados do texto ("… amplmostra… (3º parágrafo)") perderam letras na
+ * extração (o "º" levou um "o" junto). Se o trecho existe no texto de apoio
+ * com essa diferença, usa a versão do texto.
+ */
+export function repairQuotes(text: string, passage: string): string {
+  const flat = passage.replace(/\s+/g, " ");
+  return text.replace(/(?<=^|\.\.\.|…|\/|•|–)([^./•…–()]{12,160}?)(?=\.\.\.|…|\(\d+º parágrafo\)|\/|•|$)/g, (seg) => {
+    const core = seg.trim();
+    if (core.length < 12 || flat.includes(core)) return seg;
+    const chars = [...core.replace(/\s+/g, "")];
+    if (chars.length > 140) return seg;
+    const re = new RegExp(chars.map(escapeRe).join("\\s?o?\\s?"), "g");
+    const hits = flat.match(re);
+    if (!hits || hits.length !== 1) return seg;
+    const lead = seg.match(/^\s*/)![0];
+    const trail = seg.match(/\s*$/)![0];
+    return `${lead}${hits[0]}${trail}`;
+  });
 }

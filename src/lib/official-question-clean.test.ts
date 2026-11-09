@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  repairQuotes,
   cleanOfficialProva,
   fixParagraphMarks,
   isCleanOfficialQuestion,
@@ -25,6 +26,22 @@ describe("limpeza das questões oficiais (PDF)", () => {
     expect(fixParagraphMarks("limpar-lhes o bojo proo parágrafo) fundo... (6")).toBe(
       "limpar-lhes o bojo profundo... (6º parágrafo)",
     );
+  });
+
+  it("número órfão antes do comando e 'o' depois da marca", () => {
+    expect(
+      fixParagraphMarks(
+        "• ... renováveis... (5º parágrafo) o • ... de importação... (7 Os termos destacados significam:",
+      ),
+    ).toBe("• ... renováveis... (5º parágrafo) • ... de importação... (7º parágrafo) Os termos destacados significam:");
+  });
+
+  it("conserta trecho citado que perdeu letra, usando o texto de apoio", () => {
+    const passage = "O bárbaro diagnóstico expõe a falha. Um recorte mais amplo mostra que houve aumento.";
+    expect(repairQuotes("Um recorte mais amplmostra... (3º parágrafo)", passage)).toBe(
+      "Um recorte mais amplo mostra... (3º parágrafo)",
+    );
+    expect(repairQuotes("16 confidencial", passage)).toBe("16 confidencial");
   });
 
   it("move o texto de apoio vazado na alternativa E para as questões certas", () => {

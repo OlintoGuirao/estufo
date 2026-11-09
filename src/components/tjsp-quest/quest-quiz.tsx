@@ -1,4 +1,4 @@
-import { splitSupportText } from "@/lib/official-question-clean";
+import { formatQuestionText, splitSupportText } from "@/lib/official-question-clean";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { QuestCard } from "@/components/tjsp-quest/quest-shell";
@@ -409,7 +409,7 @@ function Statement({ text }: { text: string }) {
         </div>
       )}
       <p className="whitespace-pre-line font-sans text-[17px] font-semibold leading-relaxed text-[#2b2d42]">
-        {question}
+        {formatQuestionText(question)}
       </p>
     </>
   );
