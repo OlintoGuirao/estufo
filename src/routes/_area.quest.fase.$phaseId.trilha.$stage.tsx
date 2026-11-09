@@ -25,10 +25,16 @@ export const Route = createFileRoute("/_area/quest/fase/$phaseId/trilha/$stage")
 function TrailStagePage() {
   const { phaseId, stage } = Route.useParams();
   const stageIndex = Math.max(0, Number.parseInt(stage, 10) || 0);
-  const { phase, loading, error, mocked, extend, extending } = useQuestPhaseContent(phaseId);
+  const { phase, loading, error, mocked, extend, extending, prefetch } = useQuestPhaseContent(phaseId);
   const [player, refresh] = useTjspQuest();
   const nav = useNavigate();
   const [step, setStep] = useState<"practice" | "boss">("practice");
+  // Trocar de trilha sem sair da tela (mesma rota) volta para a prática.
+  useEffect(() => {
+    setStep("practice");
+    setPracticePct(0);
+    setPracticeXp(0);
+  }, [phaseId, stageIndex]);
   const [practicePct, setPracticePct] = useState(0);
   const [practiceXp, setPracticeXp] = useState(0);
 
@@ -48,6 +54,19 @@ function TrailStagePage() {
     askedFor.current = key;
     void extend(missingForStage(phase, stageIndex));
   }, [phase, stageIndex, loading, extending, needsMore, extend]);
+
+  // Enquanto joga esta trilha, já prepara a PRÓXIMA em segundo plano — assim
+  // cada chamada à IA é pequena (cabe no tempo da Vercel) e o aluno quase nunca espera.
+  const prefetchedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!phase || loading || extending || needsMore) return;
+    const next = stageIndex + 1;
+    if (next >= trailStageCount(phase) || !stageNeedsQuestions(phase, next)) return;
+    const key = `${phase.id}:${next}:${phase.questions.length}`;
+    if (prefetchedFor.current === key) return;
+    prefetchedFor.current = key;
+    void prefetch(missingForStage(phase, next));
+  }, [phase, stageIndex, loading, extending, needsMore, prefetch]);
 
   if (loading || extending || (needsMore && !error)) {
     return (
@@ -145,6 +164,7 @@ function TrailStagePage() {
 
       {step === "practice" ? (
         <QuestQuiz
+          key={`${phase.id}:${stageIndex}:pratica`}
           phaseId={phase.id}
           questions={pack.practice}
           mode="desafio"
@@ -156,7 +176,10 @@ function TrailStagePage() {
           }}
         />
       ) : (
+        // key própria: sem ela o React reaproveitava o quiz da prática (já na
+        // 5ª questão) e o chefe abria em "Sem questões neste modo".
         <QuestQuiz
+          key={`${phase.id}:${stageIndex}:chefe`}
           phaseId={phase.id}
           questions={pack.boss}
           mode="chefao"

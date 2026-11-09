@@ -39,7 +39,9 @@ export function getQuestQuestionTargets(subjectId: string): {
  * Tamanho de cada lote na geração (cabe no JSON da IA).
  * Português pede ~50+10: no máx. QUEST_AI_MAX_BATCHES chamadas + pad mock.
  */
-export const QUEST_AI_BATCH = { desafio: 12, boss: 5 } as const;
+// Lotes menores rodando em paralelo: cada chamada à IA fica curta (cabe no
+// limite de tempo da Vercel). O resto do banco vem por trilha, em segundo plano.
+export const QUEST_AI_BATCH = { desafio: 6, boss: 2 } as const;
 
 /** Evita 7× Gemini seguidos (trava Regenerar / timeout Vercel). */
 export const QUEST_AI_MAX_BATCHES = 2;

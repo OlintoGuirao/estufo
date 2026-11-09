@@ -9,7 +9,8 @@ import { getQuestPhase } from "@/data/tjsp-quest-catalog";
 import { mergePhaseWithAi } from "@/lib/tjsp-quest/ai-phase-content";
 import type { QuestPhase } from "@/types/tjsp-quest";
 
-const GENERATE_TIMEOUT_MS = 95_000;
+// Geração agora roda em paralelo (~1 chamada + 1 verificação); margem para rede lenta no celular.
+const GENERATE_TIMEOUT_MS = 130_000;
 
 type State = {
   phase: QuestPhase | null;
@@ -55,6 +56,7 @@ export function useQuestPhaseContent(phaseId: string): State & {
   regenerate: () => void;
   extending: boolean;
   extend: (need: { desafio: number; boss: number }) => Promise<boolean>;
+  prefetch: (need: { desafio: number; boss: number }) => Promise<void>;
 } {
   const [state, setState] = useState<State>(() => {
     const cached = questPhaseAiService.peekCached(phaseId);
@@ -214,10 +216,33 @@ export function useQuestPhaseContent(phaseId: string): State & {
     [phaseId],
   );
 
+  /**
+   * Mesmo que `extend`, mas em segundo plano (sem tela de carregando): enquanto
+   * o aluno joga uma trilha, já prepara a próxima. Erros são silenciosos — se
+   * falhar, a próxima trilha pede de novo quando o aluno chegar nela.
+   */
+  const prefetch = useCallback(
+    async (need: { desafio: number; boss: number }) => {
+      try {
+        const r = await questPhaseAiService.extend(phaseId, need);
+        setState((s) => {
+          const before =
+            (s.phase?.questions.length ?? 0) + (s.phase?.bossQuestions.length ?? 0);
+          const after = r.phase.questions.length + r.phase.bossQuestions.length;
+          return after > before ? { ...s, phase: r.phase, mocked: r.mocked } : s;
+        });
+      } catch {
+        /* silencioso */
+      }
+    },
+    [phaseId],
+  );
+
   return {
     ...state,
     extending,
     extend,
+    prefetch,
     regenerate: () => void generate(true),
   };
 }

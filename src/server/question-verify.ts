@@ -100,8 +100,11 @@ export async function verifyGeneratedQuestions<Q extends VerifiableQuestion>(
   const kept: Q[] = [];
   let dropped = 0;
   let verified = true;
-  for (let i = 0; i < questions.length; i += size) {
-    const batch = questions.slice(i, i + size);
+  // Lotes verificados em paralelo (em sequência estourava o tempo da tela).
+  const chunks: Q[][] = [];
+  for (let i = 0; i < questions.length; i += size) chunks.push(questions.slice(i, i + size));
+  const parts = await Promise.all(
+    chunks.map(async (batch): Promise<{ kept: Q[]; dropped: number; verified: boolean }> => {
     try {
       const { data, result } = await tutorChatJson<{ answers?: VerifyAnswer[] }>(
         buildVerifyMessages(batch, ctx),
@@ -115,24 +118,26 @@ export async function verifyGeneratedQuestions<Q extends VerifiableQuestion>(
         },
       );
       if (result.mocked) {
-        kept.push(...batch);
-        verified = false;
-        continue;
+        return { kept: batch, dropped: 0, verified: false };
       }
       const r = applyVerification(batch, data.answers ?? []);
-      kept.push(...r.kept);
-      dropped += r.dropped.length;
       if (r.dropped.length) {
         console.info(
           `[verify] ${r.dropped.length}/${batch.length} descartadas:`,
           r.dropped.map((d) => d.reason).join(" | "),
         );
       }
+      return { kept: r.kept, dropped: r.dropped.length, verified: true };
     } catch (e) {
       console.warn("[verify] falhou — mantendo lote sem verificação:", (e as Error).message);
-      kept.push(...batch);
-      verified = false;
+      return { kept: batch, dropped: 0, verified: false };
     }
+    }),
+  );
+  for (const part of parts) {
+    kept.push(...part.kept);
+    dropped += part.dropped;
+    if (!part.verified) verified = false;
   }
   return { kept, dropped, verified };
 }

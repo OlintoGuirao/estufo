@@ -42,7 +42,8 @@ export function missingForStage(
   const upTo = Math.min(PHASE_TRAIL.stages, stageIndex + 2);
   const desafio = Math.max(0, upTo * PHASE_TRAIL.questionsPerStage - phase.questions.length);
   const boss = Math.max(0, upTo * PHASE_TRAIL.bossPerStage - phase.bossQuestions.length);
-  return { desafio: Math.min(15, desafio), boss: Math.min(4, boss) };
+  // Lotes pequenos: cada chamada à IA termina rápido (limite de tempo da hospedagem).
+  return { desafio: Math.min(10, desafio), boss: Math.min(2, boss) };
 }
 
 export function getTrailStageQuestions(

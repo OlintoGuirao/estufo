@@ -47,7 +47,9 @@ export const TASK_PROFILES: Record<TutorTask, TaskProfile> = {
   verify: { tier: "smart", temperature: 0, json: true, thinking: true },
   chat: { tier: "smart", temperature: 0.4, json: false, thinking: true },
   lesson: { tier: "smart", temperature: 0.4, json: true, thinking: true },
-  questions: { tier: "smart", temperature: 0.5, json: true, thinking: true },
+  // Banco do Quest: raciocínio "low" para caber no tempo da Vercel; o gabarito
+  // continua conferido pela tarefa "verify" (que segue com raciocínio completo).
+  questions: { tier: "smart", temperature: 0.5, json: true, thinking: false },
   "study-pack": { tier: "smart", temperature: 0.3, json: true, thinking: false },
   flashcards: { tier: "fast", temperature: 0.3, json: true, thinking: false },
   "mind-map": { tier: "fast", temperature: 0.3, json: true, thinking: false },

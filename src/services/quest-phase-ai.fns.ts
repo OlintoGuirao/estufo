@@ -214,22 +214,20 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
       let model = "mock";
       let mocked = true;
 
-      for (let i = 0; i < batchTotal; i++) {
+      // Lotes em PARALELO (antes eram em sequência: 2× geração + 2× verificação
+      // somavam > 95 s e o aluno via "Tempo esgotado ao montar o banco").
+      const runBatch = async (i: number) => {
         const needDesafio = Math.min(
           QUEST_AI_BATCH.desafio,
-          Math.max(0, targets.desafio - merged.questions.length),
+          Math.max(0, targets.desafio - i * QUEST_AI_BATCH.desafio),
         );
         const needBoss = Math.min(
           QUEST_AI_BATCH.boss,
-          Math.max(0, targets.boss - merged.bossQuestions.length),
+          Math.max(0, targets.boss - i * QUEST_AI_BATCH.boss),
         );
-        if (needDesafio <= 0 && needBoss <= 0) break;
+        if (needDesafio <= 0 && needBoss <= 0) return null;
 
-        const editalFocus = editalFocusForPhase(
-          data.phaseId,
-          i * 5,
-          3,
-        ).map((x) => x.text);
+        const editalFocus = editalFocusForPhase(data.phaseId, i * 5, 3).map((x) => x.text);
         const result = await tutorChat(
           buildQuestPhaseAiMessages(editalFocus.length ? { ...meta, editalFocus } : meta, {
             desafioCount: needDesafio > 0 ? needDesafio : needBoss > 0 ? 0 : 3,
@@ -238,7 +236,8 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
             batchTotal,
           }),
           {
-            task: "questions", mockText: JSON.stringify({
+            task: "questions",
+            mockText: JSON.stringify({
               lessonBlocks: i === 0 ? mockPayload.lessonBlocks : [],
               questions: mockPayload.questions.slice(
                 i * QUEST_AI_BATCH.desafio,
@@ -251,9 +250,6 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
             }),
           },
         );
-
-        model = result.model;
-        mocked = !!result.mocked;
 
         let payload: QuestPhaseAiPayload;
         try {
@@ -273,8 +269,9 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
           };
         }
 
-        // 2ª passagem: outro modelo/chamada resolve sem gabarito; divergentes saem.
-        if (!mocked) {
+        // 2ª passagem: outra chamada resolve sem gabarito; divergentes saem.
+        let dropped = 0;
+        if (!result.mocked) {
           const v = await verifyGeneratedQuestions(
             [...payload.questions, ...payload.bossQuestions],
             { subject: data.subjectName, ...(legal.text ? { legalContext: legal.text } : {}) },
@@ -282,17 +279,29 @@ export const generateQuestPhaseContent = createServerFn({ method: "POST" })
           const ok = new Set(v.kept.map((x) => x.id));
           payload.questions = payload.questions.filter((x: { id: string }) => ok.has(x.id));
           payload.bossQuestions = payload.bossQuestions.filter((x: { id: string }) => ok.has(x.id));
-          droppedByVerify += v.dropped;
+          dropped = v.dropped;
         }
+        return { i, payload, model: result.model, mocked: !!result.mocked, dropped };
+      };
 
-        if (i === 0 && payload.lessonBlocks.length) {
-          merged.lessonBlocks = payload.lessonBlocks;
-        }
-        merged.questions = dedupeQuestions([...merged.questions, ...payload.questions]);
-        merged.bossQuestions = dedupeQuestions([
-          ...merged.bossQuestions,
-          ...payload.bossQuestions,
-        ]);
+      const settled = await Promise.allSettled(
+        Array.from({ length: batchTotal }, (_, i) => runBatch(i)),
+      );
+      const done = settled
+        .map((r) => (r.status === "fulfilled" ? r.value : null))
+        .filter((r): r is NonNullable<typeof r> => !!r)
+        .sort((a, b) => a.i - b.i);
+      if (!done.length) {
+        const firstErr = settled.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+        if (firstErr) throw firstErr.reason;
+      }
+      for (const r of done) {
+        model = r.model;
+        mocked = r.mocked;
+        droppedByVerify += r.dropped;
+        if (r.i === 0 && r.payload.lessonBlocks.length) merged.lessonBlocks = r.payload.lessonBlocks;
+        merged.questions = dedupeQuestions([...merged.questions, ...r.payload.questions]);
+        merged.bossQuestions = dedupeQuestions([...merged.bossQuestions, ...r.payload.bossQuestions]);
       }
 
       if (merged.questions.length < 3) {
