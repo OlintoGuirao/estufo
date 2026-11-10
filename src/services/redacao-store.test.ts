@@ -23,4 +23,33 @@ describe("redação — progresso salvo", () => {
     const again = (await import("./redacao-store")).redacaoStore;
     expect(again.getEssay(essay.id)?.body).toBe("Meu primeiro parágrafo.");
   });
+
+  it("exclui tema e rascunho e não os traz de volta ao reler", async () => {
+    const { redacaoStore } = await import("./redacao-store");
+    await redacaoStore.saveThemes(
+      [
+        {
+          id: "tema-x",
+          title: "Tema X",
+          prompt: "Escreva",
+          context: "ctx",
+          genre: "dissertativa-argumentativa",
+          likelihood: "alta",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      { replace: true },
+    );
+    const theme = redacaoStore.getTheme("tema-x")!;
+    const essay = redacaoStore.startEssay(theme);
+    expect(redacaoStore.deleteTheme("tema-x")).toBe(true);
+    expect(redacaoStore.getTheme("tema-x")).toBeUndefined();
+    expect(redacaoStore.deleteEssay(essay.id)).toBe(true);
+    expect(redacaoStore.getEssay(essay.id)).toBeUndefined();
+
+    vi.resetModules();
+    const again = (await import("./redacao-store")).redacaoStore;
+    expect(again.getTheme("tema-x")).toBeUndefined();
+    expect(again.getEssay(essay.id)).toBeUndefined();
+  });
 });

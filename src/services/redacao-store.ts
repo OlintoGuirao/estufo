@@ -23,6 +23,34 @@ function emptyState(): RedacaoState {
     themes: [],
     essays: [],
     openImprovements: [],
+    deletedThemeIds: [],
+    deletedEssayIds: [],
+    deletedImprovementIds: [],
+  };
+}
+
+function uniqIds(ids: string[] | undefined): string[] {
+  if (!Array.isArray(ids)) return [];
+  return [...new Set(ids.filter((id) => typeof id === "string" && id.length > 0))].slice(-200);
+}
+
+function normalizeState(raw: Partial<RedacaoState> | null | undefined): RedacaoState {
+  const deletedThemeIds = uniqIds(raw?.deletedThemeIds);
+  const deletedEssayIds = uniqIds(raw?.deletedEssayIds);
+  const deletedImprovementIds = uniqIds(raw?.deletedImprovementIds);
+  const delTheme = new Set(deletedThemeIds);
+  const delEssay = new Set(deletedEssayIds);
+  const delImp = new Set(deletedImprovementIds);
+  return {
+    schedule: raw?.schedule ?? emptyState().schedule,
+    themes: (Array.isArray(raw?.themes) ? raw!.themes : []).filter((t) => !delTheme.has(t.id)),
+    essays: (Array.isArray(raw?.essays) ? raw!.essays : []).filter((e) => !delEssay.has(e.id)),
+    openImprovements: (Array.isArray(raw?.openImprovements) ? raw!.openImprovements : []).filter(
+      (p) => !delImp.has(p.id),
+    ),
+    deletedThemeIds,
+    deletedEssayIds,
+    deletedImprovementIds,
   };
 }
 
@@ -31,12 +59,7 @@ function read(): RedacaoState {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) || "null") as RedacaoState | null;
     if (!raw || typeof raw !== "object") return emptyState();
-    return {
-      schedule: raw.schedule ?? emptyState().schedule,
-      themes: Array.isArray(raw.themes) ? raw.themes : [],
-      essays: Array.isArray(raw.essays) ? raw.essays : [],
-      openImprovements: Array.isArray(raw.openImprovements) ? raw.openImprovements : [],
-    };
+    return normalizeState(raw);
   } catch {
     return emptyState();
   }
@@ -67,20 +90,33 @@ function latestThemeAt(s: RedacaoState): string {
   return max;
 }
 
-/** Une local + remoto sem apagar temas/redações do outro lado. */
+/** Une local + remoto sem apagar temas/redações do outro lado (respeita exclusões). */
 function mergeStates(a: RedacaoState, b: RedacaoState): RedacaoState {
+  const deletedThemeIds = uniqIds([...(a.deletedThemeIds ?? []), ...(b.deletedThemeIds ?? [])]);
+  const deletedEssayIds = uniqIds([...(a.deletedEssayIds ?? []), ...(b.deletedEssayIds ?? [])]);
+  const deletedImprovementIds = uniqIds([
+    ...(a.deletedImprovementIds ?? []),
+    ...(b.deletedImprovementIds ?? []),
+  ]);
+  const delTheme = new Set(deletedThemeIds);
+  const delEssay = new Set(deletedEssayIds);
+  const delImp = new Set(deletedImprovementIds);
+
   const themeMap = new Map<string, RedacaoTheme>();
   for (const t of [...a.themes, ...b.themes]) {
+    if (delTheme.has(t.id)) continue;
     const prev = themeMap.get(t.id);
     if (!prev || (t.createdAt ?? "") >= (prev.createdAt ?? "")) themeMap.set(t.id, t);
   }
   const essayMap = new Map<string, RedacaoEssay>();
   for (const e of [...a.essays, ...b.essays]) {
+    if (delEssay.has(e.id)) continue;
     const prev = essayMap.get(e.id);
     if (!prev || e.updatedAt >= prev.updatedAt) essayMap.set(e.id, e);
   }
   const impMap = new Map<string, RedacaoImprovementPoint>();
   for (const p of [...a.openImprovements, ...b.openImprovements]) {
+    if (delImp.has(p.id)) continue;
     const prev = impMap.get(p.id);
     if (!prev) impMap.set(p.id, p);
     else if (p.status === "aberto" && prev.status !== "aberto") impMap.set(p.id, p);
@@ -99,6 +135,9 @@ function mergeStates(a: RedacaoState, b: RedacaoState): RedacaoState {
       .sort((x, y) => y.updatedAt.localeCompare(x.updatedAt))
       .slice(0, 80),
     openImprovements: [...impMap.values()].slice(0, 30),
+    deletedThemeIds,
+    deletedEssayIds,
+    deletedImprovementIds,
   };
 }
 
@@ -115,14 +154,7 @@ async function fetchRemote(): Promise<RedacaoState | null> {
     if (error) throw error;
     const remote = data?.[0]?.payload as RedacaoState | undefined;
     if (!remote || typeof remote !== "object") return null;
-    return {
-      schedule: remote.schedule ?? emptyState().schedule,
-      themes: Array.isArray(remote.themes) ? remote.themes : [],
-      essays: Array.isArray(remote.essays) ? remote.essays : [],
-      openImprovements: Array.isArray(remote.openImprovements)
-        ? remote.openImprovements
-        : [],
-    };
+    return normalizeState(remote);
   } catch (err) {
     console.warn("[redacao] fetch remoto falhou", err);
     return null;
@@ -398,6 +430,42 @@ export const redacaoStore = {
 
   openImprovements(): RedacaoImprovementPoint[] {
     return read().openImprovements.filter((p) => p.status === "aberto");
+  },
+
+  /** Remove um tema da lista (não apaga redações já começadas com esse tema). */
+  deleteTheme(id: string): boolean {
+    const state = read();
+    const before = state.themes.length;
+    state.themes = state.themes.filter((t) => t.id !== id);
+    if (state.themes.length === before) return false;
+    state.deletedThemeIds = uniqIds([...(state.deletedThemeIds ?? []), id]);
+    writeLocal(state);
+    void persist(state, { replaceThemes: true });
+    return true;
+  },
+
+  /** Exclui rascunho ou redação corrigida. */
+  deleteEssay(id: string): boolean {
+    const state = read();
+    const before = state.essays.length;
+    state.essays = state.essays.filter((e) => e.id !== id);
+    if (state.essays.length === before) return false;
+    state.deletedEssayIds = uniqIds([...(state.deletedEssayIds ?? []), id]);
+    writeLocal(state);
+    void persist(state);
+    return true;
+  },
+
+  /** Tira um ponto “levar para a próxima” da lista. */
+  dismissImprovement(id: string): boolean {
+    const state = read();
+    const before = state.openImprovements.length;
+    state.openImprovements = state.openImprovements.filter((p) => p.id !== id);
+    if (state.openImprovements.length === before) return false;
+    state.deletedImprovementIds = uniqIds([...(state.deletedImprovementIds ?? []), id]);
+    writeLocal(state);
+    void persist(state);
+    return true;
   },
 
   isEssayDay(date = new Date()): boolean {

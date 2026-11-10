@@ -91,4 +91,11 @@ export type RedacaoState = {
   themes: RedacaoTheme[];
   essays: RedacaoEssay[];
   openImprovements: RedacaoImprovementPoint[];
+  /**
+   * Itens apagados pelo aluno. O merge com a nuvem respeita esses ids
+   * para o tema/rascunho excluído não “ressuscitar” de outro aparelho.
+   */
+  deletedThemeIds?: string[];
+  deletedEssayIds?: string[];
+  deletedImprovementIds?: string[];
 };

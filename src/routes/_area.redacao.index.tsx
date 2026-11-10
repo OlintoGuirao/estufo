@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { CalendarDays, Loader2, PenLine, Sparkles, Target } from "lucide-react";
+import { CalendarDays, Loader2, PenLine, Sparkles, Target, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -107,6 +107,33 @@ function RedacaoIndexPage() {
     void navigate({ to: "/redacao/$essayId", params: { essayId: essay.id } });
   };
 
+  const removeTheme = (themeId: string, title: string) => {
+    if (!confirm(`Excluir o tema “${title}”?\n\nRedações já começadas com ele continuam na lista.`)) {
+      return;
+    }
+    if (redacaoStore.deleteTheme(themeId)) {
+      setTick((t) => t + 1);
+      toast.success("Tema excluído.");
+    }
+  };
+
+  const removeEssay = (essayId: string, title: string, status: string) => {
+    const kind = status === "rascunho" ? "rascunho" : "redação corrigida";
+    if (!confirm(`Excluir este ${kind} (“${title}”)? Essa ação não pode ser desfeita.`)) return;
+    if (redacaoStore.deleteEssay(essayId)) {
+      setTick((t) => t + 1);
+      toast.success(status === "rascunho" ? "Rascunho excluído." : "Redação excluída.");
+    }
+  };
+
+  const removeImprovement = (id: string) => {
+    if (!confirm("Remover este ponto da lista “Levar para a próxima”?")) return;
+    if (redacaoStore.dismissImprovement(id)) {
+      setTick((t) => t + 1);
+      toast.success("Ponto removido.");
+    }
+  };
+
   const essays = redacaoStore.listEssays();
   const themes = redacaoStore.listThemes();
 
@@ -171,10 +198,20 @@ function RedacaoIndexPage() {
                 className="flex gap-2 rounded-lg border border-dashed px-3 py-2 text-sm"
               >
                 <Target className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-medium">{p.area}</p>
                   <p className="text-muted-foreground">{p.tip}</p>
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                  aria-label={`Remover ponto: ${p.area}`}
+                  onClick={() => removeImprovement(p.id)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </li>
             ))}
           </ul>
@@ -241,6 +278,16 @@ function RedacaoIndexPage() {
                     Gere de novo (padrão VUNESP)
                   </Badge>
                 )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="ml-auto h-8 w-8 text-muted-foreground hover:text-destructive"
+                  aria-label={`Excluir tema ${t.title}`}
+                  onClick={() => removeTheme(t.id, t.title)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
               <h3 className="text-sm font-semibold uppercase leading-snug tracking-wide">
                 {t.title}
@@ -261,7 +308,7 @@ function RedacaoIndexPage() {
         <ul className="divide-y">
           {essays.map((e) => (
             <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="font-medium">{e.themeTitle}</p>
                 <p className="text-xs text-muted-foreground">
                   {e.status === "corrigida" ? "Corrigida" : "Rascunho"} ·{" "}
@@ -271,11 +318,27 @@ function RedacaoIndexPage() {
                     : ""}
                 </p>
               </div>
-              <Button asChild variant="outline" size="sm">
-                <Link to="/redacao/$essayId" params={{ essayId: e.id }}>
-                  Abrir
-                </Link>
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/redacao/$essayId" params={{ essayId: e.id }}>
+                    Abrir
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  aria-label={
+                    e.status === "rascunho"
+                      ? `Excluir rascunho ${e.themeTitle}`
+                      : `Excluir redação ${e.themeTitle}`
+                  }
+                  onClick={() => removeEssay(e.id, e.themeTitle, e.status)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </li>
           ))}
         </ul>

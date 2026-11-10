@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, CheckCircle2, Loader2, Target } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Target, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -173,14 +173,35 @@ function RedacaoEssayPage() {
   const done = essay.status === "corrigida";
   const correction = redacaoStore.getEssay(essayId)?.correction;
 
+  const removeEssay = () => {
+    const kind = done ? "redação corrigida" : "rascunho";
+    if (!confirm(`Excluir este ${kind}?\n\nEssa ação não pode ser desfeita.`)) return;
+    if (!redacaoStore.deleteEssay(essayId)) {
+      toast.error("Não foi possível excluir.");
+      return;
+    }
+    toast.success(done ? "Redação excluída." : "Rascunho excluído.");
+    void navigate({ to: "/redacao" });
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/redacao">
             <ArrowLeft className="h-4 w-4" />
             Redação
           </Link>
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground hover:text-destructive"
+          onClick={removeEssay}
+        >
+          <Trash2 className="h-4 w-4" />
+          {done ? "Excluir redação" : "Excluir rascunho"}
         </Button>
       </div>
 
