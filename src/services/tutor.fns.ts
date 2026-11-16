@@ -852,41 +852,235 @@ Se o nó citar artigo, inclua o número (ex.: Art. 144). Se citar lei, inclua n�
     }
   });
 
-/** Reforço semanal: material mental + ideias de questões a partir dos erros. */
+type WeeklyAiQuestion = {
+  statement?: string;
+  alternatives?: { key?: string; text?: string }[];
+  correctKey?: string;
+  explanation?: string;
+  subject?: string;
+  topic?: string;
+};
+
+type WeeklyAiShape = {
+  diagnostico?: string;
+  mapaMental?: string;
+  pontosMemorizar?: string[] | string;
+  questions?: WeeklyAiQuestion[];
+};
+
+function formatWeeklyReinforceText(data: WeeklyAiShape): string {
+  const pontos = Array.isArray(data.pontosMemorizar)
+    ? data.pontosMemorizar.map((p) => `- ${String(p).trim()}`).filter((p) => p.length > 2)
+    : String(data.pontosMemorizar ?? "")
+        .split(/\n+/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .map((p) => (p.startsWith("-") ? p : `- ${p}`));
+  return [
+    "1) Diagnóstico da semana",
+    String(data.diagnostico ?? "").trim() || "Foque nos erros listados e nas distinções típicas de banca.",
+    "",
+    "2) Mapa mental",
+    String(data.mapaMental ?? "").trim() || "- Temas da semana\n  - Erros recorrentes\n  - Revisão ativa",
+    "",
+    "3) Pontos a memorizar",
+    pontos.length ? pontos.join("\n") : "- Revise cada enunciado errado\n- Refaça questões parecidas no banco",
+  ].join("\n");
+}
+
+export type WeeklyReinforceQuestion = {
+  id: string;
+  statement: string;
+  alternatives: { key: string; text: string }[];
+  correctKey: string;
+  explanation: string;
+  subject: string;
+  topic: string;
+  source: "ai" | "banco";
+};
+
+function normalizeWeeklyAiQuestions(
+  raw: WeeklyAiQuestion[] | undefined,
+): WeeklyReinforceQuestion[] {
+  if (!Array.isArray(raw)) return [];
+  const keys = new Set(["A", "B", "C", "D", "E"]);
+  const out: WeeklyReinforceQuestion[] = [];
+  for (const [i, q] of raw.entries()) {
+    const statement = String(q.statement ?? "").trim();
+    if (statement.length < 12) continue;
+    const alts = (q.alternatives ?? [])
+      .map((a) => ({
+        key: String(a.key ?? "").toUpperCase(),
+        text: String(a.text ?? "").trim(),
+      }))
+      .filter((a) => keys.has(a.key) && a.text.length >= 2)
+      .slice(0, 5);
+    if (alts.length < 4) continue;
+    let correctKey = String(q.correctKey ?? "").toUpperCase();
+    if (!keys.has(correctKey) || !alts.some((a) => a.key === correctKey)) {
+      correctKey = alts[0]!.key;
+    }
+    out.push({
+      id: `weekly_ai_${i}_${Math.random().toString(36).slice(2, 8)}`,
+      statement,
+      alternatives: alts,
+      correctKey,
+      explanation: String(q.explanation ?? "").trim() || `Gabarito: ${correctKey}.`,
+      subject: String(q.subject ?? "").trim() || "Revisão",
+      topic: String(q.topic ?? "").trim() || "Reforço da semana",
+      source: "ai",
+    });
+  }
+  return out;
+}
+
+/** Reforço semanal: material mental + questões (IA + banco se a IA falhar). */
 export const generateWeeklyReinforce = createServerFn({ method: "POST" })
   .validator(
     z.object({
       weekKey: z.string().min(4).max(16),
       summaryText: z.string().min(20).max(12_000),
+      subjects: z.array(z.string().min(1).max(120)).max(20).optional().default([]),
+      questionCount: z.number().int().min(3).max(15).optional().default(5),
     }),
   )
   .handler(async ({ data }) => {
     try {
-      const { tutorChat } = await import("@/server/tutor-llm");
-      const result = await tutorChat(
-        [
-          {
-            role: "system",
-            content: [
-              "Voce e professor de concursos. Com base nos ERROS e no que o aluno estudou na semana,",
-              "monte um REFORCO MENTAL curto (portugues claro) e 5 perguntas de autoavaliacao (sem gabarito longo).",
-              "Nao invente lei fora do que os erros sugerem. Formato:",
-              "1) Diagnostico da semana (5–8 linhas)",
-              "2) Mapa mental em texto (hierarquia com tracos)",
-              "3) Pontos a memorizar (bullets)",
-              "4) 5 questoes de reforco (enunciado curto + 5 alternativas A–E estilo VUNESP, so a letra correta entre parenteses no fim de cada item)",
-            ].join("\n"),
-          },
-          {
-            role: "user",
-            content: `Semana ${data.weekKey}\n\n${data.summaryText}`,
-          },
+      const { tutorChatJson } = await import("@/server/tutor-llm");
+      const count = data.questionCount ?? 5;
+      const subjects = (data.subjects ?? []).map((s) => s.trim()).filter(Boolean);
+
+      const mockPayload = {
+        diagnostico:
+          "Você acumulou erros nos temas listados. Foque nos verbos nucleares e nas distinções típicas de banca.",
+        mapaMental: "- Temas da semana\n  - Erros recorrentes\n  - Revisão ativa",
+        pontosMemorizar: [
+          "Revise cada enunciado errado",
+          "Refaça questões parecidas no banco",
         ],
-        {
-          task: "weekly", mockText: `1) Diagnostico da semana\nVoce acumulou erros nos temas listados. Foque nos verbos nucleares e nas distinguicoes tipicas de banca.\n\n2) Mapa mental\n- Temas da semana\n  - Erros recorrentes\n  - Revisao ativa\n\n3) Pontos a memorizar\n- Revise cada enunciado errado\n- Refaca 5 questoes parecidas no banco\n\n4) Questoes de reforco\n1. Conceito X — Assinale a correta. A) ... B) ... C) ... D) ... E) ... (A)\n2. ... (B)\n3. ... (C)\n4. ... (D)\n5. ... (E)`,
-        },
-      );
-      return { text: result.text, model: result.model, mocked: !!result.mocked };
+        questions: Array.from({ length: count }, (_, i) => ({
+          statement: `Questão de reforço ${i + 1} — assinale a alternativa correta sobre o tema da semana.`,
+          alternatives: [
+            { key: "A", text: "Afirmação parcial, incompleta para a banca." },
+            { key: "B", text: "Aplicação correta do conceito nuclear cobrado." },
+            { key: "C", text: "Generalização além do que o edital exige." },
+            { key: "D", text: "Troca por conceito vizinho, tipicamente errado." },
+            { key: "E", text: "Leitura literal estreita demais do enunciado." },
+          ],
+          correctKey: "B",
+          explanation: "Questão demonstrativa da revisão semanal.",
+          subject: subjects[0] || "Revisão",
+          topic: "Reforço da semana",
+        })),
+      };
+
+      let ai: WeeklyAiShape = mockPayload;
+      let result: { model?: string; mocked?: boolean } = { mocked: true };
+      try {
+        const packed = await tutorChatJson<WeeklyAiShape>(
+          [
+            {
+              role: "system",
+              content: [
+                "Você é professor de concursos (VUNESP / TJSP).",
+                "Com base nos ERROS e no que o aluno estudou na semana, monte um reforço mental CURTO e EXATAMENTE questões objetivas.",
+                "NÃO invente lei fora do que os erros sugerem.",
+                "PROIBIDO markdown. Responda SOMENTE JSON:",
+                '{"diagnostico":"5–8 linhas","mapaMental":"hierarquia com traços","pontosMemorizar":["..."],"questions":[{"statement":"...","alternatives":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."},{"key":"E","text":"..."}],"correctKey":"C","explanation":"2–3 frases","subject":"...","topic":"..."}]}',
+                `OBRIGATÓRIO: o array questions deve ter EXATAMENTE ${count} itens, cada um com 5 alternativas A–E e uma única correta.`,
+              ].join("\n"),
+            },
+            {
+              role: "user",
+              content: `Semana ${data.weekKey}\nMatérias: ${subjects.join(", ") || "(não informadas)"}\n\n${data.summaryText}`,
+            },
+          ],
+          {
+            task: "weekly",
+            mockText: JSON.stringify(mockPayload),
+            // Conteúdo mental pode vir sem questões — o banco completa abaixo.
+            validate: (d) =>
+              d &&
+              (typeof d.diagnostico === "string" ||
+                typeof d.mapaMental === "string" ||
+                Array.isArray(d.questions))
+                ? null
+                : "formato inválido",
+          },
+        );
+        ai = packed.data;
+        result = packed.result;
+      } catch (aiErr) {
+        console.warn("[weekly] IA falhou — usando texto base + banco", aiErr);
+        ai = {
+          diagnostico:
+            "Não foi possível montar o diagnóstico completo agora. Use as questões abaixo para reforçar os temas da semana e revise os erros do caderno.",
+          mapaMental: subjects.length
+            ? subjects.map((s) => `- ${s}`).join("\n")
+            : "- Temas da semana\n  - Erros recorrentes",
+          pontosMemorizar: [
+            "Refaça as questões de reforço sem consultar o material",
+            "Anote só o verbo nuclear de cada erro",
+          ],
+          questions: [],
+        };
+        result = { mocked: false };
+      }
+
+      let questions = normalizeWeeklyAiQuestions(ai.questions).slice(0, count);
+      const text = formatWeeklyReinforceText(ai);
+
+      // Se a IA entregou conteúdo mas poucas/nenhuma questão válida, completa com o banco real.
+      if (questions.length < count) {
+        const { tjspBancoCatalog } = await import("@/services/tjsp-banco.catalog");
+        const { tjspOfficialProvasCatalog } = await import(
+          "@/services/tjsp-official-provas.catalog"
+        );
+        const need = count - questions.length;
+        const fromBanco = tjspBancoCatalog.pickForSimulado({
+          count: need,
+          subjects: subjects.length ? subjects : undefined,
+        });
+        const moreNeed = need - fromBanco.length;
+        const fromOfficial =
+          moreNeed > 0
+            ? tjspOfficialProvasCatalog.pickForSimulado({
+                count: moreNeed,
+                subjects: subjects.length ? subjects : undefined,
+                excludeIds: new Set(fromBanco.map((q) => q.id)),
+              })
+            : [];
+        const bankQs: WeeklyReinforceQuestion[] = [...fromBanco, ...fromOfficial].map((q) => {
+          const raw =
+            tjspBancoCatalog.getRaw(q.id) ?? tjspOfficialProvasCatalog.getRaw(q.id);
+          const correctKey = String(raw?.correctKey ?? "A").toUpperCase();
+          return {
+            id: q.id,
+            statement: q.statement,
+            alternatives: q.alternatives,
+            correctKey,
+            explanation:
+              String(raw && "explanation" in raw ? (raw as { explanation?: string }).explanation : "").trim() ||
+              `Questão do banco (${q.source || q.contest}). Gabarito: ${correctKey}.`,
+            subject: q.subject,
+            topic: q.topic,
+            source: "banco" as const,
+          };
+        });
+        questions = [...questions, ...bankQs].slice(0, count);
+      }
+
+      // Último recurso: se ainda não houver questões (matéria sem banco), gera stub mínimo.
+      if (!questions.length) {
+        questions = normalizeWeeklyAiQuestions(mockPayload.questions).slice(0, count);
+      }
+
+      return {
+        text,
+        questions,
+        model: result.model,
+        mocked: !!result.mocked,
+      };
     } catch (err) {
       return await throwTutorError(err);
     }

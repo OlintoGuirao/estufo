@@ -60,3 +60,12 @@ export function buildWeeklyReinforcePrompt(bundle: WeeklyReviewBundle): string {
   }
   return lines.join("\n");
 }
+
+/** Matérias para sortear questões de reforço (erros + plano da semana). */
+export function subjectsForWeeklyReinforce(bundle: WeeklyReviewBundle): string[] {
+  const fromErrors = bundle.bySubject.map((g) => g.subject).filter(Boolean);
+  const merged = [...fromErrors, ...bundle.subjectsStudied]
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return [...new Set(merged)];
+}

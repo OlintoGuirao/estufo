@@ -25,9 +25,11 @@ import {
 import {
   buildWeeklyReinforcePrompt,
   buildWeeklyReviewBundle,
+  subjectsForWeeklyReinforce,
 } from "@/lib/weekly-review";
+import { PracticeQuestionReview } from "@/components/mind-map/practice-question-review";
 import { errorNotesService, reviewsService, studyPlansService, tutorService } from "@/services";
-import type { ErrorNote, ErrorNoteOrigin, Review } from "@/types";
+import type { ErrorNote, ErrorNoteOrigin, MindPracticeQuestion, Review } from "@/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_area/revisoes")({
@@ -49,6 +51,8 @@ function Reviews() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("semana");
   const [reinforce, setReinforce] = useState<string | null>(null);
+  const [reinforceQs, setReinforceQs] = useState<MindPracticeQuestion[]>([]);
+  const [reinforceWeek, setReinforceWeek] = useState<string>("");
   const q = useQuery({ queryKey: ["reviews"], queryFn: reviewsService.list });
   const notes = useQuery({ queryKey: ["error-notes"], queryFn: () => errorNotesService.list() });
   const plan = useQuery({
@@ -79,17 +83,33 @@ function Reviews() {
         sessions: plan.data ?? [],
       });
       const summaryText = buildWeeklyReinforcePrompt(bundle);
-      return tutorService.weeklyReinforce({
+      const subjects = subjectsForWeeklyReinforce(bundle);
+      const result = await tutorService.weeklyReinforce({
         weekKey: bundle.week,
         summaryText,
+        subjects,
+        questionCount: 5,
       });
+      return { ...result, weekKey: bundle.week };
     },
     onSuccess: (r) => {
       setReinforce(r.text);
+      setReinforceWeek(r.weekKey);
+      const qs: MindPracticeQuestion[] = (r.questions ?? []).map((q) => ({
+        id: q.id,
+        statement: q.statement,
+        alternatives: q.alternatives,
+        correctKey: q.correctKey,
+        explanation: q.explanation || `Gabarito: ${q.correctKey}.`,
+        topic: q.topic || q.subject || "Reforço da semana",
+      }));
+      setReinforceQs(qs);
       toast.success(
         r.mocked
           ? "Reforço demonstrativo (configure GEMINI_API_KEY)."
-          : "Reforço mental da semana gerado.",
+          : qs.length
+            ? `Reforço gerado com ${qs.length} questões.`
+            : "Reforço mental da semana gerado.",
       );
     },
     onError: (e) => toast.error(errMsg(e)),
@@ -184,19 +204,36 @@ function Reviews() {
       </div>
 
       {reinforce && (
-        <Panel title="Reforço mental da semana" className="mb-6">
-          <pre className="max-h-96 overflow-auto whitespace-pre-wrap text-sm leading-relaxed">
-            {reinforce}
-          </pre>
-          <Button
-            className="mt-3"
-            size="sm"
-            variant="outline"
-            onClick={() => setReinforce(null)}
-          >
-            Fechar
-          </Button>
-        </Panel>
+        <div className="mb-6 space-y-4">
+          <Panel title="Reforço mental da semana">
+            <pre className="max-h-72 overflow-auto whitespace-pre-wrap text-sm leading-relaxed">
+              {reinforce}
+            </pre>
+            <Button
+              className="mt-3"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setReinforce(null);
+                setReinforceQs([]);
+              }}
+            >
+              Fechar
+            </Button>
+          </Panel>
+          {reinforceQs.length > 0 && (
+            <Panel title={`Questões de reforço (${reinforceQs.length})`}>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Pratique os temas da semana. Erros podem ir ao caderno depois, pela prática
+                normal.
+              </p>
+              <PracticeQuestionReview
+                questions={reinforceQs}
+                mapId={`weekly-reinforce-${reinforceWeek || weekly.week}`}
+              />
+            </Panel>
+          )}
+        </div>
       )}
 
       {tab === "semana" && (

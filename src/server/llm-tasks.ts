@@ -62,7 +62,13 @@ export const TASK_PROFILES: Record<TutorTask, TaskProfile> = {
     maxOutputTokens: 8192,
   },
   "redacao-correcao": { tier: "smart", temperature: 0.2, json: true, thinking: true },
-  weekly: { tier: "smart", temperature: 0.4, json: false, thinking: false },
+  weekly: {
+    tier: "smart",
+    temperature: 0.4,
+    json: true,
+    thinking: false,
+    maxOutputTokens: 8192,
+  },
   "video-quiz": { tier: "fast", temperature: 0.5, json: true, thinking: false },
   generic: { tier: "fast", temperature: 0.4, json: false, thinking: false },
 };

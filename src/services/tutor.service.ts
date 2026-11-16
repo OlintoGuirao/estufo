@@ -208,7 +208,12 @@ export const tutorService = {
 
   listDifficulties: () => tutorDifficultyStore.list(),
 
-  async weeklyReinforce(data: { weekKey: string; summaryText: string }) {
+  async weeklyReinforce(data: {
+    weekKey: string;
+    summaryText: string;
+    subjects?: string[];
+    questionCount?: number;
+  }) {
     try {
       return await generateWeeklyReinforce({ data });
     } catch (e) {
