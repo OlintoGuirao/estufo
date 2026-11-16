@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
 import { Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/common";
 import { approvalTrailService } from "@/services/approval-trail.service";
 import { trailProgressService } from "@/services/trail-progress.service";
 import { cn } from "@/lib/utils";
+import { prefetchUpcomingLessons } from "@/lib/approval-trail/lesson-prefetch";
 
 type Props = {
   className?: string;
@@ -34,6 +35,14 @@ export function TrailResumeCard({ className }: Props) {
     void progressAllQ.data;
     return trailProgressService.getResumePoint(trail.id, trail.weeks);
   }, [trail, progressAllQ.data]);
+
+  // Ao ver "Continuar de onde parei", já deixa a aula desse dia pronta em segundo plano.
+  const qc = useQueryClient();
+  const resumeWeek = resumePoint?.week ?? null;
+  useEffect(() => {
+    if (resumeWeek == null) return;
+    prefetchUpcomingLessons(qc, trail, resumeWeek, { ahead: 1, includeFrom: true, delayMs: 4000 });
+  }, [qc, trail, resumeWeek]);
 
   if (!resumePoint) return null;
 

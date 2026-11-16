@@ -569,8 +569,8 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
         return e;
       }
       const count = Math.max(1, Math.min(80, Number(body.questionCount) || 10));
-      const subjects = Array.isArray(body.subjects) ? body.subjects.map(String) : [];
-      // Banco 400 + provas oficiais (Direito etc.) para cobrir a trilha.
+      const subjects = Array.isArray(body.subjects) ? body.subjects.map(String).filter(Boolean) : [];
+      // Banco 400 + provas oficiais — sempre respeitando as matérias pedidas (ex.: só Português).
       const fromBanco = tjspBancoCatalog.pickForSimulado({ count, subjects });
       let picked = fromBanco;
       if (picked.length < count) {
@@ -592,11 +592,23 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
           picked = [...bancoPart, ...official].slice(0, count);
         }
       }
+      if (!picked.length) {
+        throw new ApiError(
+          subjects.length
+            ? `Não achei questões para: ${subjects.join(", ")}. Tente outras matérias da trilha.`
+            : "Não achei questões para montar o simulado.",
+          422,
+        );
+      }
       const hasOfficial = picked.some((q) => isOfficialProvaQuestionId(q.id));
+      // Matérias reais da prova (não inventa outras além das pedidas).
+      const examSubjects = [
+        ...new Set(picked.map((q) => q.subject).filter(Boolean)),
+      ];
       const e = {
         title: body.title || "Simulado",
         contestId: body.contestId ?? "",
-        subjects,
+        subjects: examSubjects.length ? examSubjects : subjects,
         timeLimitMin: Math.max(1, Number(body.timeLimitMin) || 30),
         correctionMode: body.correctionMode === "imediata" ? "imediata" : "ao-final",
         id: uid(),

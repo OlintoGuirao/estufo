@@ -1,5 +1,6 @@
+import { getDeviceId } from "@/lib/device-id";
 import { isSupabaseConfigured, requireSupabase } from "@/lib/supabase";
-import { getStudyOwnerId, studyOwnerQueryIds } from "@/lib/study-owner";
+import { getStudyOwnerId, studyOwnerQueryIds, userStudyOwnerKey } from "@/lib/study-owner";
 import type { ErrorNote, MockExam, MockExamResult, Review, StudySession } from "@/types";
 import type { QuestPlayerState } from "@/types/tjsp-quest";
 import type { QuestPhaseAiPayload } from "@/lib/tjsp-quest/ai-phase-content";
@@ -25,6 +26,67 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+type OwnedRow = Record<string, unknown> & { id: string; device_id: string };
+
+/** device_id que a RLS aceita com a sessão atual do Supabase. */
+async function writableOwnerId(): Promise<string> {
+  const sb = requireSupabase();
+  let uid: string | null = null;
+  try {
+    const { data } = await sb.auth.getSession();
+    uid = data.session?.user?.id ?? null;
+  } catch {
+    uid = null;
+  }
+  const preferred = getStudyOwnerId();
+  if (uid) return userStudyOwnerKey(uid);
+  // Sem JWT: só dá para gravar linhas `dev_%`.
+  if (preferred.startsWith("user_")) return getDeviceId();
+  return preferred;
+}
+
+/**
+ * Upsert seguro com RLS: o `upsert(..., onConflict: id)` tenta UPDATE em linha
+ * de OUTRA conta (mesmo id) e a policy USING estoura 42501.
+ * Aqui: atualiza se a linha for visível; senão insere; se a PK já for de outro,
+ * grava com id próprio da conta.
+ */
+async function upsertOwnedById(
+  table: string,
+  rows: OwnedRow[],
+  remapPayloadId?: (row: OwnedRow, newId: string) => OwnedRow,
+): Promise<void> {
+  if (!rows.length) return;
+  const sb = requireSupabase();
+  const deviceId = await writableOwnerId();
+
+  for (const raw of rows) {
+    const row = { ...raw, device_id: deviceId };
+    const { data: updated, error: upErr } = await sb
+      .from(table)
+      .update(row)
+      .eq("id", row.id)
+      .select("id");
+    if (upErr) throw upErr;
+    if (updated?.length) continue;
+
+    const { error: insErr } = await sb.from(table).insert(row);
+    if (!insErr) continue;
+
+    // 23505 = PK de outra conta; 42501 = conflito / RLS.
+    const code = (insErr as { code?: string }).code;
+    if (code !== "23505" && code !== "42501") throw insErr;
+
+    const suffix = deviceId.replace(/[^a-zA-Z0-9]/g, "").slice(-10) || "own";
+    const newId = `${row.id}__${suffix}`;
+    const next = remapPayloadId
+      ? remapPayloadId({ ...row, id: newId }, newId)
+      : { ...row, id: newId };
+    const { error: retryErr } = await sb.from(table).insert(next);
+    if (retryErr) throw retryErr;
+  }
+}
+
 /** Sync best-effort do caderno, simulados, revisões, plano, Quest e estado de questões. */
 export const studyUserDataDb = {
   enabled(): boolean {
@@ -33,7 +95,6 @@ export const studyUserDataDb = {
 
   async upsertErrorNotes(notes: ErrorNote[]): Promise<void> {
     if (!isSupabaseConfigured || !notes.length) return;
-    const sb = requireSupabase();
     const deviceId = getStudyOwnerId();
     const rows = notes.map((n) => ({
       id: n.id,
@@ -42,8 +103,10 @@ export const studyUserDataDb = {
       created_at: n.createdAt || nowIso(),
       updated_at: nowIso(),
     }));
-    const { error } = await sb.from("user_error_notes").upsert(rows, { onConflict: "id" });
-    if (error) throw error;
+    await upsertOwnedById("user_error_notes", rows, (row, newId) => ({
+      ...row,
+      payload: { ...(row.payload as ErrorNote), id: newId },
+    }));
   },
 
   async removeErrorNote(id: string): Promise<void> {
@@ -74,7 +137,6 @@ export const studyUserDataDb = {
     results: Record<string, MockExamResult>,
   ): Promise<void> {
     if (!isSupabaseConfigured || !exams.length) return;
-    const sb = requireSupabase();
     const deviceId = getStudyOwnerId();
     const rows = exams.map((e) => ({
       id: e.id,
@@ -84,8 +146,10 @@ export const studyUserDataDb = {
       created_at: e.createdAt || nowIso(),
       updated_at: nowIso(),
     }));
-    const { error } = await sb.from("user_mock_exams").upsert(rows, { onConflict: "id" });
-    if (error) throw error;
+    await upsertOwnedById("user_mock_exams", rows, (row, newId) => ({
+      ...row,
+      exam: { ...(row.exam as MockExam), id: newId },
+    }));
   },
 
   async listMockExams(): Promise<Array<MockExam & { result?: MockExamResult | null }>> {
@@ -108,7 +172,6 @@ export const studyUserDataDb = {
 
   async upsertReviews(reviews: Review[]): Promise<void> {
     if (!isSupabaseConfigured || !reviews.length) return;
-    const sb = requireSupabase();
     const deviceId = getStudyOwnerId();
     const rows = reviews.map((r) => ({
       id: r.id,
@@ -117,8 +180,10 @@ export const studyUserDataDb = {
       due_date: r.dueDate || null,
       updated_at: nowIso(),
     }));
-    const { error } = await sb.from("user_reviews").upsert(rows, { onConflict: "id" });
-    if (error) throw error;
+    await upsertOwnedById("user_reviews", rows, (row, newId) => ({
+      ...row,
+      payload: { ...(row.payload as Review), id: newId },
+    }));
   },
 
   async listReviews(): Promise<Review[]> {
@@ -135,7 +200,6 @@ export const studyUserDataDb = {
 
   async upsertSessions(sessions: StudySession[]): Promise<void> {
     if (!isSupabaseConfigured || !sessions.length) return;
-    const sb = requireSupabase();
     const deviceId = getStudyOwnerId();
     const rows = sessions.map((s) => ({
       id: s.id,
@@ -144,8 +208,10 @@ export const studyUserDataDb = {
       session_date: s.date || null,
       updated_at: nowIso(),
     }));
-    const { error } = await sb.from("user_study_sessions").upsert(rows, { onConflict: "id" });
-    if (error) throw error;
+    await upsertOwnedById("user_study_sessions", rows, (row, newId) => ({
+      ...row,
+      payload: { ...(row.payload as StudySession), id: newId },
+    }));
   },
 
   async removeSession(id: string): Promise<void> {

@@ -1,4 +1,5 @@
 import catalog from "@/data/tjsp-banco-400.json";
+import { matchesAnySubject, normSubject } from "@/lib/subject-match";
 import { localQuestionState } from "@/services/local-question-state";
 import { ApiError } from "@/services/api";
 import type { AnswerResult, Question } from "@/types";
@@ -25,14 +26,7 @@ const questions = (catalog as { questions: RawQ[] }).questions;
 const byId = new Map(questions.map((q) => [q.id, q]));
 const byCode = new Map(questions.map((q) => [q.code, q]));
 
-/** Remove acentos para bater "Informática" ↔ INFORMATICA, etc. */
-function norm(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "");
-}
+const norm = normSubject;
 
 /**
  * Mapeia o nome da prova diagnóstica → chave do banco 400.
@@ -159,22 +153,15 @@ export const tjspBancoCatalog = {
     subjects?: string[];
   }): Question[] {
     const count = Math.max(1, Math.min(80, opts.count));
-    const labels = (opts.subjects ?? []).map(norm).filter(Boolean);
-    let pool = questions;
-    if (labels.length) {
-      const filtered = questions.filter((q) => {
-        const subj = norm(q.subject);
-        const key = q.subjectKey.toLowerCase();
-        return labels.some(
-          (l) =>
-            subj.includes(l) ||
-            l.includes(subj) ||
-            key.includes(l.replace(/\s+/g, "_")) ||
-            resolveSubjectKey(l) === q.subjectKey,
-        );
-      });
-      if (filtered.length >= Math.min(count, 5)) pool = filtered;
-    }
+    const labels = (opts.subjects ?? []).map((s) => s.trim()).filter(Boolean);
+    // Com matérias pedidas: NUNCA cai no banco inteiro (antes misturava tudo).
+    const pool = labels.length
+      ? questions.filter(
+          (q) =>
+            matchesAnySubject(q.subject, labels) ||
+            labels.some((l) => resolveSubjectKey(l) === q.subjectKey),
+        )
+      : questions;
     return shuffle(pool)
       .slice(0, count)
       .map((q) => ({

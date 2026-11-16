@@ -1,9 +1,13 @@
 import { getStudentProfileText } from "./student-profile";
 import { ApiError } from "./api";
-import { askTrailProfessor, generateTrailWeekLesson } from "./trail-week-lesson.fns";
+import {
+  askTrailProfessor,
+  generateTrailModuleQuestions,
+  generateTrailWeekLesson,
+} from "./trail-week-lesson.fns";
 import { trailWeekLessonStore } from "./trail-week-lesson-store";
 import { approvalTrailStore } from "./approval-trail-store";
-import type { TrailWeekLesson } from "@/types/trail-week-lesson";
+import type { ProfessorModule, TrailWeekLesson } from "@/types/trail-week-lesson";
 import type { ApprovalTrail } from "@/types/approval-trail";
 
 function parseErr(e: unknown): never {
@@ -82,6 +86,60 @@ export const trailWeekLessonService = {
         },
       });
       return trailWeekLessonStore.saveNow(lesson);
+    } catch (e) {
+      return parseErr(e);
+    }
+  },
+
+  /**
+   * O módulo "5 questões — {etapa}" veio vazio (a IA cortou a aula grande):
+   * gera só as questões dele e salva na aula (aparelho + banco).
+   */
+  async fillModuleQuestions(week: number, moduleId: string): Promise<TrailWeekLesson> {
+    const trail = approvalTrailStore.get();
+    if (!trail) throw new ApiError("Nenhuma trilha encontrada.", 404);
+    const w = trail.weeks.find((x) => x.week === week);
+    const lesson =
+      trailWeekLessonStore.get(trail.id, week) ?? (await trailWeekLessonStore.hydrate(trail.id, week));
+    if (!lesson) throw new ApiError("Aula não encontrada. Abra a semana de novo.", 404);
+    const idx = lesson.modules.findIndex((m) => m.id === moduleId);
+    const mod = lesson.modules[idx];
+    if (!mod) throw new ApiError("Módulo não encontrado.", 404);
+    if (mod.questions?.length) return lesson;
+
+    // Contexto: definição/macete/exemplo da mesma etapa (módulos anteriores com o mesmo assunto).
+    const topic = mod.topicLabel || mod.title.replace(/^\d+\s*quest(õ|o)es\s*[—-]\s*/i, "");
+    const sameTopic = lesson.modules
+      .slice(0, idx)
+      .filter((m) => (m.topicLabel && m.topicLabel === mod.topicLabel) || m.title.includes(topic))
+      .map((m) => [m.title, m.definition, m.mnemonic, m.example, m.body].filter(Boolean).join("\n"))
+      .join("\n\n")
+      .slice(0, 5500);
+    const avoid = lesson.modules
+      .flatMap((m) => m.questions ?? [])
+      .map((q) => q.statement.slice(0, 180))
+      .slice(0, 50);
+
+    try {
+      const r = await generateTrailModuleQuestions({
+        data: {
+          board: trail.board || "VUNESP",
+          weekFocus: (w?.focus ?? lesson.title).slice(0, 400),
+          moduleTitle: mod.title.slice(0, 300),
+          topicLabel: topic.slice(0, 300),
+          lessonContext: sameTopic,
+          // Prática do dia: mais questões (mistura as etapas); módulo de etapa: 5.
+          count: mod.kind === "pratica" ? 10 : 5,
+          avoid,
+        },
+      });
+      if (!r.questions.length) throw new ApiError("O professor não conseguiu montar as questões agora.", 503);
+      const nextMod: ProfessorModule = { ...mod, questions: r.questions };
+      const next: TrailWeekLesson = {
+        ...lesson,
+        modules: lesson.modules.map((m, i) => (i === idx ? nextMod : m)),
+      };
+      return await trailWeekLessonStore.saveNow(next);
     } catch (e) {
       return parseErr(e);
     }

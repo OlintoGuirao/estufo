@@ -71,11 +71,14 @@ export function getTrailStudySnapshotForSimulado(
     ...new Set(inWeek.flatMap((x) => x.meta?.subjectNames ?? []).filter(Boolean)),
   ];
 
-  // Se a semana não trouxe subjectNames, resolve pelos topicIds.
+  // Se a semana não trouxe subjectNames, resolve só pelos tópicos DESTES dias
+  // (não por qualquer etapa “concluída” de outras semanas).
   if (!subjects.length) {
-    const topicIds = new Set(inWeek.flatMap((x) => x.progress.topicIds ?? x.meta?.topicIds ?? []));
+    const topicIds = new Set(
+      inWeek.flatMap((x) => x.progress.topicIds ?? x.meta?.topicIds ?? []),
+    );
     for (const s of trail.subjects) {
-      if (s.topics.some((t) => topicIds.has(t.id) || t.status === "concluida")) {
+      if (s.topics.some((t) => topicIds.has(t.id))) {
         subjects.push(s.name);
       }
     }

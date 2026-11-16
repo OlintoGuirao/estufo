@@ -1,6 +1,7 @@
 import catalog from "@/data/tjsp-official-provas.json";
+import { matchesAnySubject } from "@/lib/subject-match";
 import { localQuestionState } from "@/services/local-question-state";
-import { cleanOfficialProva } from "@/lib/official-question-clean";
+import { cleanOfficialProva, isCleanOfficialQuestion } from "@/lib/official-question-clean";
 import { ApiError } from "@/services/api";
 import type { Question } from "@/types";
 
@@ -77,14 +78,6 @@ export function isOfficialProvaQuestionId(id: string): boolean {
   return id.startsWith("tjsp-oficial-");
 }
 
-function norm(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "");
-}
-
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -138,15 +131,14 @@ export const tjspOfficialProvasCatalog = {
     excludeIds?: Set<string>;
   }): Question[] {
     const count = Math.max(1, Math.min(80, opts.count));
-    const labels = (opts.subjects ?? []).map(norm).filter(Boolean);
+    const labels = (opts.subjects ?? []).map((s) => s.trim()).filter(Boolean);
     const exclude = opts.excludeIds ?? new Set<string>();
-    let pool = [...byId.values()].filter((q) => q.correctKey && !exclude.has(q.id));
+    let pool = [...byId.values()].filter(
+      (q) => q.correctKey && !exclude.has(q.id) && isCleanOfficialQuestion(q),
+    );
+    // Com matérias pedidas: só essas — nunca completa com o caderno inteiro.
     if (labels.length) {
-      const filtered = pool.filter((q) => {
-        const subj = norm(q.subject);
-        return labels.some((l) => subj.includes(l) || l.includes(subj));
-      });
-      if (filtered.length >= Math.min(count, 3)) pool = filtered;
+      pool = pool.filter((q) => matchesAnySubject(q.subject, labels));
     }
     return shuffle(pool)
       .slice(0, count)

@@ -64,7 +64,7 @@ function shuffleAlternatives(
   return { alternatives, correctKey: newCorrect };
 }
 
-function parseQuestions(
+export function parseQuestions(
   raw: AiQ[] | undefined,
   max = 40,
 ): TrailLessonPracticeQuestion[] {

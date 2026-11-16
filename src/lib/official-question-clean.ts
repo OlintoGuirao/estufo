@@ -145,18 +145,55 @@ export function splitSupportText(statement: string): {
   };
 }
 
-/** A questão faz sentido sozinha? (Desafio do dia evita as quebradas.) */
+/** A questão faz sentido sozinha? (Simulado / desafio evitam as quebradas.) */
 export function isCleanOfficialQuestion(q: RawOfficialQ): boolean {
-  const all = [q.statement, ...q.alternatives.map((a) => a.text)].join("\n");
+  const alts = q.alternatives ?? [];
+  if (alts.length < 4) return false;
+  if (alts.some((a) => !String(a.text ?? "").trim())) return false;
+
+  const all = [q.statement, ...alts.map((a) => a.text)].join("\n");
   if (/\bo parágrafo\)|rágrafo\)\s|\bpa-\s|\(\d+ parágrafo\)/.test(all.replace(/\(\d+º parágrafo\)/g, ""))) {
     return false;
   }
-  // Pede o texto mas não tem texto de apoio
-  const needsText = /\b(n?o texto|do texto|narrador|autor do texto|segundo o texto|de acordo com o texto|conto|crônica)\b(?! (constitucional|legal|da lei|normativo))/i;
-  if (needsText.test(q.statement) && !SUPPORT_PREFIX.test(q.statement)) return false;
   // Alternativa com texto vazado gigante
-  if (q.alternatives.some((a) => a.text.length > 600)) return false;
-  return q.statement.trim().length >= 20;
+  if (alts.some((a) => a.text.length > 600)) return false;
+
+  const { passage, question } = splitSupportText(q.statement);
+  const stem = (question || q.statement).trim();
+  if (stem.length < 25) return false;
+  if (/^passagem\s*:?\s*$/i.test(stem)) return false;
+
+  // Tira / charge / figura: no app não há a imagem → questão inutilizável.
+  if (
+    /\bleia a tira\b|\bobserve a tira\b|\ba tira\b(?= decorre| acima| a seguir)|\bcharge\b|\bquadrinho\b|\bveja a figura\b|\bobserve a figura\b/i.test(
+      q.statement,
+    )
+  ) {
+    return false;
+  }
+
+  // Alternativas fatiadas (um parágrafo virado A–E com "...")
+  const ellipsisAlts = alts.filter((a) => /^\.\.\.|^…/.test(a.text.trim())).length;
+  if (ellipsisAlts >= 2) return false;
+
+  // Texto de apoio cortado no começo (ex.: "ao natural Pois no Rio..." sem o início do conto)
+  if (passage) {
+    const p = passage.trim();
+    if (p.length < 40) return false;
+    if (/^[a-záéíóúàãõâêôç]/.test(p)) {
+      // Título curto em minúsculas + frase colada ("ao natural Pois…") = extração quebrada
+      if (/^[^\n]{0,40}\s+(Pois|Mas|Porém|Contudo|Entretanto)\s+/i.test(p)) return false;
+    }
+  }
+
+  // Pede texto/narrador/personagem mas não tem apoio (ex.: tira 2024 Q1–Q2 sem imagem).
+  const pureGrammar =
+    /norma-padrão|concord[aâ]ncia|reg[eê]ncia|crase|pontua[cç][aã]o|ortografia|coloca[cç][aã]o pronominal|voz passiva|figuras? de linguagem|sin[oô]nim|ant[oô]nim|coes[aã]o|coer[eê]ncia|lacunas? do (?:texto|per[ií]odo)|reescrita|adequada(?:mente)? reescrit/i;
+  const needsPassage =
+    /\b(n?o texto|do texto|narrador|autor do texto|segundo o texto|de acordo com o texto|conto|cr[oô]nica|personagem|personagens|termos? destacados?)\b(?! (constitucional|legal|da lei|normativo))/i;
+  if (needsPassage.test(stem) && !passage && !pureGrammar.test(stem)) return false;
+
+  return true;
 }
 
 /** Passagens em lista ("• … • …") ficam uma por linha. */

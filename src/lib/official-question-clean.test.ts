@@ -78,4 +78,37 @@ describe("limpeza das questões oficiais (PDF)", () => {
       }),
     ).toBe(true);
   });
+
+  it("descarta tira sem imagem e alternativas fatiadas com reticências", () => {
+    expect(
+      isCleanOfficialQuestion({
+        id: "tira",
+        statement: "Leia a tira. O efeito de humor da tira decorre",
+        alternatives: alts(),
+      }),
+    ).toBe(false);
+    expect(
+      isCleanOfficialQuestion({
+        id: "passagem",
+        statement: "passagem:",
+        alternatives: [
+          { key: "A", text: "... então tudo foi pensado para que o público entrasse." },
+          { key: "B", text: "... os personagens se expressam de maneira correta." },
+          { key: "C", text: "Quem assiste à novela já reparou no português culto." },
+          { key: "D", text: "... o autor da novela diz que o linguajar se destaca." },
+          { key: "E", text: "escrever o texto, utilizando o dicionário." },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("descarta personagem/tira sem texto de apoio", () => {
+    expect(
+      isCleanOfficialQuestion({
+        id: "pers",
+        statement: "Na perspectiva do personagem, ficar desempregado é visto como algo",
+        alternatives: alts(),
+      }),
+    ).toBe(false);
+  });
 });

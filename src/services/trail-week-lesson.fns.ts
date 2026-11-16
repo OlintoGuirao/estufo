@@ -366,3 +366,68 @@ ${contextBlock}`,
 
     return { answer: result.text.trim(), mocked: !!result.mocked };
   });
+
+const moduleQuestionsSchema = z.object({
+  board: z.string().max(120).optional().default("VUNESP"),
+  weekFocus: z.string().max(400),
+  moduleTitle: z.string().min(1).max(300),
+  topicLabel: z.string().max(300).optional().default(""),
+  /** Definição/macete/exemplo da etapa — as questões cobram isso. */
+  lessonContext: z.string().max(6000).optional().default(""),
+  count: z.number().int().min(1).max(10).optional().default(5),
+  /** Enunciados que o aluno já tem — não repetir. */
+  avoid: z.array(z.string().max(200)).max(60).optional().default([]),
+});
+
+/**
+ * Gera as questões de UM módulo ("5 questões — {etapa}") quando a aula veio
+ * sem elas (a IA às vezes corta a resposta grande da aula e o módulo fica vazio).
+ */
+export const generateTrailModuleQuestions = createServerFn({ method: "POST" })
+  .validator(moduleQuestionsSchema)
+  .handler(async ({ data }) => {
+    const { tutorChatJson } = await import("@/server/tutor-llm");
+    const { parseQuestions } = await import("@/lib/approval-trail/parse-week-lesson");
+    const topic = data.topicLabel || data.moduleTitle.replace(/^\d+\s*quest(õ|o)es\s*[—-]\s*/i, "");
+    const system = `Você é elaborador de questões objetivas no padrão ${data.board || "VUNESP"} (concurso TJSP Escrevente).
+Gere EXATAMENTE ${data.count} questões de MEMORIZAÇÃO/APLICAÇÃO sobre o assunto pedido.
+- 5 alternativas (A–E), uma única correta, distratores plausíveis.
+- Enunciado concreto (frase, trecho ou caso), nada de perguntar "o que diz o edital".
+- explanation: explique de forma simples por que a correta está certa (2–3 frases).
+- legalBasis: regra gramatical ou artigo de lei; não invente número de artigo.
+PROIBIDO markdown. Responda SOMENTE JSON:
+{"questions":[{"statement":"...","alternatives":[{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."},{"key":"E","text":"..."}],"correctKey":"C","explanation":"...","legalBasis":"..."}]}`;
+    const user = [
+      `Assunto (etapa do edital): ${topic}`,
+      `Foco do dia: ${data.weekFocus}`,
+      data.lessonContext ? `\nO QUE O ALUNO ACABOU DE ESTUDAR (cobre isto):\n${data.lessonContext}` : "",
+      data.avoid.length ? `\nNÃO repita estas questões:\n${data.avoid.map((a) => `- ${a}`).join("\n")}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const mockQs = Array.from({ length: data.count }, (_, i) => ({
+      statement: `Sobre ${topic}, assinale a alternativa correta (questão ${i + 1}).`,
+      alternatives: ["A", "B", "C", "D", "E"].map((key) => ({
+        key,
+        text: key === "B" ? `Aplicação correta de ${topic.slice(0, 40)}` : `Afirmação incorreta ${key} sobre o tema`,
+      })),
+      correctKey: "B",
+      explanation: "Questão demonstrativa (sem IA configurada).",
+      legalBasis: "Conteúdo da aula",
+    }));
+
+    const { data: out, result } = await tutorChatJson<{ questions?: unknown[] }>(
+      [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      {
+        task: "questions",
+        mockText: JSON.stringify({ questions: mockQs }),
+        validate: (d) => (Array.isArray(d?.questions) && d.questions.length ? null : "faltou questions"),
+      },
+    );
+    const questions = parseQuestions(out.questions as Parameters<typeof parseQuestions>[0], data.count);
+    return { questions, mocked: !!result.mocked };
+  });

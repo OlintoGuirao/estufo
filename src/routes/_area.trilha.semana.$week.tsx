@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   BookOpen,
@@ -24,6 +24,7 @@ import { approvalTrailService } from "@/services/approval-trail.service";
 import { trailWeekLessonService } from "@/services/trail-week-lesson.service";
 import { trailProgressService } from "@/services/trail-progress.service";
 import { cn } from "@/lib/utils";
+import { prefetchUpcomingLessons } from "@/lib/approval-trail/lesson-prefetch";
 import type { ProfessorModule, ProfessorModuleKind } from "@/types/trail-week-lesson";
 
 export const Route = createFileRoute("/_area/trilha/semana/$week")({
@@ -77,6 +78,13 @@ function WeekLessonPage() {
     staleTime: Infinity,
     retry: 1,
   });
+
+  // Aula deste dia pronta → já prepara as dos próximos 2 dias em segundo plano.
+  const lessonReady = !!lessonQ.data?.modules?.length;
+  useEffect(() => {
+    if (!lessonReady) return;
+    prefetchUpcomingLessons(qc, trailQ.data, week, { ahead: 2 });
+  }, [lessonReady, qc, trailQ.data, week]);
 
   const progressQ = useQuery({
     queryKey: ["trail-week-progress", trailId, week],
@@ -143,6 +151,25 @@ function WeekLessonPage() {
     const id = progress?.activeModuleId;
     return modules.find((m) => m.id === id) ?? modules[0]!;
   }, [modules, progress?.activeModuleId]);
+
+  // Módulo de questões que veio vazio da IA → gera só as questões dele.
+  const fillQuestions = useMutation({
+    mutationFn: (moduleId: string) => trailWeekLessonService.fillModuleQuestions(week, moduleId),
+    onSuccess: (lesson) => {
+      qc.setQueryData(["trail-week-lesson", trailId, week], lesson);
+    },
+  });
+  const needsQuestions =
+    !!active &&
+    !active.questions?.length &&
+    (active.kind === "pratica" || /^\s*\d+\s*quest(õ|o)es\b/i.test(active.title));
+  const triedFill = useRef<string | null>(null);
+  useEffect(() => {
+    if (!active || !needsQuestions || fillQuestions.isPending) return;
+    if (triedFill.current === active.id) return; // não entra em loop se a IA falhar
+    triedFill.current = active.id;
+    fillQuestions.mutate(active.id);
+  }, [active, needsQuestions, fillQuestions]);
 
   useEffect(() => {
     if (!trailId || !lesson?.modules.length || !progressQ.isSuccess) return;
@@ -420,6 +447,27 @@ function WeekLessonPage() {
                 <ProfessorText text={active.body} className="mb-4 text-muted-foreground" />
               ) : null}
 
+              {needsQuestions && (
+                <div className="mt-6 flex flex-col items-center gap-3 rounded-lg border border-dashed p-6 text-center">
+                  {fillQuestions.isError ? (
+                    <>
+                      <p className="text-sm font-medium">Não consegui preparar as questões agora.</p>
+                      <p className="text-xs text-muted-foreground">{errMsg(fillQuestions.error)}</p>
+                      <Button size="sm" onClick={() => fillQuestions.mutate(active.id)}>
+                        <RefreshCw className="h-4 w-4" />
+                        Tentar de novo
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <p className="text-sm font-medium">O professor está preparando as questões deste módulo…</p>
+                      <p className="text-xs text-muted-foreground">Leva alguns segundos. Elas ficam salvas para as próximas vezes.</p>
+                    </>
+                  )}
+                </div>
+              )}
+
               {!!active.questions?.length && (
                 <div className="mt-6 space-y-4">
                   <p className="text-sm font-semibold">
@@ -436,7 +484,7 @@ function WeekLessonPage() {
                         <p className="text-sm font-medium">Questão {idx + 1}</p>
                         <ProfessorText
                           text={q.statement}
-                          className="mt-2 text-sm leading-relaxed [&_p]:mb-0 [&_strong]:rounded-sm [&_strong]:bg-amber-200/80 [&_strong]:px-0.5 [&_strong]:font-semibold [&_strong]:text-foreground"
+                          className="mt-2 text-sm leading-relaxed [&_p]:mb-0 [&_strong]:rounded-sm [&_strong]:bg-amber-200/80 [&_strong]:px-0.5 [&_strong]:font-semibold [&_strong]:text-foreground dark:[&_strong]:bg-amber-400/15 dark:[&_strong]:text-amber-100 dark:[&_strong]:shadow-[inset_0_-2px_0_rgba(251,191,36,0.45)]"
                         />
                         <ul className="mt-3 space-y-2">
                           {q.alternatives.map((a) => (
