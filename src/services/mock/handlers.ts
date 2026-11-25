@@ -547,6 +547,12 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
 
   if (a === "mock-exams") {
     if (!b && method === "GET") return [...db.exams].sort((x, y) => y.createdAt.localeCompare(x.createdAt));
+    if (b && !c && method === "DELETE") {
+      db.exams = db.exams.filter((e) => e.id !== b);
+      delete db.examResults[b];
+      void studyUserDataDb.removeMockExam(b).catch(() => {});
+      return undefined;
+    }
     if (!b && method === "POST") {
       // Prova oficial completa (2018 / 2021 / 2025).
       if (body.officialProvaId) {

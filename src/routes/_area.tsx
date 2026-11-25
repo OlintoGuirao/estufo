@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   Bell, BookMarked, CalendarDays, Clapperboard, FileText, Gauge, LineChart, ListChecks, LogOut, Map, Menu, Network, NotebookPen, PenLine, RefreshCcw, Settings, Swords,
+  Flame,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -39,6 +40,7 @@ const nav = [
   { to: "/plano", label: "Cronograma", icon: CalendarDays },
   { to: "/erros", label: "Caderno de erros", icon: BookMarked },
   { to: "/simulados", label: "Simulados", icon: FileText },
+  { to: "/mais-cobradas", label: "Mais cobradas (Direito)", icon: Flame },
   { to: "/mapas", label: "Mapas mentais", icon: Network },
   { to: "/revisoes", label: "Revisões", icon: RefreshCcw },
   { to: "/desempenho", label: "Desempenho", icon: LineChart },

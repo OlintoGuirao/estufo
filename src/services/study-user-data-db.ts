@@ -29,7 +29,7 @@ function nowIso() {
 type OwnedRow = Record<string, unknown> & { id: string; device_id: string };
 
 /** device_id que a RLS aceita com a sessão atual do Supabase. */
-async function writableOwnerId(): Promise<string> {
+export async function writableOwnerId(): Promise<string> {
   const sb = requireSupabase();
   let uid: string | null = null;
   try {
@@ -46,44 +46,93 @@ async function writableOwnerId(): Promise<string> {
 }
 
 /**
+ * Ids já remapeados (`<id>__<dono>`) por tabela+dono. Sem isso, toda sync
+ * repetia: UPDATE (0 linhas) → INSERT (409) → INSERT do remapeado (409 de novo,
+ * pois ele já existia) — e a sync inteira falhava.
+ */
+const REMAP_KEY = "estufoo.sync-remapped-ids.v1";
+let remapCache: Record<string, string> | null = null;
+
+function remapStore(): Record<string, string> {
+  if (remapCache) return remapCache;
+  try {
+    remapCache = JSON.parse(localStorage.getItem(REMAP_KEY) ?? "{}") as Record<string, string>;
+  } catch {
+    remapCache = {};
+  }
+  return remapCache ?? {};
+}
+
+function rememberRemap(key: string, newId: string): void {
+  const store = remapStore();
+  if (store[key] === newId) return;
+  store[key] = newId;
+  try {
+    localStorage.setItem(REMAP_KEY, JSON.stringify(store));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** UPDATE se a linha for nossa; senão INSERT. Retorna o código do erro de INSERT. */
+async function updateOrInsert(table: string, row: OwnedRow): Promise<string | null> {
+  const sb = requireSupabase();
+  const { data: updated, error: upErr } = await sb
+    .from(table)
+    .update(row)
+    .eq("id", row.id)
+    .select("id");
+  if (upErr) throw upErr;
+  if (updated?.length) return null;
+  // ON CONFLICT DO NOTHING: se o id já é de outro dono, volta vazio em vez de
+  // 409 no console (DO NOTHING só passa pela policy de INSERT, não pela USING).
+  const { data: inserted, error: insErr } = await sb
+    .from(table)
+    .upsert(row, { onConflict: "id", ignoreDuplicates: true })
+    .select("id");
+  if (!insErr) return inserted?.length ? null : "23505";
+  const code = (insErr as { code?: string }).code ?? "";
+  // 23505 = PK de outra conta; 42501 = conflito / RLS.
+  if (code !== "23505" && code !== "42501") throw insErr;
+  return code;
+}
+
+/**
  * Upsert seguro com RLS: o `upsert(..., onConflict: id)` tenta UPDATE em linha
  * de OUTRA conta (mesmo id) e a policy USING estoura 42501.
  * Aqui: atualiza se a linha for visível; senão insere; se a PK já for de outro,
- * grava com id próprio da conta.
+ * grava com id próprio da conta (e lembra disso para as próximas syncs).
  */
-async function upsertOwnedById(
+export async function upsertOwnedById(
   table: string,
   rows: OwnedRow[],
   remapPayloadId?: (row: OwnedRow, newId: string) => OwnedRow,
 ): Promise<void> {
   if (!rows.length) return;
-  const sb = requireSupabase();
   const deviceId = await writableOwnerId();
+  const suffix = deviceId.replace(/[^a-zA-Z0-9]/g, "").slice(-10) || "own";
 
   for (const raw of rows) {
     const row = { ...raw, device_id: deviceId };
-    const { data: updated, error: upErr } = await sb
-      .from(table)
-      .update(row)
-      .eq("id", row.id)
-      .select("id");
-    if (upErr) throw upErr;
-    if (updated?.length) continue;
+    const cacheKey = `${table}:${deviceId}:${row.id}`;
+    const newId = row.id.endsWith(`__${suffix}`) ? row.id : `${row.id}__${suffix}`;
+    const remapped = (): OwnedRow =>
+      remapPayloadId ? remapPayloadId({ ...row, id: newId }, newId) : { ...row, id: newId };
 
-    const { error: insErr } = await sb.from(table).insert(row);
-    if (!insErr) continue;
+    // Já sabemos que o id original é de outro dono: vai direto no remapeado.
+    if (remapStore()[cacheKey] === newId) {
+      const code = await updateOrInsert(table, remapped());
+      if (code) throw new Error(`[sync] ${table}: não foi possível gravar ${newId} (${code})`);
+      continue;
+    }
 
-    // 23505 = PK de outra conta; 42501 = conflito / RLS.
-    const code = (insErr as { code?: string }).code;
-    if (code !== "23505" && code !== "42501") throw insErr;
+    const code = await updateOrInsert(table, row);
+    if (!code) continue;
+    if (newId === row.id) throw new Error(`[sync] ${table}: conflito em ${row.id} (${code})`);
 
-    const suffix = deviceId.replace(/[^a-zA-Z0-9]/g, "").slice(-10) || "own";
-    const newId = `${row.id}__${suffix}`;
-    const next = remapPayloadId
-      ? remapPayloadId({ ...row, id: newId }, newId)
-      : { ...row, id: newId };
-    const { error: retryErr } = await sb.from(table).insert(next);
-    if (retryErr) throw retryErr;
+    const retry = await updateOrInsert(table, remapped());
+    if (retry) throw new Error(`[sync] ${table}: não foi possível gravar ${newId} (${retry})`);
+    rememberRemap(cacheKey, newId);
   }
 }
 
@@ -115,7 +164,7 @@ export const studyUserDataDb = {
     const { error } = await sb
       .from("user_error_notes")
       .delete()
-      .eq("id", id)
+      .or(`id.eq.${id},id.like.${id}__*`)
       .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
@@ -150,6 +199,18 @@ export const studyUserDataDb = {
       ...row,
       exam: { ...(row.exam as MockExam), id: newId },
     }));
+  },
+
+  async removeMockExam(id: string): Promise<void> {
+    if (!isSupabaseConfigured) return;
+    const sb = requireSupabase();
+    // Ids remapeados no upsert (conflito de conta) ganham o sufixo "__<dono>".
+    const { error } = await sb
+      .from("user_mock_exams")
+      .delete()
+      .or(`id.eq.${id},id.like.${id}__*`)
+      .in("device_id", studyOwnerQueryIds());
+    if (error) throw error;
   },
 
   async listMockExams(): Promise<Array<MockExam & { result?: MockExamResult | null }>> {
@@ -220,7 +281,7 @@ export const studyUserDataDb = {
     const { error } = await sb
       .from("user_study_sessions")
       .delete()
-      .eq("id", id)
+      .or(`id.eq.${id},id.like.${id}__*`)
       .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },

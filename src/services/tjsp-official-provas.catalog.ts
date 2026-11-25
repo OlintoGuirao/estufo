@@ -3,7 +3,7 @@ import { matchesAnySubject } from "@/lib/subject-match";
 import { localQuestionState } from "@/services/local-question-state";
 import { cleanOfficialProva, isCleanOfficialQuestion } from "@/lib/official-question-clean";
 import { ApiError } from "@/services/api";
-import type { Question } from "@/types";
+import type { AnswerResult, Question } from "@/types";
 
 export type OfficialProvaSummary = {
   id: string;
@@ -119,6 +119,33 @@ export const tjspOfficialProvasCatalog = {
 
   getRaw(id: string): RawQ | undefined {
     return byId.get(id);
+  },
+
+  getQuestion(id: string): Question {
+    const raw = byId.get(id);
+    if (!raw) throw new ApiError("Questão oficial não encontrada.", 404);
+    return toQuestion(raw);
+  },
+
+  /** Questões oficiais por id (só as com gabarito e texto íntegro). */
+  listByIds(ids: string[]): Question[] {
+    return ids
+      .map((id) => byId.get(id))
+      .filter((q): q is RawQ => !!q && !!q.correctKey && isCleanOfficialQuestion(q))
+      .map(toQuestion);
+  },
+
+  answer(id: string, choice: string): AnswerResult {
+    const q = byId.get(id);
+    if (!q || !q.correctKey) throw new ApiError("Questão oficial sem gabarito.", 404);
+    const correctKey = q.correctKey.toUpperCase();
+    const correct = choice.toUpperCase() === correctKey;
+    localQuestionState.upsert(id, { answered: { choice: choice.toUpperCase(), correct } });
+    return {
+      correct,
+      correctKey,
+      explanation: `Gabarito oficial VUNESP: ${correctKey} · ${q.source || `TJSP ${q.year}`}.`,
+    };
   },
 
   /**

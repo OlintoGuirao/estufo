@@ -239,7 +239,8 @@ function parseModules(raw: AiModule[] | undefined, data: AiShape): ProfessorModu
     const example = normalizeProfessorPlainText(String(m.example ?? ""));
     const topicLabel = String(m.topicLabel ?? "").trim() || undefined;
     const allowQuestions = kind === "pratica" || CONTENT_KINDS.has(kind);
-    const maxQ = kind === "pratica" ? 40 : 5;
+    // Prática = 5 extras por etapa; com 10 etapas são 50 (o teto de 40 cortava).
+    const maxQ = kind === "pratica" ? 120 : 5;
     const questions = allowQuestions ? parseQuestions(m.questions, maxQ) : undefined;
     const body =
       CONTENT_KINDS.has(kind)

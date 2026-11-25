@@ -20,6 +20,7 @@ import { Route as AreaConcursosRouteImport } from './routes/_area.concursos'
 import { Route as AreaConfiguracoesRouteImport } from './routes/_area.configuracoes'
 import { Route as AreaDesempenhoRouteImport } from './routes/_area.desempenho'
 import { Route as AreaErrosRouteImport } from './routes/_area.erros'
+import { Route as AreaMaisCobradasRouteImport } from './routes/_area.mais-cobradas'
 import { Route as AreaPainelRouteImport } from './routes/_area.painel'
 import { Route as AreaPlanoRouteImport } from './routes/_area.plano'
 import { Route as AreaQuestRouteImport } from './routes/_area.quest'
@@ -107,6 +108,11 @@ const AreaDesempenhoRoute = AreaDesempenhoRouteImport.update({
 const AreaErrosRoute = AreaErrosRouteImport.update({
   id: '/erros',
   path: '/erros',
+  getParentRoute: () => AreaRoute,
+} as any)
+const AreaMaisCobradasRoute = AreaMaisCobradasRouteImport.update({
+  id: '/mais-cobradas',
+  path: '/mais-cobradas',
   getParentRoute: () => AreaRoute,
 } as any)
 const AreaPainelRoute = AreaPainelRouteImport.update({
@@ -299,6 +305,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AreaConfiguracoesRoute
   '/desempenho': typeof AreaDesempenhoRoute
   '/erros': typeof AreaErrosRoute
+  '/mais-cobradas': typeof AreaMaisCobradasRoute
   '/painel': typeof AreaPainelRoute
   '/plano': typeof AreaPlanoRoute
   '/quest': typeof AreaQuestRouteWithChildren
@@ -345,6 +352,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AreaConfiguracoesRoute
   '/desempenho': typeof AreaDesempenhoRoute
   '/erros': typeof AreaErrosRoute
+  '/mais-cobradas': typeof AreaMaisCobradasRoute
   '/painel': typeof AreaPainelRoute
   '/plano': typeof AreaPlanoRoute
   '/questoes': typeof AreaQuestoesRoute
@@ -388,6 +396,7 @@ export interface FileRoutesById {
   '/_area/configuracoes': typeof AreaConfiguracoesRoute
   '/_area/desempenho': typeof AreaDesempenhoRoute
   '/_area/erros': typeof AreaErrosRoute
+  '/_area/mais-cobradas': typeof AreaMaisCobradasRoute
   '/_area/painel': typeof AreaPainelRoute
   '/_area/plano': typeof AreaPlanoRoute
   '/_area/quest': typeof AreaQuestRouteWithChildren
@@ -436,6 +445,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/desempenho'
     | '/erros'
+    | '/mais-cobradas'
     | '/painel'
     | '/plano'
     | '/quest'
@@ -482,6 +492,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/desempenho'
     | '/erros'
+    | '/mais-cobradas'
     | '/painel'
     | '/plano'
     | '/questoes'
@@ -524,6 +535,7 @@ export interface FileRouteTypes {
     | '/_area/configuracoes'
     | '/_area/desempenho'
     | '/_area/erros'
+    | '/_area/mais-cobradas'
     | '/_area/painel'
     | '/_area/plano'
     | '/_area/quest'
@@ -646,6 +658,13 @@ declare module '@tanstack/react-router' {
       path: '/erros'
       fullPath: '/erros'
       preLoaderRoute: typeof AreaErrosRouteImport
+      parentRoute: typeof AreaRoute
+    }
+    '/_area/mais-cobradas': {
+      id: '/_area/mais-cobradas'
+      path: '/mais-cobradas'
+      fullPath: '/mais-cobradas'
+      preLoaderRoute: typeof AreaMaisCobradasRouteImport
       parentRoute: typeof AreaRoute
     }
     '/_area/painel': {
@@ -980,6 +999,7 @@ interface AreaRouteChildren {
   AreaConfiguracoesRoute: typeof AreaConfiguracoesRoute
   AreaDesempenhoRoute: typeof AreaDesempenhoRoute
   AreaErrosRoute: typeof AreaErrosRoute
+  AreaMaisCobradasRoute: typeof AreaMaisCobradasRoute
   AreaPainelRoute: typeof AreaPainelRoute
   AreaPlanoRoute: typeof AreaPlanoRoute
   AreaQuestRoute: typeof AreaQuestRouteWithChildren
@@ -1004,6 +1024,7 @@ const AreaRouteChildren: AreaRouteChildren = {
   AreaConfiguracoesRoute: AreaConfiguracoesRoute,
   AreaDesempenhoRoute: AreaDesempenhoRoute,
   AreaErrosRoute: AreaErrosRoute,
+  AreaMaisCobradasRoute: AreaMaisCobradasRoute,
   AreaPainelRoute: AreaPainelRoute,
   AreaPlanoRoute: AreaPlanoRoute,
   AreaQuestRoute: AreaQuestRouteWithChildren,

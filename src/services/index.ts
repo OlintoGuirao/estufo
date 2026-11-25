@@ -86,6 +86,7 @@ export const examsService = {
   submit: (id: string, d: { answers: Record<string, string>; timeUsedSec: number }) =>
     request<MockExamResult>("POST", `/mock-exams/${id}/submit`, d),
   result: (id: string) => request<MockExamResult>("GET", `/mock-exams/${id}/result`),
+  remove: (id: string) => request<void>("DELETE", `/mock-exams/${id}`),
 };
 
 export type MindMapCreateInput = {

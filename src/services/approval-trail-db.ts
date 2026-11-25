@@ -133,11 +133,11 @@ export const approvalTrailDb = {
 
   async upsertTrail(trail: ApprovalTrail): Promise<void> {
     if (!isSupabaseConfigured) return;
-    const sb = requireSupabase();
-    const { error } = await sb.from("approval_trails").upsert(trailToRow(trail), {
-      onConflict: "id",
-    });
-    if (error) throw error;
+    // `upsert(onConflict: id)` estourava 403 (RLS USING) quando a linha com
+    // esse id é de outro dono. O caminho seguro grava com id próprio; o plano
+    // mantém o id original (progresso e aulas seguem ligados a ele).
+    const { upsertOwnedById } = await import("@/services/study-user-data-db");
+    await upsertOwnedById("approval_trails", [trailToRow(trail)]);
   },
 
   /** Só id + data (sem o plano, que pode ter vários MB). */
@@ -146,13 +146,15 @@ export const approvalTrailDb = {
     const sb = requireSupabase();
     const { data, error } = await sb
       .from("approval_trails")
-      .select("id, updated_at")
+      .select("id, updated_at, plan_id:plan->>id")
       .in("device_id", studyOwnerQueryIds())
       .order("updated_at", { ascending: false })
       .limit(1);
     if (error) throw error;
-    const row = data?.[0] as { id?: string; updated_at?: string } | undefined;
-    return row?.id && row.updated_at ? { id: row.id, updatedAt: row.updated_at } : null;
+    const row = data?.[0] as { id?: string; updated_at?: string; plan_id?: string | null } | undefined;
+    // A linha pode ter id remapeado (`<id>__<dono>`); o que importa é o id do plano.
+    const id = row?.plan_id || row?.id;
+    return id && row?.updated_at ? { id, updatedAt: row.updated_at } : null;
   },
 
   async loadLatestTrail(): Promise<ApprovalTrail | null> {
@@ -176,7 +178,7 @@ export const approvalTrailDb = {
     const { error } = await sb
       .from("approval_trails")
       .delete()
-      .eq("id", trailId)
+      .or(`id.eq.${trailId},id.like.${trailId}__*`)
       .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },

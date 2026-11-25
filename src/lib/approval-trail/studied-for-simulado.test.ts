@@ -72,4 +72,32 @@ describe("getTrailStudySnapshotForSimulado", () => {
     expect(snap?.subjects).toEqual(["Português"]);
     expect(snap?.weekNumber).toBe(1);
   });
+  it("ignora a próxima semana só aberta (em andamento sem estudo)", () => {
+    const t = trail();
+    t.weeks.push({
+      week: 6,
+      weekNumber: 2,
+      dayLabel: "Segunda",
+      focus: "Direito Penal",
+      subjectNames: ["Direito Penal"],
+      hoursSuggested: 2,
+      activities: [],
+      topicIds: ["tp2"],
+    });
+    const base = {
+      trailId: "t1",
+      activeModuleId: null,
+      completedModuleIds: [] as string[],
+      practiceAnswers: {},
+      chat: [],
+      updatedAt: "2026-01-02",
+    };
+    const progress: TrailWeekProgress[] = [
+      { ...base, week: 1, status: "concluida" },
+      { ...base, week: 6, status: "em-andamento", activeModuleId: "m1" },
+    ];
+    const snap = getTrailStudySnapshotForSimulado(t, progress);
+    expect(snap?.weekNumber).toBe(1);
+    expect(snap?.subjects).toEqual(["Português"]);
+  });
 });

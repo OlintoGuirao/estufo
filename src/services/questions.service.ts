@@ -9,6 +9,10 @@ import {
 } from "./supabase/catalog";
 import { tjspProvasCatalog } from "./tjsp-provas.catalog";
 import { tjspBancoCatalog } from "./tjsp-banco.catalog";
+import {
+  isOfficialProvaQuestionId,
+  tjspOfficialProvasCatalog,
+} from "./tjsp-official-provas.catalog";
 import { localQuestionState } from "./local-question-state";
 import type { AnswerResult, Paginated, Question, QuestionFilters } from "@/types";
 
@@ -23,6 +27,8 @@ export const questionsService = {
 
   async get(id: string): Promise<Question> {
     if (tjspBancoCatalog.isBancoId(id)) return tjspBancoCatalog.getQuestion(id);
+    // Antes de isTjspId: os ids oficiais também começam com "tjsp-".
+    if (isOfficialProvaQuestionId(id)) return tjspOfficialProvasCatalog.getQuestion(id);
     if (tjspProvasCatalog.isTjspId(id)) return tjspProvasCatalog.getQuestion(id);
     if (isSupabaseConfigured) return getQuestionFromSupabase(id);
     return request<Question>("GET", `/questions/${id}`);
@@ -30,6 +36,7 @@ export const questionsService = {
 
   async answer(id: string, d: { choice: string; timeSec: number }): Promise<AnswerResult> {
     if (tjspBancoCatalog.isBancoId(id)) return tjspBancoCatalog.answer(id, d.choice);
+    if (isOfficialProvaQuestionId(id)) return tjspOfficialProvasCatalog.answer(id, d.choice);
     if (tjspProvasCatalog.isTjspId(id)) return tjspProvasCatalog.answer(id, d.choice);
     if (isSupabaseConfigured) return answerQuestionFromSupabase(id, d.choice);
     return request<AnswerResult>("POST", `/questions/${id}/answers`, d);

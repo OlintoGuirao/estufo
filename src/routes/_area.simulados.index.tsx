@@ -1,16 +1,30 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { EmptyState, ErrorState, ListSkeleton, PageHeader, formatDate } from "@/components/common";
 import { Field } from "@/components/forms";
 import { useMe } from "@/hooks/use-auth";
-import { getTrailStudySnapshotForSimulado } from "@/lib/approval-trail/studied-for-simulado";
+import {
+  getTrailStudySnapshotForSimulado,
+  listConcludedTrailWeeks,
+} from "@/lib/approval-trail/studied-for-simulado";
+import { cn } from "@/lib/utils";
 import { examsService } from "@/services";
 import { approvalTrailService } from "@/services/approval-trail.service";
 import { trailProgressService } from "@/services/trail-progress.service";
@@ -38,6 +52,18 @@ function Exams() {
     queryFn: examsService.listOfficialProvas,
   });
   const [open, setOpen] = useState(false);
+  const [toDelete, setToDelete] = useState<MockExam | null>(null);
+
+  const remove = useMutation({
+    mutationFn: (id: string) => examsService.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["exams"] });
+      toast.success("Simulado excluído.");
+      setToDelete(null);
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Não foi possível excluir o simulado."),
+  });
 
   const startOfficial = useMutation({
     mutationFn: (officialProvaId: string) =>
@@ -133,7 +159,7 @@ function Exams() {
                     {e.status === "concluido" ? `${e.score ?? 0}%` : "Pendente"}
                   </Badge>
                 </div>
-                <div className="mt-4">
+                <div className="mt-4 flex items-center justify-between gap-2">
                   {e.status === "concluido" ? (
                     <Button variant="outline" asChild>
                       <Link to="/simulados/$id/resultado" params={{ id: e.id }}>
@@ -147,6 +173,16 @@ function Exams() {
                       </Link>
                     </Button>
                   )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive"
+                    aria-label={`Excluir ${e.title}`}
+                    title="Excluir simulado"
+                    onClick={() => setToDelete(e)}
+                  >
+                    <Trash2 />
+                  </Button>
                 </div>
               </div>
             ))}
@@ -155,6 +191,32 @@ function Exams() {
       </section>
 
       {open && <NewExam onClose={() => setOpen(false)} />}
+
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este simulado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong className="text-foreground">{toDelete?.title}</strong> será apagado
+              {toDelete?.status === "concluido" ? ", junto com o resultado" : " com as respostas já marcadas"}.
+              Isso não pode ser desfeito. Os erros já salvos no Caderno de erros continuam lá.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={remove.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={remove.isPending}
+              onClick={(ev) => {
+                ev.preventDefault();
+                if (toDelete) remove.mutate(toDelete.id);
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -175,12 +237,25 @@ function NewExam({ onClose }: { onClose: () => void }) {
     enabled: !!trailQ.data?.id,
   });
 
-  const snapshot = useMemo(
-    () => getTrailStudySnapshotForSimulado(trailQ.data, progressQ.data ?? []),
+  // Semanas com dias concluídos (mais recente primeiro) — o aluno escolhe uma.
+  const weeks = useMemo(
+    () => listConcludedTrailWeeks(trailQ.data, progressQ.data ?? []),
     [trailQ.data, progressQ.data],
   );
+  // Sem nenhum dia concluído: usa o estudo em andamento (comportamento antigo).
+  const fallback = useMemo(
+    () =>
+      weeks.length ? null : getTrailStudySnapshotForSimulado(trailQ.data, progressQ.data ?? []),
+    [weeks.length, trailQ.data, progressQ.data],
+  );
+  const [weekNo, setWeekNo] = useState<number | null>(null);
+  const snapshot = weeks.find((w) => w.weekNumber === weekNo) ?? weeks[0] ?? fallback;
 
   const [selected, setSelected] = useState<string[] | null>(null);
+  const pickWeek = (n: number | null) => {
+    setWeekNo(n);
+    setSelected(null); // matérias voltam a ser as da semana escolhida
+  };
   const subjects = selected ?? snapshot?.subjects ?? [];
 
   const [f, setF] = useState({
@@ -233,6 +308,49 @@ function NewExam({ onClose }: { onClose: () => void }) {
         <div className="grid gap-3">
           {loadingTrail ? (
             <p className="text-sm text-muted-foreground">Carregando o que você estudou…</p>
+          ) : weeks.length > 0 ? (
+            <div>
+              <p className="mb-2 text-sm font-medium">Escolha a semana</p>
+              <div className="grid gap-2" role="radiogroup" aria-label="Semana do simulado">
+                {weeks.map((w) => {
+                  const on = w.weekNumber === snapshot?.weekNumber;
+                  return (
+                    <button
+                      key={w.weekNumber}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => pickWeek(w.weekNumber)}
+                      className={cn(
+                        "rounded-lg border p-3 text-left text-sm transition-colors",
+                        on
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "hover:bg-muted/50",
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium text-foreground">Semana {w.weekNumber}</p>
+                        <Badge variant={w.complete ? "secondary" : "outline"}>
+                          {w.complete
+                            ? "Concluída"
+                            : `${w.dayCount} de ${w.totalDays} dias concluídos`}
+                        </Badge>
+                      </div>
+                      <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                        {w.days.map((d) => (
+                          <li key={d.week}>
+                            <span className="font-medium text-foreground/80">
+                              {d.dayLabel || `Dia ${d.week}`}:
+                            </span>{" "}
+                            {d.focus}
+                          </li>
+                        ))}
+                      </ul>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ) : !snapshot ? (
             <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
               Ainda não há dias concluídos na <strong>Trilha de aprovação</strong>. Estude a semana
@@ -243,7 +361,7 @@ function NewExam({ onClose }: { onClose: () => void }) {
               <p className="font-medium text-foreground">{snapshot.label}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {snapshot.dayCount
-                  ? `${snapshot.dayCount} dia(s) de estudo nesta semana`
+                  ? "Nenhuma semana concluída ainda — usando o que você está estudando agora."
                   : "Etapas concluídas no material"}
               </p>
               {snapshot.days.length > 0 && (
@@ -260,7 +378,9 @@ function NewExam({ onClose }: { onClose: () => void }) {
 
           {snapshot && (
             <div>
-              <p className="mb-2 text-sm font-medium">Matérias da prova</p>
+              <p className="mb-2 text-sm font-medium">
+                Matérias da prova{snapshot.weekNumber != null ? ` · Semana ${snapshot.weekNumber}` : ""}
+              </p>
               <div className="flex flex-wrap gap-2">
                 {snapshot.subjects.map((name) => {
                   const on = subjects.includes(name);
