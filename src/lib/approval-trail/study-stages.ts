@@ -28,8 +28,12 @@ function clean(s: string): string {
     .trim();
 }
 
-const MAX_EXPAND_RANGE = 80;
-const CHUNK_WHEN_HUGE = 10;
+/**
+ * Faixa máxima expandida artigo por artigo. Antes faixas > 80 (ex.: CPP 394–497)
+ * viravam BLOCOS de 10 ("Arts. 404 a 413") e a aula explicava o bloco, não cada
+ * artigo. O edital cobra cada artigo — até o CPC 318–538 (221) é expandido.
+ */
+const MAX_EXPAND_RANGE = 400;
 
 export function splitArticleSegments(text: string): string[] {
   const t = clean(text);
@@ -64,16 +68,7 @@ export function expandSegmentToArticleTokens(seg: string): string[] {
     const b = Number(range[2]);
     if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return [s];
     const span = b - a + 1;
-    if (span > MAX_EXPAND_RANGE) {
-      // faixas enormes (ex. 394–497): blocos de N artigos, ainda listando cada um
-      const out: string[] = [];
-      for (let start = a; start <= b; start += CHUNK_WHEN_HUGE) {
-        const end = Math.min(b, start + CHUNK_WHEN_HUGE - 1);
-        // Último bloco de 1 artigo só ("538-538") vira artigo isolado.
-        out.push(end > start ? `${start}-${end}` : String(start));
-      }
-      return out;
-    }
+    if (span > MAX_EXPAND_RANGE) return []; // não é faixa de artigos plausível
     const out: string[] = [];
     for (let n = a; n <= b; n++) out.push(String(n));
     return out;

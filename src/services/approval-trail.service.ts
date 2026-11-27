@@ -99,12 +99,18 @@ export const approvalTrailService = {
     if (!trail) return null;
 
     // Códigos/leis órfãos (ex.: CPC) → dentro do Direito Processual Civil etc.
-    const { mergeOrphanLawSubjects } = await import("@/lib/approval-trail/extract-program");
-    const mergedSubjects = mergeOrphanLawSubjects(trail.subjects).map((s, i) => ({
-      ...s,
-      order: i + 1,
-    }));
+    const { mergeOrphanLawSubjects, expandArticleBlockTopics } = await import(
+      "@/lib/approval-trail/extract-program"
+    );
+    let blocksExpanded = false;
+    const mergedSubjects = mergeOrphanLawSubjects(trail.subjects).map((s, i) => {
+      // Bloco "Arts. 404 a 413" (extrator antigo) → uma etapa por artigo.
+      const { topics, changed } = expandArticleBlockTopics(s.topics);
+      if (changed) blocksExpanded = true;
+      return { ...s, topics, order: i + 1 };
+    });
     const subjectsChanged =
+      blocksExpanded ||
       mergedSubjects.length !== trail.subjects.length ||
       mergedSubjects.some((s, i) => s.id !== trail.subjects[i]?.id);
     const withSubjects = subjectsChanged

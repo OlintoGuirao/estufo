@@ -662,3 +662,42 @@ export function extractedToTrailSubjects(
     }),
   }));
 }
+
+/**
+ * Trilhas criadas pelo extrator antigo têm etapas-bloco ("Arts. 404 a 413",
+ * articleRef "404-413"): a aula explicava o bloco, não cada artigo. Aqui cada
+ * bloco vira uma etapa por artigo.
+ *
+ * Preserva o estudo: o 1º artigo herda o id do bloco (o progresso do dia
+ * continua ligado pelo id) e todos herdam status e material do bloco (sem
+ * material a etapa sairia do cronograma até "Gerar material").
+ */
+export function expandArticleBlockTopics<
+  T extends { id: string; name: string; notes: string; articleRef?: string; kind?: string },
+>(topics: T[]): { topics: T[]; changed: boolean } {
+  let changed = false;
+  const out: T[] = [];
+  for (const t of topics) {
+    const m = /^(\d{1,4})-(\d{1,4})$/.exec(t.articleRef ?? "");
+    const a = m ? Number(m[1]) : NaN;
+    const b = m ? Number(m[2]) : NaN;
+    if (!m || !(b > a) || b - a > 60) {
+      out.push(t);
+      continue;
+    }
+    changed = true;
+    const prefix = /^(Etapa\s+[\d.]+\s*[—-]\s*)/.exec(t.name)?.[1] ?? "";
+    const suffix = /(\s*\([^)]*\))\s*$/.exec(t.name)?.[1] ?? "";
+    for (let n = a; n <= b; n++) {
+      out.push({
+        ...t,
+        id: n === a ? t.id : `${t.id}-a${n}`,
+        name: `${prefix}Art. ${n}${suffix}`,
+        notes: t.notes.replace(/estudar e explicar CADA artigo de [\d]+ a [\d]+/i, `explicar o que o Art. ${n} dispõe`),
+        articleRef: String(n),
+        kind: "artigo",
+      });
+    }
+  }
+  return { topics: out, changed };
+}

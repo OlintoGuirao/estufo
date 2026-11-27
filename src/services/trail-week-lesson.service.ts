@@ -67,7 +67,9 @@ export const trailWeekLessonService = {
     if (!opts?.force) {
       const hydrated = await trailWeekLessonStore.hydrate(trail.id, week);
       // Aulas antigas sem modules[] precisam ser regeneradas (fluxo professor modular).
-      if (hydrated?.modules?.length) return hydrated;
+      // A aula é guardada pelo NÚMERO do dia: se o cronograma foi remontado, o
+      // dia pode ter outros artigos e a aula guardada seria de outro conteúdo.
+      if (hydrated?.modules?.length && lessonMatchesDay(hydrated, w.focus)) return hydrated;
     }
 
     try {
@@ -85,7 +87,7 @@ export const trailWeekLessonService = {
           relatedTopics: relatedTopics(trail, w.subjectNames, w.topicIds),
         },
       });
-      return trailWeekLessonStore.saveNow(lesson);
+      return trailWeekLessonStore.saveNow({ ...lesson, focus: w.focus });
     } catch (e) {
       return parseErr(e);
     }
@@ -175,3 +177,9 @@ export const trailWeekLessonService = {
     }
   },
 };
+
+/** A aula guardada é deste dia? (aulas antigas sem `focus`: pelo título "Sessão N: <foco>"). */
+export function lessonMatchesDay(lesson: { focus?: string; title?: string }, focus: string): boolean {
+  if (lesson.focus) return lesson.focus === focus;
+  return !lesson.title || !/^Sessão \d+:/.test(lesson.title) || lesson.title.includes(focus);
+}

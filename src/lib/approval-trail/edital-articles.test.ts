@@ -114,9 +114,10 @@ describe("artigos únicos e ligados à lei", () => {
   it("Administrativo: '1º a 86' e o 'e' no fim da lista não somem; Lei 8.429 entra", () => {
     const adm = subject(/administrativo/i);
     const est = adm.topics.filter((t) => t.lawRef === "Lei 10.261/68");
-    expect(est.some((t) => t.articleRef === "1-10")).toBe(true);
+    expect(est.some((t) => t.articleRef === "1")).toBe(true);
+    expect(est.some((t) => t.articleRef === "86")).toBe(true);
     expect(est.some((t) => t.articleRef === "171")).toBe(true);
-    expect(est.some((t) => t.articleRef === "319-323")).toBe(true);
+    expect(est.some((t) => t.articleRef === "323")).toBe(true);
     expect(adm.topics.some((t) => t.lawRef === "Lei 8.429/92" && /Improbidade/.test(t.name))).toBe(true);
   });
 });

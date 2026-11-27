@@ -56,6 +56,8 @@ export type TrailWeekLesson = {
   warnings: string[];
   mocked: boolean;
   createdAt: string;
+  /** Foco do dia quando a aula foi gerada — se o cronograma mudar, a aula é refeita. */
+  focus?: string;
 
   /** @deprecated campos legados — preenchidos a partir dos módulos se a IA antiga responder */
   teachingSteps?: { title: string; body: string }[];
