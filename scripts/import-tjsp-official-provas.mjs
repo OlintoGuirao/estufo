@@ -2,6 +2,11 @@
  * Lê PDFs/DOCX em C:/Users/xuniim/Downloads/Provas tjsp e gera
  * src/data/tjsp-official-provas.json para /simulados.
  * DOCX (texto linear) é preferível ao PDF de 2 colunas quando disponível.
+ *
+ * DEPOIS de rodar este import, rode também:
+ *   npm run provas:media   (python scripts/extract-tjsp-official-media.py … --apply)
+ * Ele recorta figuras/tabelas/prints do PDF (este import só lê TEXTO) e
+ * corrige as alternativas que a leitura do PDF de 2 colunas embaralha.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";

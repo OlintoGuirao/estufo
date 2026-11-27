@@ -10,6 +10,8 @@ import { SupportTextPanel } from "@/components/exam/support-text-panel";
 import { formatQuestionText, splitSupportText } from "@/lib/official-question-clean";
 import { examsService } from "@/services";
 import { cn } from "@/lib/utils";
+import { QuestionMediaList, resolveQuestionMedia } from "@/components/question-media";
+import { altMedia } from "@/lib/official-media";
 
 const HIDE_TIMER_KEY = "estufoo.simulado.hide-timer";
 
@@ -206,6 +208,7 @@ function TakeExam() {
           <p className="mt-3 whitespace-pre-wrap text-base font-medium leading-relaxed">
             {formatQuestionText(parts.question)}
           </p>
+          <QuestionMediaList items={resolveQuestionMedia(cur)?.statement} className="mt-3" />
           <div className="mt-4 space-y-2">
             {cur.alternatives.map((a) => (
               <button
@@ -225,7 +228,10 @@ function TakeExam() {
                 >
                   {a.key}
                 </span>
-                <span className="pt-0.5">{a.text}</span>
+                <span className="flex min-w-0 flex-col gap-2 pt-0.5">
+                  {a.text}
+                  <QuestionMediaList items={altMedia(resolveQuestionMedia(cur), a.key)} compact />
+                </span>
               </button>
             ))}
           </div>

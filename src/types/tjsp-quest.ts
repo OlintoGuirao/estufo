@@ -27,6 +27,8 @@ export type QuestQuestion = {
   statement: string;
   /** Padrão VUNESP: 5 alternativas (A–E). */
   alternatives: { key: QuestAltKey; text: string }[];
+  /** Figuras/tabelas da prova oficial (enunciado e alternativas). */
+  media?: import("@/types").QuestionMediaSet;
   correctKey: QuestAltKey;
   legalBasis: string;
   whyCorrect: string;

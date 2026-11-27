@@ -652,6 +652,7 @@ function route(method: string, seg: string[], q: Record<string, string>, body: a
                   topic: raw.topic,
                   difficulty: raw.difficulty,
                   source: raw.source,
+                  ...(raw.media ? { media: raw.media } : {}),
                   favorite: false,
                   markedForReview: false,
                   answered: null,

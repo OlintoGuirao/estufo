@@ -10,12 +10,15 @@
  *
  * Aqui o texto é reposto nas questões certas e as marcas são remontadas.
  */
+import { altMedia, officialMediaFor } from "@/lib/official-media";
+import type { QuestionMediaSet } from "@/types";
 
 export type RawOfficialQ = {
   id: string;
   number?: number;
   statement: string;
   alternatives: { key: string; text: string }[];
+  media?: QuestionMediaSet;
   [k: string]: unknown;
 };
 
@@ -83,11 +86,17 @@ function pad(n: number): string {
  * apoio vazados e corrige as marcas de parágrafo. Não altera o original.
  */
 export function cleanOfficialProva<T extends RawOfficialQ>(questions: T[]): T[] {
-  const out = questions.map((q) => ({
-    ...q,
-    statement: q.statement,
-    alternatives: q.alternatives.map((a) => ({ ...a })),
-  }));
+  const out = questions.map((q) => {
+    const media = q.media ?? officialMediaFor(q.id);
+    return {
+      ...q,
+      statement: q.statement,
+      alternatives: q.alternatives.map((a) => ({ ...a })),
+      // Figuras/tabelas do PDF original: todo consumidor (Quest, simulado,
+      // Mais cobradas) recebe junto com o texto.
+      ...(media ? { media } : {}),
+    };
+  });
   const byNumber = new Map<number, (typeof out)[number]>();
   out.forEach((q, i) => byNumber.set(q.number ?? i + 1, q));
 
@@ -149,7 +158,11 @@ export function splitSupportText(statement: string): {
 export function isCleanOfficialQuestion(q: RawOfficialQ): boolean {
   const alts = q.alternatives ?? [];
   if (alts.length < 4) return false;
-  if (alts.some((a) => !String(a.text ?? "").trim())) return false;
+  const media = q.media ?? officialMediaFor(q.id);
+  // Alternativa sem texto só vale se ela É uma figura (com o recorte).
+  if (alts.some((a) => !String(a.text ?? "").trim() && !altMedia(media, a.key).length)) return false;
+  // Marcador do import antigo: diz que há figura, mas não há.
+  if (alts.some((a) => /consulte o caderno oficial/i.test(a.text))) return false;
 
   const all = [q.statement, ...alts.map((a) => a.text)].join("\n");
   if (/\bo parágrafo\)|rágrafo\)\s|\bpa-\s|\(\d+ parágrafo\)/.test(all.replace(/\(\d+º parágrafo\)/g, ""))) {
@@ -163,14 +176,10 @@ export function isCleanOfficialQuestion(q: RawOfficialQ): boolean {
   if (stem.length < 25) return false;
   if (/^passagem\s*:?\s*$/i.test(stem)) return false;
 
-  // Tira / charge / figura: no app não há a imagem → questão inutilizável.
-  if (
-    /\bleia a tira\b|\bobserve a tira\b|\ba tira\b(?= decorre| acima| a seguir)|\bcharge\b|\bquadrinho\b|\bveja a figura\b|\bobserve a figura\b/i.test(
-      q.statement,
-    )
-  ) {
-    return false;
-  }
+  // Questão que depende de figura (tira, charge, gráfico, planilha, print…)
+  // só entra se o recorte existir. Antes TODA questão de tira era escondida
+  // e as de gráfico/planilha apareciam sem a imagem.
+  if (dependsOnFigure(q.statement) && !media?.statement?.length) return false;
 
   // Alternativas fatiadas (um parágrafo virado A–E com "...")
   const ellipsisAlts = alts.filter((a) => /^\.\.\.|^…/.test(a.text.trim())).length;
@@ -191,7 +200,10 @@ export function isCleanOfficialQuestion(q: RawOfficialQ): boolean {
     /norma-padrão|concord[aâ]ncia|reg[eê]ncia|crase|pontua[cç][aã]o|ortografia|coloca[cç][aã]o pronominal|voz passiva|figuras? de linguagem|sin[oô]nim|ant[oô]nim|coes[aã]o|coer[eê]ncia|lacunas? do (?:texto|per[ií]odo)|reescrita|adequada(?:mente)? reescrit/i;
   const needsPassage =
     /\b(n?o texto|do texto|narrador|autor do texto|segundo o texto|de acordo com o texto|conto|cr[oô]nica|personagem|personagens|termos? destacados?)\b(?! (constitucional|legal|da lei|normativo))/i;
-  if (needsPassage.test(stem) && !passage && !pureGrammar.test(stem)) return false;
+  // A tira/quadrinho (figura) também é texto de apoio.
+  if (needsPassage.test(stem) && !passage && !media?.statement?.length && !pureGrammar.test(stem)) {
+    return false;
+  }
 
   return true;
 }
@@ -231,4 +243,15 @@ export function repairQuotes(text: string, passage: string): string {
     const trail = seg.match(/\s*$/)![0];
     return `${lead}${hits[0]}${trail}`;
   });
+}
+
+/**
+ * O enunciado depende de algo visual? ("Leia a tira", "observe o gráfico",
+ * "conforme imagem a seguir", "a planilha a seguir", "na figura", "2º quadro").
+ * "A respeito da figura do acusado" (sentido jurídico) não conta.
+ */
+export function dependsOnFigure(statement: string): boolean {
+  return /\b(?:leia|observe|veja|analise) (?:a|o) (?:tira|charge|quadrinho|cartum|figura|imagem|gr[aá]fico|planilha|tabela|diagrama)\b|\b(?:tira|charge|quadrinho|figura|imagem|gr[aá]fico|planilha|tabela|diagrama|tela|janela) (?:a seguir|abaixo|seguinte|apresentad[ao])\b|\bconforme (?:a |o )?(?:imagem|figura|gr[aá]fico|tabela|planilha)\b|\b(?:na|da) figura\b(?! d[oa] )|\b\d[ºo°] quadro\b/i.test(
+    statement,
+  );
 }

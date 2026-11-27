@@ -42,6 +42,7 @@ type RawQ = {
   difficulty?: "facil" | "media" | "dificil";
   year?: number;
   source?: string;
+  media?: import("@/types").QuestionMediaSet;
 };
 
 function hash(s: string): number {
@@ -80,6 +81,9 @@ function toQuest(r: RawQ): QuestQuestion | null {
     id: `daily:${r.id}`,
     statement: r.statement,
     alternatives,
+    // Tira, gráfico, planilha… do caderno oficial (antes a questão dizia
+    // "observe a imagem" e não havia imagem).
+    ...(r.media ? { media: r.media } : {}),
     correctKey,
     legalBasis: r.source || (r.year ? `Prova TJSP ${r.year} (VUNESP)` : "Prova TJSP (VUNESP)"),
     whyCorrect: explanation || `Gabarito oficial VUNESP: letra ${correctKey}.`,

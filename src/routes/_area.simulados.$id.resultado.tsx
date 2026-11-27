@@ -15,6 +15,8 @@ import {
 } from "@/components/common";
 import { examsService } from "@/services";
 import { cn } from "@/lib/utils";
+import { QuestionMediaList, resolveQuestionMedia } from "@/components/question-media";
+import { altMedia } from "@/lib/official-media";
 
 export const Route = createFileRoute("/_area/simulados/$id/resultado")({
   head: () => ({
@@ -240,6 +242,7 @@ function Result() {
                       )}
                     </div>
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{item.statement}</p>
+                    <QuestionMediaList items={resolveQuestionMedia(item)?.statement} className="mt-2" />
                     <ul className="mt-3 space-y-1.5">
                       {item.alternatives.map((a) => {
                         const isYours = a.key === item.yourKey;
@@ -255,6 +258,11 @@ function Result() {
                           >
                             <span className="mr-2 font-bold">{a.key})</span>
                             {a.text}
+                            <QuestionMediaList
+                              items={altMedia(resolveQuestionMedia(item), a.key)}
+                              className="mt-1"
+                              compact
+                            />
                             {isRight && (
                               <span className="ml-2 text-xs font-semibold text-emerald-700">
                                 gabarito

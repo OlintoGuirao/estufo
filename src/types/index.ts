@@ -38,10 +38,21 @@ export type OnboardingInput = {
 
 export type Difficulty = "facil" | "media" | "dificil";
 
+/** Figura/print/tabela recortada da prova oficial (ver src/lib/official-media.ts). */
+export type QuestionMedia = { src: string; alt: string };
+
+export type QuestionMediaSet = {
+  /** Figuras do enunciado (inclui apoio compartilhado: tira das questões 01 e 02). */
+  statement?: QuestionMedia[];
+  /** Alternativa que é figura (ex.: 2018 Q91, 2023 Q92). Chave = "A"…"E". */
+  alternatives?: Partial<Record<string, QuestionMedia[]>>;
+};
+
 export type Question = {
   id: string;
   statement: string;
   alternatives: { key: string; text: string }[];
+  media?: QuestionMediaSet;
   board: string;
   year: number;
   contest: string;

@@ -29,6 +29,8 @@ type RawQ = {
   contest: string;
   difficulty: Question["difficulty"];
   source: string;
+  /** Figuras/tabelas do PDF (anexadas por cleanOfficialProva). */
+  media?: import("@/types").QuestionMediaSet;
 };
 
 type RawProva = {
@@ -68,6 +70,7 @@ function toQuestion(q: RawQ): Question {
     topic: q.topic,
     difficulty: q.difficulty,
     source: q.source,
+    ...(q.media ? { media: q.media } : {}),
     favorite: st.favorite,
     markedForReview: st.markedForReview,
     answered: st.answered,

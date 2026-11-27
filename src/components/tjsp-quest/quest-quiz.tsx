@@ -13,6 +13,8 @@ import { normalizeShop } from "@/lib/tjsp-quest/shop";
 import { tjspQuestStore } from "@/services/tjsp-quest-store";
 import type { QuestAltKey, QuestQuestion } from "@/types/tjsp-quest";
 import { cn } from "@/lib/utils";
+import { QuestionMediaList, resolveQuestionMedia } from "@/components/question-media";
+import { altMedia } from "@/lib/official-media";
 
 type Grade = (q: QuestQuestion, choice: string, streak: number) => { correct: boolean; xpAwarded: number };
 
@@ -66,6 +68,7 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish, grade }: Props) 
   }
 
   const visibleAlts = q.alternatives.filter((a) => !hiddenKeys.includes(a.key));
+  const media = resolveQuestionMedia(q);
   const bumpShop = () => setShop(normalizeShop(tjspQuestStore.get().shop));
 
   const useEliminate = () => {
@@ -234,6 +237,8 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish, grade }: Props) 
           </div>
 
           <Statement key={q.id} text={q.statement} />
+          {/* Tira, gráfico, planilha… do caderno oficial */}
+          <QuestionMediaList items={media?.statement} className="mt-3" />
 
           {tipOpen && (
             <p className="q-pop mt-3 rounded-2xl bg-[#fff3c4] px-3 py-2 text-sm font-bold text-[#7a5c00]">
@@ -277,8 +282,9 @@ export function QuestQuiz({ phaseId, questions, mode, onFinish, grade }: Props) 
                   >
                     {isRight ? "✓" : isWrong ? "✗" : alt.key}
                   </span>
-                  <span className="font-sans text-[15px] font-semibold leading-snug text-[#2b2d42]">
+                  <span className="flex min-w-0 flex-col gap-2 font-sans text-[15px] font-semibold leading-snug text-[#2b2d42]">
                     {alt.text}
+                    <QuestionMediaList items={altMedia(media, alt.key)} compact />
                   </span>
                 </button>
               );

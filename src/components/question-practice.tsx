@@ -12,6 +12,8 @@ import { errorNotesService, questionsService, tutorService } from "@/services";
 import { tjspBancoCatalog } from "@/services/tjsp-banco.catalog";
 import type { ErrorNoteOrigin, Question } from "@/types";
 import { cn } from "@/lib/utils";
+import { QuestionMediaList, resolveQuestionMedia } from "@/components/question-media";
+import { altMedia } from "@/lib/official-media";
 
 type Props = {
   title?: string | undefined;
@@ -257,6 +259,7 @@ export function QuestionPractice({
         </div>
 
         <p className="mt-3 font-serif text-lg font-semibold leading-snug sm:text-xl">{q.statement}</p>
+        <QuestionMediaList items={resolveQuestionMedia(q)?.statement} className="mt-3" />
 
         {mastigado && q && (
           <MastigadoPanel
@@ -297,7 +300,10 @@ export function QuestionPractice({
                 >
                   {alt.key}
                 </span>
-                <span className="text-sm leading-snug sm:text-[15px]">{alt.text}</span>
+                <span className="flex min-w-0 flex-col gap-2 text-sm leading-snug sm:text-[15px]">
+                  {alt.text}
+                  <QuestionMediaList items={altMedia(resolveQuestionMedia(q), alt.key)} compact />
+                </span>
               </button>
             );
           })}
