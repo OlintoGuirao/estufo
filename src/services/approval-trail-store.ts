@@ -1,6 +1,7 @@
 import type { ApprovalTrail } from "@/types/approval-trail";
 import {
   approvalTrailDb,
+  isForeignTrail,
   syncApprovalTrail,
   syncApprovalTrailNow,
 } from "./approval-trail-db";
@@ -260,7 +261,9 @@ export const approvalTrailStore = {
     } catch {
       /* ignore */
     }
-    const local = read();
+    let local = read();
+    // Trilha de outra conta que ficou neste navegador: não é aberta nem enviada.
+    if (local && isForeignTrail(local.id)) local = null;
     // Atalho: se o banco tem a MESMA trilha com a mesma data, não baixa o plano
     // inteiro (vários MB) nem sobe de novo — era o que deixava a Agenda lenta.
     if (local) {
@@ -290,6 +293,21 @@ export const approvalTrailStore = {
         if (preferRemote) {
           write(remote);
           return remote;
+        }
+        if (local && local.id !== remote.id) {
+          // Trilha local com OUTRO id: só fica se o banco aceitar salvá-la nesta
+          // conta. Se o id é de outra conta (trilha esquecida neste navegador
+          // por outro login), abre a trilha real da conta — e o progresso dela.
+          try {
+            await approvalTrailDb.upsertTrail(local);
+          } catch {
+            /* conflito marca a trilha como alheia */
+          }
+          if (isForeignTrail(local.id)) {
+            write(remote);
+            return remote;
+          }
+          return local;
         }
         // Local mais novo: sobe em segundo plano (não trava a tela).
         syncApprovalTrail(local);

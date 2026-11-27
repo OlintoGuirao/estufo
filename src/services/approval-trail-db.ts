@@ -133,11 +133,18 @@ export const approvalTrailDb = {
 
   async upsertTrail(trail: ApprovalTrail): Promise<void> {
     if (!isSupabaseConfigured) return;
-    // `upsert(onConflict: id)` estourava 403 (RLS USING) quando a linha com
-    // esse id é de outro dono. O caminho seguro grava com id próprio; o plano
-    // mantém o id original (progresso e aulas seguem ligados a ele).
-    const { upsertOwnedById } = await import("@/services/study-user-data-db");
-    await upsertOwnedById("approval_trails", [trailToRow(trail)]);
+    if (isForeignTrail(trail.id)) return;
+    // Se o id já existe em OUTRA conta, a trilha local não é desta conta
+    // (ficou no navegador de outro login). NÃO grava: antes ela era salva com
+    // id "<id>__<dono>" e passava a ser a trilha mais recente da conta errada,
+    // escondendo a trilha real e o progresso (caso Fabiola, 27/11).
+    const { updateOrInsert, writableOwnerId } = await import("@/services/study-user-data-db");
+    const row = { ...trailToRow(trail), device_id: await writableOwnerId() };
+    const conflict = await updateOrInsert("approval_trails", row);
+    if (conflict) {
+      markForeignTrail(trail.id);
+      throw new Error(`Trilha ${trail.id} pertence a outra conta — não sincronizada (${conflict}).`);
+    }
   },
 
   /** Só id + data (sem o plano, que pode ter vários MB). */
@@ -146,25 +153,25 @@ export const approvalTrailDb = {
     const sb = requireSupabase();
     const { data, error } = await sb
       .from("approval_trails")
-      .select("id, updated_at, plan_id:plan->>id")
+      .select("id, updated_at")
       .in("device_id", studyOwnerQueryIds())
       .order("updated_at", { ascending: false })
-      .limit(1);
+      .limit(20);
     if (error) throw error;
-    const row = data?.[0] as { id?: string; updated_at?: string; plan_id?: string | null } | undefined;
-    // A linha pode ter id remapeado (`<id>__<dono>`); o que importa é o id do plano.
-    const id = row?.plan_id || row?.id;
-    return id && row?.updated_at ? { id, updatedAt: row.updated_at } : null;
+    const row = pickOwnTrailRow((data ?? []) as { id: string; updated_at: string }[]);
+    return row ? { id: row.id, updatedAt: row.updated_at } : null;
   },
 
   async loadLatestTrail(): Promise<ApprovalTrail | null> {
     if (!isSupabaseConfigured) return null;
+    const meta = await approvalTrailDb.loadLatestTrailMeta();
+    if (!meta) return null;
     const sb = requireSupabase();
     const { data, error } = await sb
       .from("approval_trails")
       .select("plan")
+      .eq("id", meta.id)
       .in("device_id", studyOwnerQueryIds())
-      .order("updated_at", { ascending: false })
       .limit(1);
     if (error) throw error;
     const plan = data?.[0]?.plan;
@@ -178,7 +185,7 @@ export const approvalTrailDb = {
     const { error } = await sb
       .from("approval_trails")
       .delete()
-      .or(`id.eq.${trailId},id.like.${trailId}__*`)
+      .eq("id", trailId)
       .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
@@ -350,4 +357,38 @@ export function syncTrailProgress(progress: TrailWeekProgress | null): void {
   void approvalTrailDb.upsertProgress(progress).catch((err) => {
     console.warn("[approval-trail-db] falha ao sync progresso", err);
   });
+}
+
+/**
+ * Linhas "<id>__<dono>" são cópias de trilha de OUTRA conta gravadas por
+ * engano entre 27/11 20:50 e a correção. Nunca são a trilha da conta.
+ */
+export function pickOwnTrailRow<T extends { id: string }>(rowsNewestFirst: T[]): T | null {
+  return rowsNewestFirst.find((r) => !r.id.includes("__")) ?? null;
+}
+
+const FOREIGN_KEY = "estufoo.foreign-trail-ids.v1";
+
+function readForeign(): string[] {
+  try {
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(FOREIGN_KEY) : null;
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Trilha local que o banco disse ser de outra conta (não sincroniza, não é aberta). */
+export function isForeignTrail(id: string): boolean {
+  return readForeign().includes(id);
+}
+
+export function markForeignTrail(id: string): void {
+  const list = readForeign();
+  if (list.includes(id)) return;
+  try {
+    localStorage.setItem(FOREIGN_KEY, JSON.stringify([...list, id].slice(-20)));
+  } catch {
+    /* ignore */
+  }
 }

@@ -75,7 +75,7 @@ function rememberRemap(key: string, newId: string): void {
 }
 
 /** UPDATE se a linha for nossa; senão INSERT. Retorna o código do erro de INSERT. */
-async function updateOrInsert(table: string, row: OwnedRow): Promise<string | null> {
+export async function updateOrInsert(table: string, row: OwnedRow): Promise<string | null> {
   const sb = requireSupabase();
   const { data: updated, error: upErr } = await sb
     .from(table)
