@@ -45,35 +45,6 @@ export async function writableOwnerId(): Promise<string> {
   return preferred;
 }
 
-/**
- * Ids já remapeados (`<id>__<dono>`) por tabela+dono. Sem isso, toda sync
- * repetia: UPDATE (0 linhas) → INSERT (409) → INSERT do remapeado (409 de novo,
- * pois ele já existia) — e a sync inteira falhava.
- */
-const REMAP_KEY = "estufoo.sync-remapped-ids.v1";
-let remapCache: Record<string, string> | null = null;
-
-function remapStore(): Record<string, string> {
-  if (remapCache) return remapCache;
-  try {
-    remapCache = JSON.parse(localStorage.getItem(REMAP_KEY) ?? "{}") as Record<string, string>;
-  } catch {
-    remapCache = {};
-  }
-  return remapCache ?? {};
-}
-
-function rememberRemap(key: string, newId: string): void {
-  const store = remapStore();
-  if (store[key] === newId) return;
-  store[key] = newId;
-  try {
-    localStorage.setItem(REMAP_KEY, JSON.stringify(store));
-  } catch {
-    /* ignore */
-  }
-}
-
 /** UPDATE se a linha for nossa; senão INSERT. Retorna o código do erro de INSERT. */
 export async function updateOrInsert(table: string, row: OwnedRow): Promise<string | null> {
   const sb = requireSupabase();
@@ -98,41 +69,30 @@ export async function updateOrInsert(table: string, row: OwnedRow): Promise<stri
 }
 
 /**
- * Upsert seguro com RLS: o `upsert(..., onConflict: id)` tenta UPDATE em linha
- * de OUTRA conta (mesmo id) e a policy USING estoura 42501.
- * Aqui: atualiza se a linha for visível; senão insere; se a PK já for de outro,
- * grava com id próprio da conta (e lembra disso para as próximas syncs).
+ * Linhas "<id>__<dono>": cópias de dados de OUTRA conta (que ficaram no mesmo
+ * navegador) gravadas por engano. Nunca pertencem à conta — a leitura ignora.
  */
-export async function upsertOwnedById(
-  table: string,
-  rows: OwnedRow[],
-  remapPayloadId?: (row: OwnedRow, newId: string) => OwnedRow,
-): Promise<void> {
+export function isForeignCopyId(id: unknown): boolean {
+  return typeof id === "string" && id.includes("__");
+}
+
+/**
+ * Upsert seguro com RLS: atualiza se a linha for desta conta; senão insere.
+ * Se o id já é de OUTRA conta, o item é PULADO (não é desta conta — ficou no
+ * navegador de outro login). Antes ele era gravado como "<id>__<dono>" e os
+ * dados de uma conta apareciam na outra (trilha da Fabiola, 27/11).
+ */
+export async function upsertOwnedById(table: string, rows: OwnedRow[]): Promise<void> {
   if (!rows.length) return;
   const deviceId = await writableOwnerId();
-  const suffix = deviceId.replace(/[^a-zA-Z0-9]/g, "").slice(-10) || "own";
-
+  const skipped: string[] = [];
   for (const raw of rows) {
-    const row = { ...raw, device_id: deviceId };
-    const cacheKey = `${table}:${deviceId}:${row.id}`;
-    const newId = row.id.endsWith(`__${suffix}`) ? row.id : `${row.id}__${suffix}`;
-    const remapped = (): OwnedRow =>
-      remapPayloadId ? remapPayloadId({ ...row, id: newId }, newId) : { ...row, id: newId };
-
-    // Já sabemos que o id original é de outro dono: vai direto no remapeado.
-    if (remapStore()[cacheKey] === newId) {
-      const code = await updateOrInsert(table, remapped());
-      if (code) throw new Error(`[sync] ${table}: não foi possível gravar ${newId} (${code})`);
-      continue;
-    }
-
-    const code = await updateOrInsert(table, row);
-    if (!code) continue;
-    if (newId === row.id) throw new Error(`[sync] ${table}: conflito em ${row.id} (${code})`);
-
-    const retry = await updateOrInsert(table, remapped());
-    if (retry) throw new Error(`[sync] ${table}: não foi possível gravar ${newId} (${retry})`);
-    rememberRemap(cacheKey, newId);
+    if (isForeignCopyId(raw.id)) continue;
+    const conflict = await updateOrInsert(table, { ...raw, device_id: deviceId });
+    if (conflict) skipped.push(raw.id);
+  }
+  if (skipped.length) {
+    console.warn(`[sync] ${table}: ${skipped.length} item(ns) de outra conta não sincronizado(s).`);
   }
 }
 
@@ -152,10 +112,7 @@ export const studyUserDataDb = {
       created_at: n.createdAt || nowIso(),
       updated_at: nowIso(),
     }));
-    await upsertOwnedById("user_error_notes", rows, (row, newId) => ({
-      ...row,
-      payload: { ...(row.payload as ErrorNote), id: newId },
-    }));
+    await upsertOwnedById("user_error_notes", rows);
   },
 
   async removeErrorNote(id: string): Promise<void> {
@@ -164,7 +121,7 @@ export const studyUserDataDb = {
     const { error } = await sb
       .from("user_error_notes")
       .delete()
-      .or(`id.eq.${id},id.like.${id}__*`)
+      .eq("id", id)
       .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
@@ -178,7 +135,9 @@ export const studyUserDataDb = {
       .in("device_id", studyOwnerQueryIds())
       .order("updated_at", { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((r) => r.payload as ErrorNote).filter(Boolean);
+    return (data ?? [])
+      .map((r) => r.payload as ErrorNote)
+      .filter((n) => n && !isForeignCopyId(n.id));
   },
 
   async upsertMockExams(
@@ -195,20 +154,16 @@ export const studyUserDataDb = {
       created_at: e.createdAt || nowIso(),
       updated_at: nowIso(),
     }));
-    await upsertOwnedById("user_mock_exams", rows, (row, newId) => ({
-      ...row,
-      exam: { ...(row.exam as MockExam), id: newId },
-    }));
+    await upsertOwnedById("user_mock_exams", rows);
   },
 
   async removeMockExam(id: string): Promise<void> {
     if (!isSupabaseConfigured) return;
     const sb = requireSupabase();
-    // Ids remapeados no upsert (conflito de conta) ganham o sufixo "__<dono>".
     const { error } = await sb
       .from("user_mock_exams")
       .delete()
-      .or(`id.eq.${id},id.like.${id}__*`)
+      .eq("id", id)
       .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
@@ -225,7 +180,7 @@ export const studyUserDataDb = {
     return (data ?? [])
       .map((r) => {
         const exam = r.exam as MockExam;
-        if (!exam?.id) return null;
+        if (!exam?.id || isForeignCopyId(exam.id)) return null;
         return { ...exam, result: (r.result as MockExamResult | null) ?? null };
       })
       .filter(Boolean) as Array<MockExam & { result?: MockExamResult | null }>;
@@ -241,10 +196,7 @@ export const studyUserDataDb = {
       due_date: r.dueDate || null,
       updated_at: nowIso(),
     }));
-    await upsertOwnedById("user_reviews", rows, (row, newId) => ({
-      ...row,
-      payload: { ...(row.payload as Review), id: newId },
-    }));
+    await upsertOwnedById("user_reviews", rows);
   },
 
   async listReviews(): Promise<Review[]> {
@@ -256,7 +208,7 @@ export const studyUserDataDb = {
       .in("device_id", studyOwnerQueryIds())
       .order("due_date", { ascending: true });
     if (error) throw error;
-    return (data ?? []).map((r) => r.payload as Review).filter(Boolean);
+    return (data ?? []).map((r) => r.payload as Review).filter((x) => x && !isForeignCopyId(x.id));
   },
 
   async upsertSessions(sessions: StudySession[]): Promise<void> {
@@ -269,10 +221,7 @@ export const studyUserDataDb = {
       session_date: s.date || null,
       updated_at: nowIso(),
     }));
-    await upsertOwnedById("user_study_sessions", rows, (row, newId) => ({
-      ...row,
-      payload: { ...(row.payload as StudySession), id: newId },
-    }));
+    await upsertOwnedById("user_study_sessions", rows);
   },
 
   async removeSession(id: string): Promise<void> {
@@ -281,7 +230,7 @@ export const studyUserDataDb = {
     const { error } = await sb
       .from("user_study_sessions")
       .delete()
-      .or(`id.eq.${id},id.like.${id}__*`)
+      .eq("id", id)
       .in("device_id", studyOwnerQueryIds());
     if (error) throw error;
   },
@@ -295,7 +244,7 @@ export const studyUserDataDb = {
       .in("device_id", studyOwnerQueryIds())
       .order("session_date", { ascending: true });
     if (error) throw error;
-    return (data ?? []).map((r) => r.payload as StudySession).filter(Boolean);
+    return (data ?? []).map((r) => r.payload as StudySession).filter((x) => x && !isForeignCopyId(x.id));
   },
 
   async upsertQuestState(state: QuestPlayerState): Promise<void> {

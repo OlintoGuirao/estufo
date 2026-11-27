@@ -19,6 +19,7 @@ import { layoutOutline, layoutStudyPack } from "@/lib/mind-map/layout";
 import { buildPerformanceData } from "@/lib/unified-performance";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
+  isForeignCopyId,
   mergeRemoteIntoMockDb,
   studyUserDataDb,
   syncStudyMockSlice,
@@ -82,6 +83,13 @@ function load() {
     if (saved) {
       const cleaned = scrubPersistedDemoCatalog(saved);
       Object.assign(db, cleaned);
+      // Cópias "<id>__<dono>" são dados de OUTRA conta baixados por engano.
+      const own = <T extends { id?: unknown }>(list: T[] | undefined) =>
+        Array.isArray(list) ? list.filter((x) => !isForeignCopyId(x?.id)) : list;
+      db.errorNotes = own(db.errorNotes) as typeof db.errorNotes;
+      db.exams = own(db.exams) as typeof db.exams;
+      db.reviews = own(db.reviews) as typeof db.reviews;
+      db.sessions = own(db.sessions) as typeof db.sessions;
       // Regrava limpo para não ressuscitar demo no próximo reload
       if (USE_SUPABASE_CATALOG) {
         try {
