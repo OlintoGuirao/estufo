@@ -3,13 +3,17 @@
  *
  * Ordem:
  * 1. pgvector (tabela legal_chunks — migration 013) se DATABASE_URL e GEMINI_API_KEY existirem;
- * 2. busca por palavras no corpus local data/legal/corpus.json (gerado por `npm run legal:ingest`);
+ * 2. busca por palavras no corpus `public/legal/<lei>.json` (gerado por `npm run legal:ingest`);
  * 3. nada — o prompt segue sem FONTE LEGAL (e o professor é instruído a não inventar).
+ *
+ * O corpus é ARQUIVO ESTÁTICO de propósito: no Cloudflare Workers o servidor
+ * não enxerga o disco do projeto (`existsSync("data/legal/corpus.json")` era
+ * sempre falso em produção e a IA explicava artigo sem o texto da lei).
+ * Aqui: lê do disco quando existe (Node/dev/scripts); senão busca
+ * `/legal/<lei>.json` na própria origem da requisição.
  */
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
-import { formatLegalContext, keywordSearch, type LegalChunk } from "@/lib/legal/chunk";
-import { guessLawIds } from "./laws";
+import { formatLegalContext, keywordSearch, mergeArticleChunks, type LegalChunk } from "@/lib/legal/chunk";
+import { guessLawIds, LEGAL_SOURCES } from "./laws";
 
 export type LegalRetrieval = {
   text: string;
@@ -19,30 +23,87 @@ export type LegalRetrieval = {
 
 const EMPTY: LegalRetrieval = { text: "", sources: [], via: "none" };
 
-let corpusCache: LegalChunk[] | null = null;
+/**
+ * Cache por isolate SÓ com dados já resolvidos. Guardar a Promise do fetch e
+ * aguardá-la em outra requisição é proibido no Workers (I/O de outra requisição).
+ */
+const lawCache = new Map<string, LegalChunk[]>();
 
-function corpusPath(): string {
-  return (
-    process.env["LEGAL_CORPUS_PATH"]?.trim() ||
-    path.resolve(process.cwd(), "data", "legal", "corpus.json")
-  );
+type LawLoader = (lawId: string) => Promise<LegalChunk[] | null>;
+
+async function readLawFromDisk(lawId: string): Promise<LegalChunk[] | null> {
+  try {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const dir = process.env["LEGAL_CORPUS_DIR"]?.trim() || path.resolve(process.cwd(), "public", "legal");
+    const file = path.join(dir, `${lawId}.json`);
+    if (!fs.existsSync(file)) return null;
+    const raw = JSON.parse(fs.readFileSync(file, "utf8")) as { chunks?: LegalChunk[] };
+    return raw.chunks ?? null;
+  } catch {
+    return null; // runtime sem disco (Workers) ou arquivo inválido
+  }
 }
 
-export function loadLocalCorpus(): LegalChunk[] {
-  if (corpusCache) return corpusCache;
-  const p = corpusPath();
-  if (!existsSync(p)) {
-    corpusCache = [];
-    return corpusCache;
-  }
+async function requestOrigin(): Promise<string | null> {
+  const fromEnv = process.env["PUBLIC_APP_URL"]?.trim();
+  if (fromEnv) return fromEnv.replace(/\/+$/, "");
   try {
-    const raw = JSON.parse(readFileSync(p, "utf8")) as { chunks?: LegalChunk[] };
-    corpusCache = raw.chunks ?? [];
-  } catch (e) {
-    console.warn("[legal] corpus inválido", e);
-    corpusCache = [];
+    const { getRequest } = await import("@tanstack/react-start/server");
+    return new URL(getRequest().url).origin;
+  } catch {
+    return null;
   }
-  return corpusCache;
+}
+
+async function fetchLawAsset(lawId: string): Promise<LegalChunk[] | null> {
+  const origin = await requestOrigin();
+  if (!origin) return null;
+  try {
+    const res = await fetch(`${origin}/legal/${encodeURIComponent(lawId)}.json`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) {
+      console.warn(`[legal] corpus ${lawId} indisponível: HTTP ${res.status}`);
+      return null;
+    }
+    const raw = (await res.json()) as { chunks?: LegalChunk[] };
+    return raw.chunks ?? null;
+  } catch (e) {
+    console.warn(`[legal] corpus ${lawId} falhou:`, (e as Error).message);
+    return null;
+  }
+}
+
+const defaultLoaders: LawLoader[] = [readLawFromDisk, fetchLawAsset];
+let loaders: LawLoader[] = defaultLoaders;
+
+/** Testes: troca a origem do corpus. */
+export function __setLawLoadersForTest(next: LawLoader[] | null): void {
+  loaders = next ?? defaultLoaders;
+  lawCache.clear();
+}
+
+export async function loadLawChunks(lawIds: string[]): Promise<LegalChunk[]> {
+  const ids = lawIds.length ? lawIds : LEGAL_SOURCES.map((l) => l.id);
+  const out: LegalChunk[] = [];
+  await Promise.all(
+    ids.map(async (id) => {
+      let chunks = lawCache.get(id);
+      if (!chunks) {
+        for (const load of loaders) {
+          const got = await load(id);
+          if (got?.length) {
+            chunks = got;
+            break;
+          }
+        }
+        if (chunks) lawCache.set(id, chunks); // falha não fica em cache
+      }
+      if (chunks) out.push(...chunks);
+    }),
+  );
+  return out;
 }
 
 function toResult(chunks: LegalChunk[], via: LegalRetrieval["via"]): LegalRetrieval {
@@ -105,9 +166,18 @@ export async function retrieveLegalContext(
   const vec = await vectorSearch(q, limit, lawIds);
   if (vec?.length) return toResult(vec, "pgvector");
 
-  const corpus = loadLocalCorpus();
-  if (!corpus.length) return EMPTY;
-  let hits = keywordSearch(corpus, q, { limit, lawIds });
-  if (!hits.length && lawIds.length) hits = keywordSearch(corpus, q, { limit });
-  return toResult(hits, "keyword");
+  const corpus = await loadLawChunks(lawIds);
+  if (!corpus.length) {
+    console.warn(`[legal] corpus vazio para [${lawIds.join(",") || "todas"}] — prompt sem FONTE LEGAL`);
+    return EMPTY;
+  }
+  let pool = corpus;
+  let hits = keywordSearch(pool, q, { limit, lawIds });
+  // Só amplia para todas as leis se a consulta NÃO trouxe a lei explícita:
+  // com "(CPP)" no rótulo, cair no art. 351 do CP seria a lei errada.
+  if (!hits.length && lawIds.length && !/\((CPP|CPC|CP|CF|Lei|LC)\b/.test(q)) {
+    pool = await loadLawChunks([]);
+    hits = keywordSearch(pool, q, { limit });
+  }
+  return toResult(mergeArticleChunks(hits, pool), "keyword");
 }

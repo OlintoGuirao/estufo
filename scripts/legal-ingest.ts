@@ -1,6 +1,7 @@
 /**
  * Baixa a lei seca oficial do edital, divide por artigo e grava:
- *  - data/legal/corpus.json  (sempre — usado na busca por palavras, sem banco)
+ *  - public/legal/<lawId>.json (sempre — arquivo estático: a busca por palavras
+ *    lê daqui também no Cloudflare, onde o servidor não enxerga o disco)
  *  - tabela legal_chunks com embeddings (se DATABASE_URL + GEMINI_API_KEY)
  *
  * Uso:
@@ -8,7 +9,7 @@
  *   npm run legal:ingest -- --only cf88,cpc
  *   npm run legal:ingest -- --no-db
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "./load-env";
@@ -19,7 +20,19 @@ import { fetchOfficialSource, stripHtmlToText } from "../src/lib/tutor/fonte";
 loadEnv();
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const outPath = path.join(root, "data", "legal", "corpus.json");
+const outDir = path.join(root, "public", "legal");
+const legacyPath = path.join(root, "data", "legal", "corpus.json");
+
+/**
+ * Lei "dividida" de verdade: a maioria dos trechos tem rótulo de artigo.
+ * O corpus antigo salvou o CP inteiro como 1 trecho e a Lei 10.261 toda
+ * como "Preâmbulo" — melhor não gravar do que ensinar o artigo errado.
+ */
+function looksChunked(chunks: LegalChunk[]): boolean {
+  if (chunks.length < 3) return false;
+  const labeled = chunks.filter((c) => c.article !== "Preâmbulo").length;
+  return labeled / chunks.length >= 0.6;
+}
 
 const args = process.argv.slice(2);
 const only = args.includes("--only") ? (args[args.indexOf("--only") + 1] ?? "").split(",") : null;
@@ -44,12 +57,17 @@ async function fetchPdfText(url: string): Promise<string | null> {
 }
 
 async function loadExisting(): Promise<LegalChunk[]> {
+  const out: LegalChunk[] = [];
   try {
-    const raw = JSON.parse(await readFile(outPath, "utf8")) as { chunks?: LegalChunk[] };
-    return raw.chunks ?? [];
+    for (const f of await readdir(outDir)) {
+      if (!f.endsWith(".json") || f === "index.json") continue;
+      const raw = JSON.parse(await readFile(path.join(outDir, f), "utf8")) as { chunks?: LegalChunk[] };
+      out.push(...(raw.chunks ?? []));
+    }
   } catch {
-    return [];
+    /* pasta ainda não existe */
   }
+  return out;
 }
 
 async function main() {
@@ -72,6 +90,10 @@ async function main() {
         continue;
       }
       const chunks = chunkLawText(text, src);
+      if (!looksChunked(chunks)) {
+        console.log(`falhou (${chunks.length} blocos sem rótulo de artigo — não gravado)`);
+        continue;
+      }
       fresh.push(...chunks);
       console.log(`${chunks.length} blocos`);
     } catch (e) {
@@ -81,15 +103,22 @@ async function main() {
 
   // Lei que falhou agora mantém a versão anterior do corpus.
   const updated = new Set(fresh.map((c) => c.lawId));
-  const keep = existing.filter((c) => !updated.has(c.lawId));
+  const keep = existing.filter((c) => !updated.has(c.lawId) && looksChunked(existing.filter((x) => x.lawId === c.lawId)));
   const all = [...keep, ...fresh];
-  await mkdir(path.dirname(outPath), { recursive: true });
+  await mkdir(outDir, { recursive: true });
+  const byLaw = new Map<string, LegalChunk[]>();
+  for (const c of all) byLaw.set(c.lawId, [...(byLaw.get(c.lawId) ?? []), c]);
+  const generatedAt = new Date().toISOString();
+  for (const [lawId, chunks] of byLaw) {
+    await writeFile(path.join(outDir, `${lawId}.json`), JSON.stringify({ generatedAt, lawId, chunks }), "utf8");
+  }
   await writeFile(
-    outPath,
-    JSON.stringify({ generatedAt: new Date().toISOString(), chunks: all }),
+    path.join(outDir, "index.json"),
+    JSON.stringify({ generatedAt, laws: [...byLaw].map(([id, c]) => ({ id, chunks: c.length })) }),
     "utf8",
   );
-  console.log(`✓ ${all.length} blocos em ${path.relative(root, outPath)}`);
+  console.log(`✓ ${all.length} blocos de ${byLaw.size} leis em ${path.relative(root, outDir)}`);
+  void legacyPath;
 
   if (noDb || !process.env["DATABASE_URL"]?.trim() || !process.env["GEMINI_API_KEY"]?.trim()) {
     console.log("(sem DATABASE_URL/GEMINI_API_KEY ou --no-db: pulando pgvector)");

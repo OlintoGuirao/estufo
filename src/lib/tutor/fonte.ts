@@ -12,19 +12,35 @@ function cleanUrl(raw: string): string {
   return raw.replace(/[),.;]+$/g, "").trim();
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+  aacute: "á", Aacute: "Á", agrave: "à", Agrave: "À", acirc: "â", Acirc: "Â",
+  atilde: "ã", Atilde: "Ã", eacute: "é", Eacute: "É", ecirc: "ê", Ecirc: "Ê",
+  iacute: "í", Iacute: "Í", oacute: "ó", Oacute: "Ó", ocirc: "ô", Ocirc: "Ô",
+  otilde: "õ", Otilde: "Õ", uacute: "ú", Uacute: "Ú", uuml: "ü", Uuml: "Ü",
+  ccedil: "ç", Ccedil: "Ç", ordm: "º", ordf: "ª", deg: "°", sect: "§",
+  ndash: "–", mdash: "—", laquo: "«", raquo: "»", ldquo: "“", rdquo: "”",
+  lsquo: "‘", rsquo: "’", hellip: "…", middot: "·",
+};
+
+/**
+ * Decodifica entidades HTML (nomeadas e numéricas). As leis da ALESP vêm
+ * com `&atilde;`, `&#167;`, `&#186;` — sem isto "Artigo 1.&#186;" não era
+ * reconhecido como artigo e o texto ia para a IA quebrado.
+ */
+export function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&#(\d{1,6});/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]{1,6});/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&([a-z]{2,8});/gi, (m, name: string) => NAMED_ENTITIES[name] ?? m);
+}
+
 export function stripHtmlToText(html: string, maxChars = 10_000): string {
   const noScript = html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ");
-  const text = noScript
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
+  const text = decodeHtmlEntities(noScript.replace(/<[^>]+>/g, " "))
     .replace(/\s+/g, " ")
     .trim();
   return text.length <= maxChars ? text : `${text.slice(0, maxChars)}…`;
@@ -72,11 +88,20 @@ export function decodeHtmlBytes(bytes: ArrayBuffer, contentType?: string | null)
   const fromHeader = /charset=([\w-]+)/i.exec(contentType ?? "")?.[1];
   const head = new TextDecoder("latin1").decode(bytes.slice(0, 4096));
   const fromMeta = /<meta[^>]+charset=["']?([\w-]+)/i.exec(head)?.[1];
-  const charset = (fromHeader || fromMeta || "utf-8").toLowerCase();
+  const declared = (fromHeader || fromMeta || "").toLowerCase();
+  if (declared && declared !== "utf-8" && declared !== "utf8") {
+    try {
+      return new TextDecoder(declared).decode(bytes);
+    } catch {
+      /* charset desconhecido: tenta abaixo */
+    }
+  }
+  // O Planalto não declara charset e manda Windows-1252 ("º" = byte 0xBA):
+  // decodificar como UTF-8 virava "cita��o" e a busca não achava as palavras.
   try {
-    return new TextDecoder(charset).decode(bytes);
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
-    return new TextDecoder("utf-8").decode(bytes);
+    return new TextDecoder("windows-1252").decode(bytes);
   }
 }
 
@@ -156,7 +181,9 @@ export async function fetchOfficialSource(
         signal: ctrl.signal,
         headers: {
           Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
-          "User-Agent": "EstufooTutor/1.1",
+          // O Planalto derruba a conexão (ECONNRESET) para UAs fora do formato
+          // "Mozilla/5.0 (compatible; …)" — a fonte legal nunca carregava.
+          "User-Agent": "Mozilla/5.0 (compatible; EstufooTutor/1.1; +estudo-concurso)",
         },
         redirect: "manual",
       });

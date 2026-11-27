@@ -51,22 +51,45 @@ export function htmlToPlain(html: string): string {
 
 /**
  * Cache em memória do servidor: o edital repete os MESMOS links (Normas da
- * Corregedoria, Regimento) em dezenas de itens — antes cada item baixava de
- * novo, um por vez, com timeout de 12 s cada.
+ * Corregedoria, Regimento) em dezenas de itens.
+ *
+ * Só guarda o TEXTO já baixado. Antes guardava a Promise do fetch: o material
+ * é gerado em 3 lotes paralelos (3 requisições) e o lote 2 aguardava a Promise
+ * criada na requisição do lote 1. No Cloudflare Workers isso é proibido (I/O de
+ * outra requisição) — a requisição travava/era cancelada e o material não era
+ * gerado. Em Node local funcionava, por isso não aparecia no dev.
+ * Deduplicação de downloads simultâneos fica DENTRO de uma requisição
+ * (`createSourceFetcher`).
  */
 const SOURCE_TTL_MS = 60 * 60 * 1000;
-const sourceCache = new Map<string, { at: number; value: Promise<{ url: string; text: string } | null> }>();
+const sourceCache = new Map<string, { at: number; value: { url: string; text: string } }>();
+
+type FetchSource = (url: string) => Promise<{ url: string; text: string } | null>;
+
+/** Fetcher com dedupe por requisição + cache de valores resolvidos entre requisições. */
+export function createSourceFetcher(fetchUncached: FetchSource = fetchPublicLawTextUncached): FetchSource {
+  const inflight = new Map<string, Promise<{ url: string; text: string } | null>>();
+  return (url: string) => {
+    const hit = sourceCache.get(url);
+    if (hit && Date.now() - hit.at < SOURCE_TTL_MS) return Promise.resolve(hit.value);
+    const running = inflight.get(url);
+    if (running) return running;
+    const p = fetchUncached(url).then((v) => {
+      if (v) sourceCache.set(url, { at: Date.now(), value: v }); // falha não fica em cache
+      return v;
+    });
+    inflight.set(url, p);
+    return p;
+  };
+}
 
 export function fetchPublicLawText(url: string): Promise<{ url: string; text: string } | null> {
-  const hit = sourceCache.get(url);
-  if (hit && Date.now() - hit.at < SOURCE_TTL_MS) return hit.value;
-  const value = fetchPublicLawTextUncached(url);
-  sourceCache.set(url, { at: Date.now(), value });
-  // Falha não fica em cache (tenta de novo na próxima).
-  void value.then((v) => {
-    if (!v) sourceCache.delete(url);
-  });
-  return value;
+  return createSourceFetcher()(url);
+}
+
+/** Testes. */
+export function __clearSourceCacheForTest(): void {
+  sourceCache.clear();
 }
 
 async function fetchPublicLawTextUncached(
@@ -117,13 +140,16 @@ async function fetchPublicLawTextUncached(
   }
 }
 
-export async function enrichNotesWithSources(notes: string): Promise<string> {
+export async function enrichNotesWithSources(
+  notes: string,
+  fetchSource: FetchSource = fetchPublicLawText,
+): Promise<string> {
   const { extractSourceUrls } = await import("./study-stages");
   const urls = extractSourceUrls(notes).slice(0, 3);
   if (!urls.length) return notes;
 
   const parts: string[] = [notes];
-  const results = await Promise.all(urls.map((u) => fetchPublicLawText(u)));
+  const results = await Promise.all(urls.map((u) => fetchSource(u)));
   urls.forEach((u, i) => {
     const got = results[i];
     if (!got) {

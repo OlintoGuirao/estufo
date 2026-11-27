@@ -33,7 +33,7 @@ export const LEGAL_SOURCES: LegalSource[] = [
     name: "Código de Processo Penal (Decreto-Lei 3.689/1941)",
     url: "https://www.planalto.gov.br/ccivil_03/decreto-lei/del3689compilado.htm",
     format: "html",
-    keywords: ["processo penal", "inquérito", "citação", "intimação", "ação penal", "cpp"],
+    keywords: ["processo penal", "processual penal", "inquérito", "citação", "intimação", "ação penal", "cpp"],
   },
   {
     id: "cpc",
@@ -42,6 +42,7 @@ export const LEGAL_SOURCES: LegalSource[] = [
     format: "html",
     keywords: [
       "processo civil",
+      "processual civil",
       "cpc",
       "prazo",
       "citação",
@@ -144,8 +145,37 @@ export const LEGAL_SOURCES: LegalSource[] = [
   },
 ];
 
+const LABEL_TO_ID: Record<string, string> = { cp: "cp", cpp: "cpp", cpc: "cpc", cf: "cf88" };
+
+/**
+ * Leis citadas explicitamente pelo rótulo da etapa: "Art. 60 (Lei 9.099/1995)",
+ * "Arts. 394 a 403 (CPP)", "(CF, arts. 6º a 11)".
+ */
+export function lawIdsFromLabels(query: string): string[] {
+  const out = new Set<string>();
+  for (const m of query.matchAll(/\((CPP|CPC|CP|CF)\b[^)]*\)/g)) {
+    const id = LABEL_TO_ID[m[1]!.toLowerCase()];
+    if (id) out.add(id);
+  }
+  for (const m of query.matchAll(/\((?:Lei|LC)\s+([\d.]+)(?:\/\d{2,4})?\)/gi)) {
+    const digits = m[1]!.replace(/\D/g, "");
+    const src = LEGAL_SOURCES.find((l) => l.id.replace(/\D/g, "") === digits);
+    if (src) out.add(src.id);
+  }
+  return [...out];
+}
+
 /** Escolhe leis prováveis pela pergunta (para filtrar a busca). */
 export function guessLawIds(query: string): string[] {
+  // Rótulo explícito na etapa manda: o "Art. 351" do CPP não pode trazer o
+  // art. 351 do Código Penal (os dois existem).
+  const labeled = lawIdsFromLabels(query);
+  if (labeled.length) return labeled;
   const q = query.toLowerCase();
-  return LEGAL_SOURCES.filter((l) => l.keywords.some((k) => q.includes(k))).map((l) => l.id);
+  const ids = LEGAL_SOURCES.filter((l) => l.keywords.some((k) => q.includes(k))).map((l) => l.id);
+  // "processual penal" contém "penal": sem isto o CP entrava junto com o CPP.
+  if (/processo\s+penal|processual\s+penal|\bcpp\b/.test(q) && !/c[oó]digo\s+penal\b(?!.*processo)/.test(q)) {
+    return ids.filter((id) => id !== "cp");
+  }
+  return ids;
 }
