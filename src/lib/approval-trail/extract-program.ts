@@ -17,6 +17,7 @@ export type ExtractedTopic = {
   notes: string;
   weightHint: "alta" | "media" | "baixa";
   articleRef?: string;
+  lawRef?: string;
   kind?: "artigo" | "assunto" | "capitulo" | "bloco";
 };
 
@@ -34,7 +35,30 @@ export type ExtractedProgram = {
 };
 
 function uid(): string {
-  return Math.random().toString(36).slice(2, 9);
+  // 7 caracteres de Math.random colidem em trilhas com centenas de etapas;
+  // id repetido faz o material de um artigo ser gravado em outro.
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/** Chave de identidade de uma etapa: lei + artigo (ou o nome sem o prefixo "Etapa 3.1 —"). */
+export function topicIdentityKey(t: { name?: string; articleRef?: string; lawRef?: string }): string {
+  if (t.articleRef) return `art|${(t.lawRef ?? "").toLowerCase()}|${t.articleRef.toLowerCase()}`;
+  const name = (t.name ?? "").replace(/^Etapa\s+[\d.]+\s*[—\-]\s*/i, "");
+  return `txt|${name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim()}`;
+}
+
+/** Remove etapas repetidas (mesmo artigo da mesma lei), mantendo a 1ª. */
+export function dedupeTopics<T extends { name?: string; articleRef?: string; lawRef?: string }>(
+  topics: T[],
+): T[] {
+  const seen = new Set<string>();
+  return topics.filter((t) => {
+    const k = topicIdentityKey(t);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 function collapseSpacedLetters(line: string): string {
@@ -62,9 +86,30 @@ function stripPageNoise(text: string): string {
     .replace(/\n{3,}/g, "\n\n");
 }
 
+/**
+ * Início do conteúdo programático. O edital cita a expressão no corpo
+ * ("…conteúdo programático constante do Anexo VIII…") dezenas de páginas
+ * antes do anexo; pegar a 1ª ocorrência fazia o extrator ler as regras do
+ * concurso (recursos, heteroidentificação…) como se fossem matérias.
+ * Prefere o TÍTULO (linha só com a expressão) seguido de BLOCO/matéria.
+ */
+export function findProgramStart(text: string): number {
+  const heading = /^[ \t]*CONTE[UÚ]DO\s+PROGRAM[AÁ]TICO[ \t]*:?[ \t]*$/gim;
+  const headings: number[] = [];
+  for (let m = heading.exec(text); m; m = heading.exec(text)) headings.push(m.index);
+  const withBlocks = headings.filter((i) =>
+    /\n\s*(BLOCO\s+[IVX\d]+|L[IÍ]NGUA\s+PORTUGUESA|DIREITO\s+[A-ZÀ-Ü])/i.test(
+      text.slice(i, i + 4_000),
+    ),
+  );
+  if (withBlocks.length) return withBlocks[withBlocks.length - 1]!;
+  if (headings.length) return headings[headings.length - 1]!;
+  const any = text.search(/CONTE[UÚ]DO\s+PROGRAM[AÁ]TICO/i);
+  return any >= 0 ? any : text.search(/BLOCO\s+I\b/i);
+}
+
 function findProgramSlice(text: string): { slice: string; warning?: string } {
-  let start = text.search(/CONTE[UÚ]DO\s+PROGRAM[AÁ]TICO/i);
-  if (start < 0) start = text.search(/BLOCO\s+I\b/i);
+  const start = findProgramStart(text);
   if (start < 0) {
     return {
       slice: text,
@@ -114,6 +159,7 @@ function stagesToTopics(stages: StudyStage[]): ExtractedTopic[] {
       kind: st.kind,
     };
     if (st.articleRef) t.articleRef = st.articleRef;
+    if (st.lawRef) t.lawRef = st.lawRef;
     return t;
   });
 }
@@ -361,6 +407,10 @@ export function extractProgramFromEditalText(rawText: string): ExtractedProgram 
         /^</.test(line) ||
         /Se[cç][aã]o/i.test(line) ||
         /subse[cç]/i.test(line) ||
+        // Continuação curta da frase anterior: o PDF quebrou "994⏎a 1026;"
+        // e a faixa virava só "Art. 994" (os outros 32 artigos sumiam).
+        /^[a-zà-ü(\d]/.test(line) ||
+        /[;,]$/.test(line) ||
         line.length > 24
       ) {
         currentItem.parts.push(line);
@@ -555,7 +605,7 @@ function isEmptyDireitoHeaderTopic(
 export function mergeOrphanLawSubjects<
   T extends {
     name: string;
-    topics: { name?: string }[];
+    topics: { name?: string; articleRef?: string; lawRef?: string }[];
     questionCountHint?: number | null;
   },
 >(subjects: T[]): T[] {
@@ -571,8 +621,10 @@ export function mergeOrphanLawSubjects<
       }
       if (parentIdx >= 0) {
         const parent = out[parentIdx]!;
-        const topics = [...parent.topics, ...s.topics].filter(
-          (t) => !isEmptyDireitoHeaderTopic(parent.name, t),
+        // A mesma lei pode vir no ramo E como "matéria" órfã: sem dedupe as
+        // etapas apareciam duas vezes.
+        const topics = dedupeTopics(
+          [...parent.topics, ...s.topics].filter((t) => !isEmptyDireitoHeaderTopic(parent.name, t)),
         );
         out[parentIdx] = {
           ...parent,
@@ -595,7 +647,7 @@ export function extractedToTrailSubjects(
     name: s.name,
     questionCountHint: s.questionCountHint,
     order: i + 1,
-    topics: s.topics.map((t) => {
+    topics: dedupeTopics(s.topics).map((t) => {
       const topic: import("@/types/approval-trail").TrailTopic = {
         id: `top_${uid()}`,
         name: t.name,
@@ -605,6 +657,7 @@ export function extractedToTrailSubjects(
       };
       if (t.kind) topic.kind = t.kind;
       if (t.articleRef) topic.articleRef = t.articleRef;
+      if (t.lawRef) topic.lawRef = t.lawRef;
       return topic;
     }),
   }));

@@ -27,8 +27,8 @@ describe("stagesFromLawItem", () => {
       itemCode: "1",
     });
     expect(stages.length).toBeGreaterThanOrEqual(40);
-    expect(stages.some((s) => s.name === "Art. 293")).toBe(true);
-    expect(stages.some((s) => s.name === "Art. 311-A")).toBe(true);
+    expect(stages.some((s) => s.name === "Art. 293 (CP)")).toBe(true);
+    expect(stages.some((s) => s.name === "Art. 311-A (CP)")).toBe(true);
     expect(stages.filter((s) => s.kind === "artigo").length).toBe(stages.length);
   });
 });
@@ -66,8 +66,8 @@ Matemática
     expect(r.subjects.some((s) => /matem/i.test(s.name))).toBe(true);
     const penal = r.subjects.find((s) => /penal/i.test(s.name) && !/processual/i.test(s.name));
     expect(penal).toBeTruthy();
-    expect(penal!.topics.some((t) => t.name === "Art. 293")).toBe(true);
-    expect(penal!.topics.some((t) => t.name === "Art. 311-A")).toBe(true);
+    expect(penal!.topics.some((t) => t.name === "Art. 293 (CP)")).toBe(true);
+    expect(penal!.topics.some((t) => t.name === "Art. 311-A (CP)")).toBe(true);
   });
 
   it("extrai Legislação Interna 6.1–6.4 com resoluções e normas", () => {

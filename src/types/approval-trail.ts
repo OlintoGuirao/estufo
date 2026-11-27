@@ -10,6 +10,8 @@ export type TrailTopic = {
   status: TrailPhaseStatus;
   /** Ex.: "293", "311-A" quando a etapa é um artigo. */
   articleRef?: string;
+  /** Lei do artigo (ex.: "CPP", "Lei 9.099/1995") — distingue Art. 60 do CPP e da Lei 9.099. */
+  lawRef?: string;
   kind?: "artigo" | "assunto" | "capitulo" | "bloco";
   /**
    * Material de estudo: o que o artigo/assunto significa (gerado pela IA).

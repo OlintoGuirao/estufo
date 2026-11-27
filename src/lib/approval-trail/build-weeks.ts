@@ -32,7 +32,13 @@ function chunkTopicsForDays(topics: TrailTopic[]): TrailTopic[][] {
     const t = topics[i]!;
     if (isArticleTopic(t)) {
       const run: TrailTopic[] = [];
-      while (i < topics.length && isArticleTopic(topics[i]!) && run.length < ARTICLES_PER_DAY) {
+      // Não mistura leis no mesmo dia: "Arts. 664–60" (CPP + Lei 9.099) não diz nada.
+      while (
+        i < topics.length &&
+        isArticleTopic(topics[i]!) &&
+        run.length < ARTICLES_PER_DAY &&
+        (topics[i]!.lawRef ?? "") === (t.lawRef ?? "")
+      ) {
         run.push(topics[i]!);
         i += 1;
       }
@@ -64,7 +70,8 @@ function focusForChunk(subjectName: string, chunk: TrailTopic[]): string {
   const first = refs[0] ?? chunk[0]!.name;
   const last = refs[refs.length - 1] ?? chunk[chunk.length - 1]!.name;
   if (chunk.every(isArticleTopic) && refs.length >= 2) {
-    return `${shortSubjectName(subjectName)} — Arts. ${first}–${last}`;
+    const law = chunk[0]!.lawRef;
+    return `${shortSubjectName(subjectName)} — Arts. ${first}–${last}${law ? ` (${law})` : ""}`;
   }
   return `${shortSubjectName(subjectName)} — ${stageLabel(chunk[0]!.name)} (+${chunk.length - 1})`;
 }

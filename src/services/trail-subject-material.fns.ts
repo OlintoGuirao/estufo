@@ -30,9 +30,12 @@ export const generateSubjectStudyMaterialFn = createServerFn({ method: "POST" })
     const needsSources =
       /legisla|resolu|regimento|corregedoria/i.test(data.subjectName) ||
       data.items.some((it) => /https?:\/\//i.test(it.notes ?? ""));
-    const enrichNotesWithSources = needsSources
-      ? (await import("@/lib/approval-trail/fetch-edital-source")).enrichNotesWithSources
-      : null;
+    const sourceMod = needsSources ? await import("@/lib/approval-trail/fetch-edital-source") : null;
+    // Um fetcher por requisição: itens com o mesmo link baixam uma vez só,
+    // sem compartilhar Promise com outra requisição (proibido no Workers).
+    const fetchSource = sourceMod?.createSourceFetcher();
+    const enrichNotesWithSources =
+      sourceMod && fetchSource ? (n: string) => sourceMod.enrichNotesWithSources(n, fetchSource) : null;
 
     // Busca textos oficiais (TJSP/eSAJ) quando o edital traz link — todos os
     // itens em paralelo (antes era um por vez, até 12 s cada).
@@ -55,25 +58,51 @@ export const generateSubjectStudyMaterialFn = createServerFn({ method: "POST" })
       }),
     );
 
-    const mock = mockSubjectMaterial(items, data.subjectName);
-    const result = await tutorChat(
-      buildSubjectMaterialMessages({
-        subjectName: data.subjectName,
-        contestName: data.contestName ?? "",
-        board: data.board ?? "",
-        items,
-      }),
-      {
-        task: "material", mockText: JSON.stringify({
-          items: mock.map((m) => ({ id: m.id, explanation: m.explanation })),
+    const ask = async (list: typeof items) => {
+      const mock = mockSubjectMaterial(list, data.subjectName);
+      const result = await tutorChat(
+        buildSubjectMaterialMessages({
+          subjectName: data.subjectName,
+          contestName: data.contestName ?? "",
+          board: data.board ?? "",
+          items: list,
         }),
-      },
-    );
+        {
+          task: "material",
+          mockText: JSON.stringify({
+            items: mock.map((m) => ({ id: m.id, explanation: m.explanation })),
+          }),
+        },
+      );
+      return {
+        result,
+        parsed: parseSubjectMaterialJson(result.text, list, data.subjectName, {
+          mocked: !!result.mocked,
+        }),
+      };
+    };
 
-    const parsed = parseSubjectMaterialJson(result.text, items, data.subjectName);
+    const first = await ask(items);
+    let parsed = first.parsed;
+    // Uma nova tentativa SÓ com o que veio faltando/errado (lote menor).
+    if (parsed.missingIds.length) {
+      console.warn(
+        "[material] itens recusados:",
+        parsed.rejected.map((r) => `${r.id}: ${r.reason}`).join(" | "),
+      );
+      const retryItems = items.filter((i) => parsed.missingIds.includes(i.id));
+      const second = await ask(retryItems);
+      parsed = {
+        items: [...parsed.items, ...second.parsed.items],
+        missingIds: second.parsed.missingIds,
+        rejected: second.parsed.rejected,
+      };
+    }
+
     return {
-      items: parsed,
-      model: result.model,
-      mocked: !!result.mocked,
+      items: parsed.items,
+      missingIds: parsed.missingIds,
+      model: first.result.model,
+      mocked: !!first.result.mocked,
     };
   });

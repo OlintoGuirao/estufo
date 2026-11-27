@@ -99,33 +99,101 @@ export function mockSubjectMaterial(items: MaterialItemInput[], subjectName: str
   });
 }
 
+export type MaterialParseResult = {
+  items: MaterialItemOutput[];
+  /** Itens que a IA não devolveu (ou devolveu errado) — NÃO viram texto padrão. */
+  missingIds: string[];
+  rejected: { id: string; reason: string }[];
+};
+
+function normText(t: string): string {
+  return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** Número do artigo da etapa ("293", "311-A"); blocos "394-403" ficam de fora da checagem. */
+function ownArticle(it: MaterialItemInput): string | null {
+  const ref = it.articleRef?.trim();
+  if (ref && !/^\d+-\d+$/.test(ref)) return ref.toUpperCase();
+  return null;
+}
+
+/**
+ * Lê a resposta da IA e casa cada explicação com o item pelo id.
+ *
+ * Antes: JSON inválido, id faltando ou id trocado caíam em silêncio no texto
+ * padrão do mock ("O Art. X … é cobrado literalmente no edital…") — dezenas de
+ * artigos com a MESMA explicação e o erro escondido. Agora só entra o que veio
+ * certo; o resto volta em `missingIds` para tentar de novo / avisar o aluno.
+ */
 export function parseSubjectMaterialJson(
   text: string,
   items: MaterialItemInput[],
   subjectName: string,
-): MaterialItemOutput[] {
-  const fallback = mockSubjectMaterial(items, subjectName);
+  opts?: { mocked?: boolean },
+): MaterialParseResult {
+  // Sem IA configurada (modo demonstração): o mock É o conteúdo esperado.
+  if (opts?.mocked) {
+    return { items: mockSubjectMaterial(items, subjectName), missingIds: [], rejected: [] };
+  }
+  const rejected: { id: string; reason: string }[] = [];
+  let arr: unknown[] = [];
   try {
     const raw = JSON.parse(stripJsonFence(text)) as unknown;
     const obj = asObj(raw);
-    const arr = Array.isArray(obj?.["items"])
+    arr = Array.isArray(obj?.["items"])
       ? (obj!["items"] as unknown[])
       : Array.isArray(raw)
         ? (raw as unknown[])
         : [];
-    const byId = new Map<string, string>();
-    for (const row of arr) {
-      const o = asObj(row);
-      if (!o) continue;
-      const id = String(o["id"] ?? "").trim();
-      const explanation = String(o["explanation"] ?? "").trim();
-      if (id && explanation.length >= 40) byId.set(id, explanation.slice(0, 3_500));
-    }
-    return items.map((it) => ({
-      id: it.id,
-      explanation: byId.get(it.id) ?? fallback.find((f) => f.id === it.id)!.explanation,
-    }));
   } catch {
-    return fallback;
+    return {
+      items: [],
+      missingIds: items.map((i) => i.id),
+      rejected: items.map((i) => ({ id: i.id, reason: "resposta da IA não é JSON válido" })),
+    };
   }
+
+  const wanted = new Map(items.map((i) => [i.id, i]));
+  const byId = new Map<string, string>();
+  for (const row of arr) {
+    const o = asObj(row);
+    if (!o) continue;
+    const id = String(o["id"] ?? "").trim();
+    const explanation = String(o["explanation"] ?? "").trim();
+    if (!wanted.has(id) || byId.has(id)) continue; // id desconhecido ou repetido: fica o 1º
+    if (explanation.length < 40) {
+      rejected.push({ id, reason: "explicação vazia/curta" });
+      continue;
+    }
+    byId.set(id, explanation.slice(0, 3_500));
+  }
+
+  const out: MaterialItemOutput[] = [];
+  const seenText = new Set<string>();
+  for (const it of items) {
+    const explanation = byId.get(it.id);
+    if (!explanation) {
+      if (!rejected.some((r) => r.id === it.id)) rejected.push({ id: it.id, reason: "id ausente na resposta" });
+      continue;
+    }
+    const key = normText(explanation).slice(0, 400);
+    if (seenText.has(key)) {
+      rejected.push({ id: it.id, reason: "mesma explicação de outro item" });
+      continue;
+    }
+    const own = ownArticle(it);
+    if (own) {
+      const cited = [...explanation.matchAll(/\bart(?:igo)?s?\.?\s*(\d{1,4}(?:-[A-Za-z])?)/gi)].map((m) =>
+        m[1]!.toUpperCase(),
+      );
+      if (cited.length && !cited.includes(own) && !cited.includes(own.replace(/-.*/, ""))) {
+        rejected.push({ id: it.id, reason: `explica o art. ${cited[0]} no lugar do art. ${own}` });
+        continue;
+      }
+    }
+    seenText.add(key);
+    out.push({ id: it.id, explanation });
+  }
+  const got = new Set(out.map((o) => o.id));
+  return { items: out, missingIds: items.filter((i) => !got.has(i.id)).map((i) => i.id), rejected };
 }

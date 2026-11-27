@@ -214,6 +214,7 @@ export const approvalTrailService = {
     for (let i = 0; i < queue.length; i += chunkSize) chunks.push(queue.slice(i, i + chunkSize));
     let doneTopics = 0;
     let firstError: unknown = null;
+    let missingTotal = 0;
 
     const runChunk = async (chunk: typeof queue) => {
       try {
@@ -238,6 +239,11 @@ export const approvalTrailService = {
         });
         // Grava a cada lote: se algo falhar depois, o que já veio não se perde.
         approvalTrailStore.applyTopicExplanations(subjectId, res.items);
+        // Item que a IA não devolveu certo fica SEM material (antes ganhava o
+        // texto padrão): o aviso pede para gerar de novo, que completa só eles.
+        if (res.missingIds?.length) {
+          missingTotal += res.missingIds.length;
+        }
       } catch (e) {
         firstError ??= e;
       } finally {
@@ -254,6 +260,12 @@ export const approvalTrailService = {
 
     const afterMaterial = approvalTrailStore.get();
     if (!afterMaterial) throw new ApiError("Falha ao salvar material.", 500);
+    if (!firstError && missingTotal) {
+      firstError = new ApiError(
+        `${missingTotal} etapa(s) não vieram corretas da IA e ficaram sem material. Clique em Gerar material de novo — só essas serão refeitas.`,
+        502,
+      );
+    }
     if (firstError) {
       // Salva o que deu certo antes de avisar o erro.
       await approvalTrailStore.saveNow(afterMaterial);

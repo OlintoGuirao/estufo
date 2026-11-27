@@ -12,6 +12,12 @@ export type StudyStage = {
   refs: string[];
   /** Artigo isolado quando aplicável (ex.: "293", "311-A"). */
   articleRef?: string;
+  /**
+   * Lei do artigo (ex.: "CPP", "Lei 9.099/1995"). O mesmo número de artigo
+   * existe em leis diferentes da mesma matéria — sem isto "Art. 60" do CPP e
+   * da Lei 9.099 colidiam (etapa repetida / explicação da lei errada).
+   */
+  lawRef?: string;
   kind: "artigo" | "assunto" | "capitulo" | "bloco";
 };
 
@@ -63,7 +69,8 @@ export function expandSegmentToArticleTokens(seg: string): string[] {
       const out: string[] = [];
       for (let start = a; start <= b; start += CHUNK_WHEN_HUGE) {
         const end = Math.min(b, start + CHUNK_WHEN_HUGE - 1);
-        out.push(`${start}-${end}`);
+        // Último bloco de 1 artigo só ("538-538") vira artigo isolado.
+        out.push(end > start ? `${start}-${end}` : String(start));
       }
       return out;
     }
@@ -203,8 +210,134 @@ export function stagesFromLegislacaoItem(input: {
   ];
 }
 
+/** Menção a um diploma legal no texto do edital. */
+const LAW_MENTION_RE =
+  /(C[oó]digo\s+de\s+Processo\s+Penal|C[oó]digo\s+de\s+Processo\s+Civil|C[oó]digo\s+Penal|Constitui[cç][aã]o\s+(?:Federal|da\s+Rep[uú]blica)|Estatuto\s+dos\s+Funcion[aá]rios[^()]{0,80}\(\s*Lei\s+n[.º°o\s]*[\d.]+\/\d{2,4}\s*\)|Lei(?:\s+Federal|\s+Complementar|\s+Estadual)?\s+n[.º°o]*\s*[\d.]+(?:\s*\/\s*\d{2,4}|,?\s+de\s+\d{1,2}[./]\d{1,2}[./]\d{2,4})?)/gi;
+
+/** Rótulo curto e estável do diploma (vai no nome da etapa e em `lawRef`). */
+export function shortLawLabel(mention: string): string {
+  const m = clean(mention);
+  if (/processo\s+penal/i.test(m)) return "CPP";
+  if (/processo\s+civil/i.test(m)) return "CPC";
+  if (/c[oó]digo\s+penal/i.test(m)) return "CP";
+  if (/constitui/i.test(m)) return "CF";
+  const num = m.match(/Lei(?:\s+Federal|\s+Complementar|\s+Estadual)?\s+n[.º°o]*\s*([\d.]+)/i);
+  if (num) {
+    const n = num[1]!.replace(/\.$/, "");
+    // Data por extenso primeiro: em "de 22/12/2009" a barra não é o ano.
+    const year =
+      m.match(/de\s+\d{1,2}[./]\d{1,2}[./](\d{2,4})/i)?.[1] ??
+      m.match(/[\d.]+\s*\/\s*(\d{2,4})\b/)?.[1];
+    const kind = /complementar/i.test(m) ? "LC" : "Lei";
+    return year ? `${kind} ${n}/${year}` : `${kind} ${n}`;
+  }
+  return m.slice(0, 40);
+}
+
+/**
+ * Lista de artigos do edital → tokens. Aceita "1º a 86", "5º ao 13",
+ * "294 a 311 e do 318 a 538", "994 a 1.044", "336 e 337", "311-A" e o "e"
+ * solto no fim ("239 a 323 e").
+ */
+export function articleSpecToTokens(spec: string): string[] {
+  const s = clean(spec)
+    .replace(/\).*$/, "")
+    .replace(/(\d)\s*[º°ª]/g, "$1")
+    .replace(/(\d)\.(\d{3})\b/g, "$1$2")
+    .replace(/\bao\b/gi, "a")
+    .replace(/\b(?:do|dos)\s+(?=\d)/gi, "")
+    .replace(/[\s.;,]+e\s*$/i, "")
+    .replace(/[.\s]+$/, "");
+  const parts = s
+    .split(/\s*[;,]\s*|\s+e\s+/i)
+    .map((p) => clean(p))
+    .filter((p) => /^\d/.test(p));
+  const out: string[] = [];
+  for (const p of parts) {
+    const cut = p.match(/^\d{1,4}(?:-[A-Za-z])?(?:\s*a\s*\d{1,4})?/i)?.[0];
+    if (cut) out.push(...expandSegmentToArticleTokens(cut));
+  }
+  return out;
+}
+
+/** Estrutura da CF/88 cobrada por título/capítulo/seção (arts. de cada parte). */
+const CF_PARTS: Record<string, { name: string; arts: string }> = {
+  "II.I": { name: "Direitos e deveres individuais e coletivos", arts: "art. 5º" },
+  "II.II": { name: "Direitos sociais", arts: "arts. 6º a 11" },
+  "II.III": { name: "Nacionalidade", arts: "arts. 12 e 13" },
+  "II.IV": { name: "Direitos políticos", arts: "arts. 14 a 16" },
+  "II.V": { name: "Partidos políticos", arts: "art. 17" },
+  "III.VII": { name: "Administração Pública", arts: "arts. 37 a 43" },
+  "III.VII.I": { name: "Administração Pública — disposições gerais", arts: "arts. 37 e 38" },
+  "III.VII.II": { name: "Servidores públicos", arts: "arts. 39 a 41" },
+  "III.VII.III": { name: "Militares dos Estados, DF e Territórios", arts: "art. 42" },
+  "III.VII.IV": { name: "Regiões", arts: "art. 43" },
+};
+
+function romanList(s: string): string[] {
+  return clean(s)
+    .split(/\s*,\s*|\s+e\s+/i)
+    .map((x) => x.trim().toUpperCase())
+    .filter((x) => /^[IVXL]+$/.test(x));
+}
+
+/** "Título II – Capítulos I, II e III; e Título III – Capítulo VII com Seções I e II". */
+function cfStructureStages(scope: string, itemCode?: string): StudyStage[] {
+  const out: StudyStage[] = [];
+  const re =
+    /T[ií]tulo\s+([IVXL]+)\s*[-:]?\s*Cap[ií]tulos?\s+([IVXL]+(?:\s*(?:,|\be\b)\s*[IVXL]+)*)(?:\s+com\s+Se[cç][oõ]es?\s+([IVXL]+(?:\s*(?:,|\be\b)\s*[IVXL]+)*))?/gi;
+  for (let m = re.exec(scope); m; m = re.exec(scope)) {
+    const titulo = m[1]!.toUpperCase();
+    for (const cap of romanList(m[2]!)) {
+      const secs = m[3] ? romanList(m[3]) : [];
+      const keys = secs.length ? secs.map((sec) => `${titulo}.${cap}.${sec}`) : [`${titulo}.${cap}`];
+      for (const key of keys) {
+        const part = CF_PARTS[key];
+        const sec = key.split(".")[2];
+        const label = `Título ${titulo}, Cap. ${cap}${sec ? `, Seção ${sec}` : ""}`;
+        out.push({
+          name: part ? `${label} — ${part.name} (CF, ${part.arts})` : `${label} (CF)`,
+          notes: `Edital (Constituição Federal): ${label}${part ? ` — ${part.name}, ${part.arts}` : ""}. Explicar o conteúdo e como a banca cobra${itemCode ? ` — item ${itemCode}` : ""}.`,
+          weightHint: "alta",
+          refs: [label],
+          lawRef: "CF",
+          kind: "capitulo",
+        });
+      }
+    }
+  }
+  return out;
+}
+
+function articleStages(
+  tokens: string[],
+  law: string,
+  lawLong: string,
+  itemCode: string | undefined,
+  startIdx: number,
+): StudyStage[] {
+  return tokens.map((tok, i) => {
+    const isBlock = /^\d+-\d+$/.test(tok);
+    const label = isBlock ? `Arts. ${tok.replace("-", " a ")}` : `Art. ${tok}`;
+    const item = itemCode ? ` — item ${itemCode}` : "";
+    return {
+      name: `${label} (${law})`,
+      notes: isBlock
+        ? `Edital (${lawLong}): estudar e explicar CADA artigo de ${tok.replace("-", " a ")} do(a) ${law}${item}.`
+        : `Edital (${lawLong}): explicar o que o ${label} do(a) ${law} tipifica/dispõe e como a banca cobra${item}.`,
+      weightHint: (startIdx + i < 3 ? "alta" : "media") as "alta" | "media",
+      refs: [`${label} ${law}`],
+      articleRef: tok,
+      lawRef: law,
+      kind: "artigo" as const,
+    };
+  });
+}
+
 /**
  * Direito: cada artigo vira etapa para depois explicar o que significa.
+ * O item pode citar várias leis ("CPP – artigos …; e Lei 9.099 (artigos …)"):
+ * cada lei fica com os artigos que vêm depois dela, até a próxima lei.
  */
 export function stagesFromLawItem(input: {
   subjectName: string;
@@ -212,32 +345,63 @@ export function stagesFromLawItem(input: {
   itemCode?: string;
 }): StudyStage[] {
   const body = clean(input.body);
+  const mentions: { index: number; end: number; text: string }[] = [];
+  LAW_MENTION_RE.lastIndex = 0;
+  for (let m = LAW_MENTION_RE.exec(body); m; m = LAW_MENTION_RE.exec(body)) {
+    mentions.push({ index: m.index, end: m.index + m[0].length, text: m[0] });
+  }
+
+  const stages: StudyStage[] = [];
+  const seen = new Set<string>();
+  const push = (list: StudyStage[]) => {
+    for (const st of list) {
+      const key = `${st.lawRef ?? ""}|${st.articleRef ?? st.name}`.toLowerCase();
+      if (seen.has(key)) continue; // mesmo artigo citado duas vezes no item
+      seen.add(key);
+      stages.push(st);
+    }
+  };
+
+  mentions.forEach((mention, i) => {
+    const scope = body.slice(mention.end, mentions[i + 1]?.index ?? body.length);
+    const law = shortLawLabel(mention.text);
+    const lawLong = clean(mention.text);
+
+    if (law === "CF") push(cfStructureStages(scope, input.itemCode));
+
+    const artIdx = scope.search(/\b(?:artigos?|arts?\.?)\s+\d/i);
+    if (artIdx >= 0) {
+      const spec = scope.slice(artIdx).replace(/^\s*(?:artigos?|arts?\.?)\s+/i, "");
+      const tokens = articleSpecToTokens(spec);
+      if (tokens.length) {
+        push(articleStages(tokens, law, lawLong, input.itemCode, stages.length));
+        return;
+      }
+    }
+    if (law === "CF" && stages.some((s) => s.lawRef === "CF")) return;
+
+    // Lei cobrada inteira (ex.: "Lei n.º 12.153/2009", "Lei 8.429/92 (Improbidade)").
+    const desc = scope.match(/^\s*\(([^)]{3,120})\)/)?.[1];
+    push([
+      {
+        name: desc ? `${law} — ${clean(desc)}` : `${law} — lei inteira`,
+        notes: `Edital (${lawLong}${desc ? ` — ${clean(desc)}` : ""}): estudar a lei inteira, artigo por artigo, e como a banca cobra${input.itemCode ? ` — item ${input.itemCode}` : ""}.`,
+        weightHint: "alta",
+        refs: [law],
+        lawRef: law,
+        kind: "assunto",
+      },
+    ]);
+  });
+  if (stages.length) return stages;
+
+  // Sem diploma reconhecido: lista de artigos solta ou capítulos.
   const law = detectLawName(body, input.subjectName);
   const segments = splitArticleSegments(body);
-
-  if (segments.length >= 1 && /\d/.test(segments.join(" "))) {
-    const tokens: string[] = [];
-    for (const seg of segments) {
-      tokens.push(...expandSegmentToArticleTokens(seg));
-    }
-    if (tokens.length >= 1) {
-      return tokens.map((tok, i) => {
-        const isBlock = /^\d+-\d+$/.test(tok);
-        const label = isBlock
-          ? `Arts. ${tok.replace("-", " a ")}`
-          : `Art. ${tok}`;
-        return {
-          name: label,
-          notes: isBlock
-            ? `Edital (${law}): estudar e explicar CADA artigo de ${tok.replace("-", " a ")}${input.itemCode ? ` — item ${input.itemCode}` : ""}.`
-            : `Edital (${law}): explicar o que o ${label} tipifica/dispõe e como a banca cobra${input.itemCode ? ` — item ${input.itemCode}` : ""}.`,
-          weightHint: (i < 3 ? "alta" : "media") as "alta" | "media",
-          refs: [label],
-          articleRef: tok,
-          kind: "artigo" as const,
-        };
-      });
-    }
+  const tokens = segments.flatMap((seg) => articleSpecToTokens(seg));
+  if (tokens.length) {
+    push(articleStages(tokens, shortLawLabel(law), law, input.itemCode, 0));
+    return stages;
   }
 
   const chapters = splitChapterSegments(body);
