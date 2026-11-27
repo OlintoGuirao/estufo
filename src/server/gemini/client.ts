@@ -145,6 +145,15 @@ export async function geminiChat(
         if (res.status === 401 || res.status === 403) {
           throw new OllamaError("rejected", "Chave Gemini inválida ou sem permissão.", res.status);
         }
+        // Créditos pré-pagos esgotados: nenhuma geração funciona até recarregar.
+        // Antes aparecia só "O professor não conseguiu gerar a aula agora".
+        if (res.status === 402 || /credits are depleted|billing/i.test(msg)) {
+          throw new OllamaError(
+            "rejected",
+            "Os créditos da IA (Gemini) acabaram. Recarregue em aistudio.google.com → Billing e tente de novo.",
+            402,
+          );
+        }
         if (RETRY_STATUS.has(res.status) && attempt < MAX_ATTEMPTS) {
           lastErr = new OllamaError("offline", msg, 503);
           // 429 = limite por minuto: espera mais (respeita "retry in Xs" se vier).

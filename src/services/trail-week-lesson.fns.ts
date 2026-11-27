@@ -238,6 +238,7 @@ ${legal.text ? `\nFONTE LEGAL (texto oficial — fundamente e cite só artigos d
     };
 
     const results: { modules: AiModuleJson[]; practice: VerifQ[] }[] = [];
+    let providerError: unknown = null;
     for (let i = 0; i < topicsForMock.length; i += 3) {
       const slice = topicsForMock.slice(i, i + 3);
       const settled = await Promise.allSettled(slice.map((t, j) => genTopic(t, i + j)));
@@ -247,11 +248,16 @@ ${legal.text ? `\nFONTE LEGAL (texto oficial — fundamente e cite só artigos d
           results.push(res.value);
         } else {
           console.warn("[trilha] etapa falhou:", t.topic, res.status === "rejected" ? res.reason : "vazia");
+          if (res.status === "rejected") providerError ??= res.reason;
           warnings.push(`A etapa "${t.topic.slice(0, 60)}" não pôde ser gerada agora — use Regenerar.`);
         }
       });
     }
     if (!results.length) {
+      // Se todas falharam pelo mesmo motivo do provedor (créditos, chave,
+      // limite), mostra ESSE motivo em vez da mensagem genérica.
+      const { OllamaError } = await import("@/server/ollama/errors");
+      if (providerError instanceof OllamaError) throw providerError;
       throw new Error("O professor não conseguiu gerar a aula agora. Tente Regenerar em instantes.");
     }
 
